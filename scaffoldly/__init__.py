@@ -1,3 +1,3 @@
-"""Scaffoldly - Generate progressive coursework from technical blogs and repos."""
+"""Scaffoldly — Generate progressive coursework from technical content using Claude."""
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"

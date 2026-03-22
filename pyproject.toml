@@ -1,0 +1,25 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "scaffoldly"
+version = "0.2.0"
+description = "Generate progressive, CS231n-style coursework from technical blogs, repos, and papers"
+requires-python = ">=3.10"
+license = "MIT"
+dependencies = [
+    "claude-agent-sdk>=0.1.50",
+    "pydantic>=2.0",
+    "nbformat>=5.9.0",
+    "anyio>=4.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+    "pytest-asyncio>=0.21",
+]
+
+[project.scripts]
+scaffoldly = "scaffoldly.cli:main"

@@ -20,67 +20,80 @@ Meanwhile, structured courses like Stanford CS231n are incredibly effective beca
 ## Quick Start
 
 ```bash
-# Install dependencies
-pip install -r requirements.txt
-
-# Run the pre-built demo (no API key needed)
-python generate_demo.py
-
-# Open the generated notebooks
-jupyter notebook output/fast_llm_inference_from_scratch/
+# Generate a course (requires Claude Code)
+uv run scaffoldly generate \
+  "https://andrewkchan.dev/posts/yalm.html" \
+  --level "mid-level Python developer, new to systems programming"
 ```
 
 ## Usage
 
-### List blog posts from a site
-
 ```bash
-python -m scaffoldly list-posts "https://andrewkchan.dev/"
+uv run scaffoldly generate <url> \
+  --level "describe your current proficiency" \
+  [--model claude-opus-4-6] \
+  [--effort high] \
+  [--output ./output] \
+  [--max-turns 50]
 ```
 
-### Generate a course from a blog post
+### Options
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--level` | *required* | Free-text description of the student's current level |
+| `--model` | `claude-opus-4-6` | Claude model to use |
+| `--effort` | `high` | Agent effort level: `low`, `medium`, `high`, `max` |
+| `--output` | `./output` | Output directory for generated course |
+| `--max-turns` | `50` | Maximum agent turns before stopping |
+
+### Examples
 
 ```bash
-export ANTHROPIC_API_KEY=sk-...
+# Minimal
+uv run scaffoldly generate "https://blog.example.com/post" --level "junior Python dev"
 
-python -m scaffoldly generate \
-  "https://blog.wilsonl.in/search-engine" \
-  --level "mid-level Python developer, new to search engines and information retrieval"
-```
+# Detailed level, max effort
+uv run scaffoldly generate "https://github.com/user/repo" \
+  --level "senior backend engineer with 5 years of Go, but zero ML experience" \
+  --effort max
 
-### Analyze a URL (no course generation)
-
-```bash
-python -m scaffoldly analyze "https://andrewkchan.dev/posts/yalm.html"
+# Custom output directory
+uv run scaffoldly generate "https://blog.example.com/post" \
+  --level "CS undergrad, knows basic Python and linear algebra" \
+  --output ~/my-courses
 ```
 
 ## What the Output Looks Like
 
 Each generated course is a set of Jupyter notebooks following CS231n pedagogy:
 
+```
+output/fast_llm_inference/
+├── 00_overview.ipynb
+├── 01_transformer_math.ipynb
+├── 02_inference_engines.ipynb
+├── 03_performance_analysis.ipynb
+├── 04_optimization.ipynb
+├── _analysis.json
+└── _curriculum.json
+```
+
+Exercises use scaffolded code with TODO markers:
+
 ```python
 def attention(Q, K, V, causal=True):
     """Compute scaled dot-product attention.
 
-    Args:
-        Q: Query matrix of shape (seq_len, d_k)
-        K: Key matrix of shape (seq_len, d_k)
-        V: Value matrix of shape (seq_len, d_v)
-        causal: If True, apply causal mask
-
-    Returns:
-        output: Attention output of shape (seq_len, d_v)
+    The approach:
+    1. Compute scores = Q @ K^T / sqrt(d_k)
+    2. If causal, mask future positions with -inf
+    3. Apply softmax to get attention weights
+    4. Compute output = weights @ V
     """
-    seq_len, d_k = Q.shape
     output = None
     ###########################################################################
     # TODO: Implement scaled dot-product attention.                           #
-    #                                                                         #
-    # Steps:                                                                  #
-    #   1. Compute scores = Q @ K^T / sqrt(d_k)                              #
-    #   2. If causal, mask future positions with -inf                         #
-    #   3. Apply softmax to get attention weights                             #
-    #   4. Compute output = weights @ V                                       #
     ###########################################################################
     pass
     ###########################################################################
@@ -102,42 +115,70 @@ And inline conceptual questions:
 
 > **Inline Question:** Why do we divide by sqrt(d_k) before softmax? What happens if we skip this scaling when d_k is large?
 
-## Demo Course
-
-The included demo generates a 4-module course on [Fast LLM Inference From Scratch](https://andrewkchan.dev/posts/yalm.html) by Andrew Chan:
-
-| Module | Topic | Exercises |
-|--------|-------|-----------|
-| 1 | Transformer Math From Scratch | RMSNorm, softmax, attention, multi-head attention |
-| 2 | Building a Naive Inference Engine | Embedding, FFN, transformer blocks, generation loop |
-| 3 | Performance Analysis & Roofline Model | Arithmetic intensity, roofline model, throughput prediction |
-| 4 | Optimization Techniques | Weight quantization, KV cache, benchmarking |
-
-All exercises are verified — tests pass with correct implementations.
-
 ## How It Works
 
-Scaffoldly uses a 3-stage LLM pipeline:
+Scaffoldly is powered by the [Claude Agent SDK](https://github.com/anthropics/claude-agent-sdk-python), which runs Claude Code as an autonomous agent with full tool access.
 
-1. **Analyze** — Extract concepts, prerequisites, difficulty, and code patterns from the source material
-2. **Design** — Create a progressive curriculum based on the student's level, following CS231n methodology
-3. **Generate** — Produce Jupyter notebooks with scaffolded code, tests, and conceptual questions for each module
+### Architecture
+
+```
+scaffoldly generate <url> --level "..."
+        │
+        ▼
+┌─────────────────────────────────┐
+│  Main Agent (Claude Code)       │
+│  System prompt: CS231n pedagogy │
+│                                 │
+│  1. Fetch source material       │
+│  2. Analyze → submit_analysis   │
+│  3. Design → submit_curriculum  │
+│  4. Generate → write_notebook   │
+│  5. Review (adversarial QA)     │
+│  6. Fix & resubmit if needed    │
+└────────┬───────────┬────────────┘
+         │           │
+    ┌────▼────┐ ┌────▼─────┐
+    │module   │ │reviewer  │
+    │generator│ │(Sonnet)  │
+    │(parallel│ │Audits 10 │
+    │ per mod)│ │quality   │
+    └─────────┘ │criteria  │
+                └──────────┘
+```
+
+### Sub-Agents
+
+- **module_generator** — generates a single module's notebook. The main agent can dispatch multiple in parallel for speed.
+- **reviewer** — adversarial reviewer that audits each generated notebook against 10 quality criteria (structure, scaffolding patterns, docstrings, tests, progressive difficulty, syntax, inline questions, etc.). Returns PASS or REVISE.
+
+### Custom Tools
+
+| Tool | Purpose |
+|------|---------|
+| `submit_analysis` | Structured analysis with Pydantic validation |
+| `submit_curriculum` | Curriculum design + auto-generated overview notebook |
+| `write_notebook_module` | Writes module notebook with syntax validation |
+
+The agent also uses Claude Code's built-in tools (Bash, Read, Write) for web fetching, file I/O, and code execution.
 
 ## Project Structure
 
 ```
 scaffoldly/
-├── __main__.py     # CLI entry point
-├── ingest.py       # Fetch & parse blogs and repos
-├── pipeline.py     # 3-stage LLM generation pipeline
-├── prompts.py      # Prompt templates for each stage
-└── notebook.py     # Jupyter notebook generation
+├── __main__.py       # python -m scaffoldly
+├── cli.py            # CLI argument parsing
+├── agent.py          # Claude Agent SDK orchestrator + sub-agent definitions
+├── tools.py          # Custom @tool definitions (MCP server)
+├── schemas.py        # Pydantic models for structured output
+├── system_prompt.py  # CS231n pedagogy + workflow instructions
+└── notebook.py       # Jupyter notebook assembly
 ```
 
 ## Requirements
 
 - Python 3.10+
-- `ANTHROPIC_API_KEY` for course generation (not needed for the demo)
+- [Claude Code](https://claude.ai/code) (bundled with the Agent SDK)
+- [uv](https://docs.astral.sh/uv/) (recommended) or pip
 
 ## Acknowledgments
 
