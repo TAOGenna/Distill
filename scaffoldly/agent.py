@@ -25,25 +25,31 @@ def _log(msg: str) -> None:
 # ── Sub-agent definitions ───────────────────────────────────────────────────────
 
 REVIEWER_AGENT = AgentDefinition(
-    description="Reviews generated Jupyter notebook modules for pedagogical quality and correctness",
+    description="Reviews generated course files for pedagogical quality and correctness",
     prompt="""\
-You are a strict reviewer of CS231n-style Jupyter notebook coursework.
-You have access to Read and Bash tools. Your job is to review a generated
-notebook file and report issues.
+You are a strict reviewer of CS231n-style programming coursework.
+You have access to Read and Bash tools. Your job is to review generated
+course files and report issues.
 
 CHECK EACH OF THESE (report PASS or FAIL with specifics):
 
-1. STRUCTURE: First cell is markdown intro? Last cell is markdown summary?
-2. SCAFFOLDING: Do exercises use the ###...### TODO/END banner pattern?
-3. DOCSTRINGS: Does every scaffolded function have a thorough docstring?
-4. TESTS: Is there a test cell immediately after every exercise?
+1. PROJECT STRUCTURE: Is the course well-organized into modules/directories?
+   Are there clear READMEs explaining how to work through each module?
+2. SCAFFOLDING: Do exercise files use clear TODO markers and comments
+   guiding the student on what to implement?
+3. DOCUMENTATION: Do scaffolded functions have thorough docstrings/comments
+   explaining the algorithm step by step?
+4. TESTS: Is there a test file for each exercise that validates correctness?
+   Do tests have helpful assertion messages?
 5. PROGRESSIVE: Do later exercises build on earlier ones?
-6. IMPORTS: Are all necessary imports in the first code cell?
+6. COMPILATION/SYNTAX: Use Bash to compile or syntax-check ALL source files.
+   For Python: `python3 -c "import ast; ast.parse(open('file').read())"`
+   For C/C++: `gcc -fsyntax-only file.c` or `g++ -fsyntax-only file.cpp`
+   For Rust: `rustc --edition 2021 --crate-type lib file.rs`
 7. REALISM: Is test data realistic (not placeholder)?
-8. SYNTAX: Run `python3 -c "import ast; ast.parse(open('<path>').read())"` \
-to verify all code is syntactically valid.
-9. INLINE QUESTIONS: Are there conceptual questions between exercises?
-10. TANGIBLE OUTCOME: Does the module produce a visible result?
+8. INLINE QUESTIONS: Are there conceptual questions that force reflection?
+9. TANGIBLE OUTCOME: Does each module produce a visible result?
+10. ORGANIZATION: Would a student know where to start and what order to follow?
 
 End with a VERDICT: PASS (ship it) or REVISE (list specific fixes needed).
 """,
@@ -52,17 +58,21 @@ End with a VERDICT: PASS (ship it) or REVISE (list specific fixes needed).
 )
 
 MODULE_GENERATOR_AGENT = AgentDefinition(
-    description="Generates a single Jupyter notebook module for the course",
+    description="Generates source files for a single module of the course",
     prompt="""\
 You are a module generator for CS231n-style coursework. You will be given
-a module specification, course context, analysis, and student level.
-Generate the complete notebook cells and call the write_notebook_module tool.
+a module specification, course context, and student level.
 
-Follow all the notebook patterns and hard requirements from the course guidelines.
-After writing, validate syntax with Bash: python3 -c "import ast; ..."
-If the write_notebook_module tool reports syntax errors, fix and resubmit.
+Generate well-organized source files for the module:
+- Exercise files with scaffolded code (TODO markers, docstrings, hints)
+- Test files that validate correct implementations
+- A module README explaining the exercises and how to work through them
+- Any supporting files (data, configs, Makefiles, etc.)
+
+Use Write to create each file. Use Bash to validate syntax/compilation.
+Choose the right language and file structure for the domain.
 """,
-    tools=["Bash", "Read", "mcp__scaffoldly__write_notebook_module"],
+    tools=["Bash", "Read", "Write"],
     model="inherit",
 )
 
@@ -95,9 +105,9 @@ async def run_agent(
             "Bash",
             "Read",
             "Write",
+            "Edit",
             "mcp__scaffoldly__submit_analysis",
             "mcp__scaffoldly__submit_curriculum",
-            "mcp__scaffoldly__write_notebook_module",
         ],
         mcp_servers={"scaffoldly": server},
         agents={

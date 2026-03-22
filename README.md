@@ -66,17 +66,28 @@ uv run scaffoldly generate "https://blog.example.com/post" \
 
 ## What the Output Looks Like
 
-Each generated course is a set of Jupyter notebooks following CS231n pedagogy:
+The agent generates a **real project** with proper file structure — not just notebooks. The language and organization match the source material (Python, C, Rust, etc.):
 
 ```
 output/fast_llm_inference/
-├── 00_overview.ipynb
-├── 01_transformer_math.ipynb
-├── 02_inference_engines.ipynb
-├── 03_performance_analysis.ipynb
-├── 04_optimization.ipynb
-├── _analysis.json
-└── _curriculum.json
+├── README.md                        # Course overview, setup, module order
+├── requirements.txt                 # Dependencies
+├── _analysis.json                   # Extracted concepts & prerequisites
+├── _curriculum.json                 # Course design
+├── module_01_transformer_math/
+│   ├── README.md                    # Module intro & exercise guide
+│   ├── exercises/
+│   │   ├── 01_normalization.py      # Scaffolded exercise with TODOs
+│   │   ├── 02_attention.py          # Builds on exercise 01
+│   │   └── 03_multi_head.py         # Builds on 01 and 02
+│   └── tests/
+│       ├── test_01.py               # Automated tests
+│       ├── test_02.py
+│       └── test_03.py
+├── module_02_inference_engine/
+│   └── ...
+└── module_03_optimization/
+    └── ...
 ```
 
 Exercises use scaffolded code with TODO markers:
@@ -91,29 +102,31 @@ def attention(Q, K, V, causal=True):
     3. Apply softmax to get attention weights
     4. Compute output = weights @ V
     """
-    output = None
-    ###########################################################################
-    # TODO: Implement scaled dot-product attention.                           #
-    ###########################################################################
-    pass
-    ###########################################################################
-    #                             END OF YOUR CODE                            #
-    ###########################################################################
-    return output
+    # ======================================================================
+    # TODO: Implement scaled dot-product attention
+    #
+    # Hint: Use np.dot for matrix multiplication, np.tril for causal mask
+    # ======================================================================
+    raise NotImplementedError("Implement this function")
+    # ======================================================================
 ```
 
-Every exercise is followed by automated tests:
+Every exercise has a corresponding test file:
 
 ```python
-out, wts = attention(Q_test, K_test, V_test, causal=True)
-assert out.shape == (seq_len, d_v), f"Wrong shape: {out.shape}"
-assert np.allclose(wts[0, 0], 1.0), "First position should attend only to itself"
-print("✓ All tests passed!")
+# tests/test_02.py
+from exercises.attention import attention
+
+def test_attention_shape():
+    out = attention(Q_test, K_test, V_test, causal=True)
+    assert out.shape == (seq_len, d_v), f"Wrong shape: {out.shape}"
+
+def test_causal_mask():
+    _, wts = attention(Q_test, K_test, V_test, causal=True)
+    assert np.allclose(wts[0, 0], 1.0), "First position should attend only to itself"
 ```
 
-And inline conceptual questions:
-
-> **Inline Question:** Why do we divide by sqrt(d_k) before softmax? What happens if we skip this scaling when d_k is large?
+Works with any language — C, Rust, Go, etc. The agent decides the right structure for the domain.
 
 ## How It Works
 
@@ -132,7 +145,7 @@ scaffoldly generate <url> --level "..."
 │  1. Fetch source material       │
 │  2. Analyze → submit_analysis   │
 │  3. Design → submit_curriculum  │
-│  4. Generate → write_notebook   │
+│  4. Generate → Write files       │
 │  5. Review (adversarial QA)     │
 │  6. Fix & resubmit if needed    │
 └────────┬───────────┬────────────┘
@@ -148,18 +161,17 @@ scaffoldly generate <url> --level "..."
 
 ### Sub-Agents
 
-- **module_generator** — generates a single module's notebook. The main agent can dispatch multiple in parallel for speed.
-- **reviewer** — adversarial reviewer that audits each generated notebook against 10 quality criteria (structure, scaffolding patterns, docstrings, tests, progressive difficulty, syntax, inline questions, etc.). Returns PASS or REVISE.
+- **module_generator** — generates source files for a single module. The main agent can dispatch multiple in parallel for speed.
+- **reviewer** — adversarial reviewer that audits generated files against 10 quality criteria (project structure, scaffolding, documentation, tests, progressive difficulty, compilation/syntax, conceptual questions, etc.). Returns PASS or REVISE.
 
 ### Custom Tools
 
 | Tool | Purpose |
 |------|---------|
 | `submit_analysis` | Structured analysis with Pydantic validation |
-| `submit_curriculum` | Curriculum design + auto-generated overview notebook |
-| `write_notebook_module` | Writes module notebook with syntax validation |
+| `submit_curriculum` | Curriculum design, creates course directory |
 
-The agent also uses Claude Code's built-in tools (Bash, Read, Write) for web fetching, file I/O, and code execution.
+The agent uses Claude Code's built-in tools (Bash, Read, Write, Edit) to create all course files directly — source code, tests, READMEs, Makefiles, etc.
 
 ## Project Structure
 
@@ -170,8 +182,7 @@ scaffoldly/
 ├── agent.py          # Claude Agent SDK orchestrator + sub-agent definitions
 ├── tools.py          # Custom @tool definitions (MCP server)
 ├── schemas.py        # Pydantic models for structured output
-├── system_prompt.py  # CS231n pedagogy + workflow instructions
-└── notebook.py       # Jupyter notebook assembly
+└── system_prompt.py  # CS231n pedagogy + workflow instructions
 ```
 
 ## Requirements

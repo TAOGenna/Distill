@@ -75,15 +75,3 @@ class Curriculum(BaseModel):
     modules: list[Module]
 
 
-# ── Stage 3: Notebook Generation ───────────────────────────────────────────────
-
-
-class NotebookCell(BaseModel):
-    cell_type: Literal["markdown", "code"]
-    source: str
-
-
-class ModuleNotebook(BaseModel):
-    module_index: int
-    title: str
-    cells: list[NotebookCell]
