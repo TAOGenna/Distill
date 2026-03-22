@@ -1,4 +1,4 @@
-"""CLI entry point: python -m coursecraft"""
+"""CLI entry point: python -m scaffoldly"""
 
 import argparse
 import sys
@@ -6,7 +6,7 @@ import sys
 
 def main():
     parser = argparse.ArgumentParser(
-        prog="coursecraft",
+        prog="scaffoldly",
         description=(
             "Generate progressive, CS231n-style coursework from technical "
             "blogs, repos, or papers. Transforms expert-level content into "

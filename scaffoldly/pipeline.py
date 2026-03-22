@@ -160,7 +160,7 @@ class CoursePipeline:
         Returns the path to the generated course directory.
         """
         print(f"\n{'='*60}", file=sys.stderr)
-        print(f"  CourseCraft — Generating coursework", file=sys.stderr)
+        print(f"  Scaffoldly — Generating coursework", file=sys.stderr)
         print(f"  Source: {url}", file=sys.stderr)
         print(f"  Level: {user_level}", file=sys.stderr)
         print(f"{'='*60}\n", file=sys.stderr)

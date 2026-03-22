@@ -26,7 +26,7 @@ def detect_source_type(url: str) -> str:
 def fetch_html(url: str) -> str:
     """Fetch raw HTML from a URL."""
     headers = {
-        "User-Agent": "Mozilla/5.0 (compatible; CourseCraft/0.1; educational-tool)"
+        "User-Agent": "Mozilla/5.0 (compatible; Scaffoldly/0.1; educational-tool)"
     }
     resp = requests.get(url, headers=headers, timeout=30)
     resp.raise_for_status()
