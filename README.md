@@ -2,7 +2,7 @@
 
 Turn technical blog posts and repos into progressive, hands-on coursework.
 
-Scaffoldly takes expert-level content — deep blog posts, GitHub repos, papers — and generates [CS231n](https://cs231n.stanford.edu/)-style projects with scaffolded exercises, observable milestones, and inline conceptual questions. The goal: make it possible for mid/junior engineers to actually *learn from* the incredible content that senior engineers publish, instead of just reading and nodding along.
+Scaffoldly takes expert-level content — deep blog posts, GitHub repos, papers — and generates [CS231n](https://cs231n.stanford.edu/)-style projects with scaffolded exercises, observable milestones, and inline conceptual questions. It adapts its pedagogy to the source material: systems engineering blogs get measurement-driven milestones, ML papers get atom-first exercises with visualization milestones, tutorials get enhanced scaffolding. The goal: make it possible for mid/junior engineers to actually *learn from* the incredible content that senior engineers and researchers publish, instead of just reading and nodding along.
 
 ## The Problem
 
@@ -120,6 +120,19 @@ if __name__ == "__main__":
 The student runs `python ex02_async_fetcher.py`, sees the numbers, and discovers the same insights the blog author discovered. No test framework needed — the output *is* the feedback.
 
 Works with any language — C, Rust, Go, etc. The agent decides the right structure for the domain.
+
+### Content-Aware Pedagogy
+
+Scaffoldly detects the type of source material during analysis and adapts its approach:
+
+| Content Type | Milestone Style | Scaffolding Strategy |
+|---|---|---|
+| **Systems engineering** (blogs about crawlers, databases, infra) | Printed measurements that reproduce the author's findings | Each module hits a bottleneck that motivates the next |
+| **ML research** (papers about models, training, compression) | Visualizations, training curves, reference-value comparisons | Atom-first: isolate each concept, build intuition before math, then recombine |
+| **Tutorial** (step-by-step "how to build X" posts) | Match the tutorial's own checkpoints | Heavier scaffolding than the original, more intermediate steps |
+| **Library walkthrough** (docs, API guides, framework intros) | Working examples with real output | Provide boilerplate, student fills in library-specific calls |
+
+For example, an ML paper on neural network compression would start with "quantize pi with 8, 4, 2, 1 bits — watch precision degrade" before introducing any equations. A systems blog about web crawlers would start with "fetch 50 pages synchronously — see why 4 pages/sec won't scale to 1 billion."
 
 ## How It Works
 
