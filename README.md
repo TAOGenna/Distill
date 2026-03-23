@@ -2,7 +2,7 @@
 
 Turn technical blog posts and repos into progressive, hands-on coursework.
 
-Scaffoldly takes expert-level content — deep blog posts, GitHub repos, papers — and generates [CS231n](https://cs231n.stanford.edu/)-style Jupyter notebooks with scaffolded exercises, automated tests, and inline conceptual questions. The goal: make it possible for mid/junior engineers to actually *learn from* the incredible content that senior engineers publish, instead of just reading and nodding along.
+Scaffoldly takes expert-level content — deep blog posts, GitHub repos, papers — and generates [CS231n](https://cs231n.stanford.edu/)-style projects with scaffolded exercises, observable milestones, and inline conceptual questions. The goal: make it possible for mid/junior engineers to actually *learn from* the incredible content that senior engineers publish, instead of just reading and nodding along.
 
 ## The Problem
 
@@ -13,7 +13,7 @@ There are brilliant technical blogs out there — [Andrew Chan](https://andrewkc
 - **No feedback** — no way to know if you actually understood
 - **Integrated multi-domain knowledge** with no clear learning path
 
-Meanwhile, structured courses like Stanford CS231n are incredibly effective because they provide scaffolded code with `TODO` markers, immediate test validation, progressive difficulty, and conceptual questions.
+Meanwhile, structured courses like Stanford CS231n are incredibly effective because they provide scaffolded code with `TODO` markers, progressive difficulty, observable results, and conceptual questions.
 
 **Scaffoldly bridges this gap.**
 
@@ -66,65 +66,58 @@ uv run scaffoldly generate "https://blog.example.com/post" \
 
 ## What the Output Looks Like
 
-The agent generates a **real project** with proper file structure — not just notebooks. The language and organization match the source material (Python, C, Rust, etc.):
+The agent generates a **real project** with proper file structure. The language and organization match the source material (Python, C, Rust, etc.):
 
 ```
-output/fast_llm_inference/
+output/billion_page_crawler/
 ├── README.md                        # Course overview, setup, module order
 ├── requirements.txt                 # Dependencies
 ├── _analysis.json                   # Extracted concepts & prerequisites
 ├── _curriculum.json                 # Course design
-├── module_01_transformer_math/
+├── module_01_fetching/
 │   ├── README.md                    # Module intro & exercise guide
-│   ├── exercises/
-│   │   ├── 01_normalization.py      # Scaffolded exercise with TODOs
-│   │   ├── 02_attention.py          # Builds on exercise 01
-│   │   └── 03_multi_head.py         # Builds on 01 and 02
-│   └── tests/
-│       ├── test_01.py               # Automated tests
-│       ├── test_02.py
-│       └── test_03.py
-├── module_02_inference_engine/
+│   ├── ex01_sync_fetcher.py         # Scaffolded exercise with TODOs + milestone
+│   ├── ex02_async_fetcher.py        # Builds on exercise 01
+│   └── ex03_worker_scaling.py       # Builds on 01 and 02
+├── module_02_politeness/
 │   └── ...
-└── module_03_optimization/
+└── module_03_frontier/
     └── ...
 ```
 
-Exercises use scaffolded code with TODO markers:
+Exercises use scaffolded code with TODO markers and end with an **observable milestone** — a `__main__` block that runs the student's code and prints output that teaches something:
 
 ```python
-def attention(Q, K, V, causal=True):
-    """Compute scaled dot-product attention.
+def fetch_pages(urls, max_workers=1):
+    """Fetch URLs concurrently with asyncio.
 
     The approach:
-    1. Compute scores = Q @ K^T / sqrt(d_k)
-    2. If causal, mask future positions with -inf
-    3. Apply softmax to get attention weights
-    4. Compute output = weights @ V
+    1. Create an aiohttp ClientSession
+    2. Use asyncio.gather with a semaphore to limit concurrency
+    3. Return list of (url, status, content_length)
     """
     # ======================================================================
-    # TODO: Implement scaled dot-product attention
+    # TODO: Implement async fetching
     #
-    # Hint: Use np.dot for matrix multiplication, np.tril for causal mask
+    # Hint: Use aiohttp.ClientSession with asyncio.gather
     # ======================================================================
     raise NotImplementedError("Implement this function")
     # ======================================================================
+
+if __name__ == "__main__":
+    start = time.time()
+    results = asyncio.run(fetch_pages(SEED_URLS, max_workers=10))
+    elapsed = time.time() - start
+    ok = [r for r in results if r[1] == 200]
+    throughput = len(ok) / elapsed
+    print(f"Fetched {len(ok)}/{len(SEED_URLS)} pages in {elapsed:.1f}s")
+    print(f"Throughput: {throughput:.1f} pages/sec")
+    print()
+    print(f">> The blog needed 11,574 pages/sec to crawl 1B in 24hrs.")
+    print(f">> Next exercise: what happens when you scale to 100 workers?")
 ```
 
-Every exercise has a corresponding test file:
-
-```python
-# tests/test_02.py
-from exercises.attention import attention
-
-def test_attention_shape():
-    out = attention(Q_test, K_test, V_test, causal=True)
-    assert out.shape == (seq_len, d_v), f"Wrong shape: {out.shape}"
-
-def test_causal_mask():
-    _, wts = attention(Q_test, K_test, V_test, causal=True)
-    assert np.allclose(wts[0, 0], 1.0), "First position should attend only to itself"
-```
+The student runs `python ex02_async_fetcher.py`, sees the numbers, and discovers the same insights the blog author discovered. No test framework needed — the output *is* the feedback.
 
 Works with any language — C, Rust, Go, etc. The agent decides the right structure for the domain.
 
@@ -162,7 +155,7 @@ scaffoldly generate <url> --level "..."
 ### Sub-Agents
 
 - **module_generator** — generates source files for a single module. The main agent can dispatch multiple in parallel for speed.
-- **reviewer** — adversarial reviewer that audits generated files against 10 quality criteria (project structure, scaffolding, documentation, tests, progressive difficulty, compilation/syntax, conceptual questions, etc.). Returns PASS or REVISE.
+- **reviewer** — adversarial reviewer that audits generated files against 10 quality criteria (project structure, scaffolding, documentation, milestones, progressive difficulty, compilation/syntax, conceptual questions, etc.). Returns PASS or REVISE.
 
 ### Custom Tools
 
@@ -171,7 +164,7 @@ scaffoldly generate <url> --level "..."
 | `submit_analysis` | Structured analysis with Pydantic validation |
 | `submit_curriculum` | Curriculum design, creates course directory |
 
-The agent uses Claude Code's built-in tools (Bash, Read, Write, Edit) to create all course files directly — source code, tests, READMEs, Makefiles, etc.
+The agent uses Claude Code's built-in tools (Bash, Read, Write, Edit) to create all course files directly — source code, READMEs, Makefiles, etc.
 
 ## Project Structure
 
