@@ -94,10 +94,19 @@ def _cmd_generate(args):
     if total_cost_usd is not None:
         print(f"  Total cost:       ${total_cost_usd:.4f}", file=sys.stderr)
     if usage:
-        if "input_tokens" in usage:
-            print(f"  Input tokens:     {usage['input_tokens']:,}", file=sys.stderr)
-        if "output_tokens" in usage:
-            print(f"  Output tokens:    {usage['output_tokens']:,}", file=sys.stderr)
+        input_tokens = usage.get("input_tokens", 0)
+        output_tokens = usage.get("output_tokens", 0)
+        cache_creation = usage.get("cache_creation_input_tokens", 0)
+        cache_read = usage.get("cache_read_input_tokens", 0)
+        total_input = input_tokens + cache_creation + cache_read
+        print(f"  Input tokens:     {total_input:,}", file=sys.stderr)
+        if cache_read:
+            print(f"    (cache read:    {cache_read:,})", file=sys.stderr)
+        if cache_creation:
+            print(f"    (cache write:   {cache_creation:,})", file=sys.stderr)
+        if input_tokens:
+            print(f"    (uncached:      {input_tokens:,})", file=sys.stderr)
+        print(f"  Output tokens:    {output_tokens:,}", file=sys.stderr)
     print(f"{'=' * 60}\n", file=sys.stderr)
 
     print(f"\nCourse generated: {course_dir}")
