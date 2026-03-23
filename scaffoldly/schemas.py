@@ -50,7 +50,11 @@ class Exercise(BaseModel):
     scaffolding_level: Literal["heavy", "medium", "light", "none"]
     what_is_provided: str
     what_student_writes: str
-    test_strategy: str
+    milestone: str = Field(
+        description="What the student sees when they run the exercise. "
+        "Describe the printed output — a measurement, comparison, or behavior "
+        "that reproduces a key insight from the source material."
+    )
 
 
 class InlineQuestion(BaseModel):

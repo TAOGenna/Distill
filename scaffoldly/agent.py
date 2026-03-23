@@ -39,14 +39,16 @@ CHECK EACH OF THESE (report PASS or FAIL with specifics):
    guiding the student on what to implement?
 3. DOCUMENTATION: Do scaffolded functions have thorough docstrings/comments
    explaining the algorithm step by step?
-4. TESTS: Is there a test file for each exercise that validates correctness?
-   Do tests have helpful assertion messages?
+4. MILESTONES: Does every exercise end with a __main__ block (or main())
+   that prints educational output when the student runs it? Does the output
+   connect to the source material's insights (measurements, comparisons)?
+   There should be NO separate test files or test frameworks.
 5. PROGRESSIVE: Do later exercises build on earlier ones?
 6. COMPILATION/SYNTAX: Use Bash to compile or syntax-check ALL source files.
    For Python: `python3 -c "import ast; ast.parse(open('file').read())"`
    For C/C++: `gcc -fsyntax-only file.c` or `g++ -fsyntax-only file.cpp`
    For Rust: `rustc --edition 2021 --crate-type lib file.rs`
-7. REALISM: Is test data realistic (not placeholder)?
+7. REALISM: Is baked-in data realistic (not placeholder)?
 8. INLINE QUESTIONS: Are there conceptual questions that force reflection?
 9. TANGIBLE OUTCOME: Does each module produce a visible result?
 10. ORGANIZATION: Would a student know where to start and what order to follow?
@@ -65,9 +67,12 @@ a module specification, course context, and student level.
 
 Generate well-organized source files for the module:
 - Exercise files with scaffolded code (TODO markers, docstrings, hints)
-- Test files that validate correct implementations
+- Each exercise MUST end with a __main__ block (or main()) that runs the
+  student's code and prints educational output (measurements, comparisons,
+  behaviors that connect to the source material's insights)
 - A module README explaining the exercises and how to work through them
 - Any supporting files (data, configs, Makefiles, etc.)
+- Do NOT create test files or use test frameworks
 
 Use Write to create each file. Use Bash to validate syntax/compilation.
 Choose the right language and file structure for the domain.
