@@ -92,10 +92,10 @@ async def run_agent(
     model: str | None = None,
     effort: str | None = "high",
     max_turns: int = 50,
-) -> str:
+) -> dict:
     """Run the Scaffoldly agent to generate coursework from a URL.
 
-    Returns the path to the generated course directory.
+    Returns a dict with course_dir, total_cost_usd, and usage.
     """
     reset_state(output_dir)
 
@@ -132,6 +132,9 @@ async def run_agent(
 
     _log("Starting Scaffoldly agent...")
 
+    total_cost_usd = None
+    usage = None
+
     async with ClaudeSDKClient(options=options) as client:
         await client.query(prompt)
 
@@ -141,11 +144,17 @@ async def run_agent(
                     if isinstance(block, TextBlock):
                         _log(block.text[:200])
             elif isinstance(message, ResultMessage):
+                total_cost_usd = message.total_cost_usd
+                usage = message.usage
                 _log("Agent finished.")
 
     state = get_state()
     course_dir = state.get("course_dir", output_dir)
-    return course_dir
+    return {
+        "course_dir": course_dir,
+        "total_cost_usd": total_cost_usd,
+        "usage": usage,
+    }
 
 
 def run_agent_sync(
@@ -155,7 +164,7 @@ def run_agent_sync(
     model: str | None = None,
     effort: str | None = "high",
     max_turns: int = 50,
-) -> str:
+) -> dict:
     """Synchronous wrapper around run_agent for CLI use."""
     return anyio.run(
         lambda: run_agent(url, user_level, output_dir, model, effort, max_turns)

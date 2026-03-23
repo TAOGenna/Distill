@@ -76,7 +76,7 @@ def _cmd_generate(args):
     print(f"  Level:  {args.level}", file=sys.stderr)
     print(f"{'=' * 60}\n", file=sys.stderr)
 
-    course_dir = run_agent_sync(
+    result = run_agent_sync(
         url=args.url,
         user_level=args.level,
         output_dir=args.output,
@@ -85,5 +85,20 @@ def _cmd_generate(args):
         max_turns=args.max_turns,
     )
 
+    course_dir = result["course_dir"]
+    total_cost_usd = result["total_cost_usd"]
+    usage = result["usage"]
+
+    print(f"\n{'=' * 60}", file=sys.stderr)
+    print(f"  Course generated: {course_dir}", file=sys.stderr)
+    if total_cost_usd is not None:
+        print(f"  Total cost:       ${total_cost_usd:.4f}", file=sys.stderr)
+    if usage:
+        if "input_tokens" in usage:
+            print(f"  Input tokens:     {usage['input_tokens']:,}", file=sys.stderr)
+        if "output_tokens" in usage:
+            print(f"  Output tokens:    {usage['output_tokens']:,}", file=sys.stderr)
+    print(f"{'=' * 60}\n", file=sys.stderr)
+
     print(f"\nCourse generated: {course_dir}")
-    print(f"  Open the notebooks in Jupyter to start learning.\n")
+    print(f"  Open the course directory to start learning.\n")
