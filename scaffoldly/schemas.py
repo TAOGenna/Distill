@@ -33,6 +33,15 @@ class Analysis(BaseModel):
     title: str
     summary: str
     domain: str
+    content_type: Literal[
+        "systems_engineering",
+        "ml_research",
+        "tutorial",
+        "library_walkthrough",
+    ] = Field(
+        description="The type of source material. This determines the pedagogy "
+        "strategy: milestone style, scaffolding approach, and how math is presented."
+    )
     overall_difficulty: Literal["beginner", "intermediate", "advanced", "expert"]
     key_concepts: list[Concept]
     prerequisites: list[Prerequisite]
@@ -52,8 +61,8 @@ class Exercise(BaseModel):
     what_student_writes: str
     milestone: str = Field(
         description="What the student sees when they run the exercise. "
-        "Describe the printed output — a measurement, comparison, or behavior "
-        "that reproduces a key insight from the source material."
+        "Describe the output — printed measurements, saved plots, or "
+        "visualizations that reproduce a key insight from the source material."
     )
 
 

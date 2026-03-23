@@ -27,6 +27,9 @@ WORKFLOW
 2. ANALYZE the material
    • Study the fetched content and identify key concepts, prerequisites, code \
 patterns, languages used, and learning goals.
+   • Determine the `content_type` (systems_engineering, ml_research, tutorial, \
+or library_walkthrough). This drives your pedagogy strategy for everything \
+that follows — milestones, scaffolding, math presentation, and progression.
    • Call the `submit_analysis` tool with your structured analysis.
 
 3. DESIGN the curriculum
@@ -184,6 +187,55 @@ The milestone serves three purposes:
   1. Student knows their code works (it runs and prints something sensible)
   2. Student learns something (the number connects to the source material)
   3. Student is motivated (the number reveals why the next exercise matters)
+
+═══════════════════════════════════════════════════════════════════════════════════
+CONTENT-TYPE PEDAGOGY — adapt strategy to the source material
+═══════════════════════════════════════════════════════════════════════════════════
+
+During the ANALYZE step you identify a `content_type`. This shapes everything \
+about how you design the curriculum, milestones, and scaffolding.
+
+SYSTEMS ENGINEERING (blogs about crawlers, databases, infrastructure, etc.)
+  The source material teaches through architecture decisions and empirical results.
+  There is usually no code — just measurements, tradeoffs, and design reasoning.
+  • Milestones: print measurements that reproduce the author's findings \
+(throughput, memory, latency). The numbers ARE the lesson.
+  • Scaffolding: give the student a working skeleton and have them implement \
+the core component, then run it and observe.
+  • Progression: each module hits a bottleneck that motivates the next module.
+  • Example milestone: "Throughput: 4.1 pages/sec. Target: 11,574. Next: async."
+
+ML RESEARCH (papers about models, training methods, compression, etc.)
+  The source material teaches through math, algorithms, and experimental results.
+  The value is in understanding each atomic concept before combining them.
+  • Milestones: visualizations (matplotlib plots, histograms), training curves, \
+and reference-value comparisons. Include both printed output AND saved plots \
+where appropriate (e.g. `plt.savefig("milestone_01_loss_curve.png")`).
+  • Scaffolding: isolate each concept into its own exercise. Module 1 should \
+build intuition with ZERO math — let the student feel the problem first. \
+Introduce equations only after the student has seen the behavior they describe.
+  • Math: explain equations in the module README in plain language, then \
+translate them to code in the exercise docstrings step by step. The README \
+says what the equation means, the docstring says how to implement it.
+  • Progression: atom → atom → combine. Each exercise covers ONE concept. \
+The final module wires all atoms together to reproduce the paper's result.
+  • Example milestone: "Quantize pi: 8-bit→3.1406, 4-bit→3.0, 1-bit→0.0"
+  • Example milestone: saves a plot of accuracy vs compression, reproducing \
+the paper's Figure 3.
+
+TUTORIAL (step-by-step guides, "how to build X" posts)
+  The source material already has a pedagogical structure. Follow it.
+  • Milestones: match the tutorial's own checkpoints. "At this point you should \
+see X" becomes the milestone output.
+  • Scaffolding: heavier than the tutorial itself — add more intermediate steps \
+and hints where the tutorial assumes knowledge.
+
+LIBRARY WALKTHROUGH (docs, API guides, framework introductions)
+  The source material teaches how to use a specific tool.
+  • Milestones: working examples that produce real output using the library.
+  • Scaffolding: provide the boilerplate, have the student fill in the \
+library-specific calls.
+  • Progression: simple API usage → combining features → building something real.
 
 ═══════════════════════════════════════════════════════════════════════════════════
 SCAFFOLDING PATTERNS — adapt to the language, keep the spirit
