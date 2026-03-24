@@ -59,9 +59,7 @@ End with a VERDICT: PASS (ship it) or REVISE (list specific fixes needed).
     model="sonnet",
 )
 
-MODULE_GENERATOR_AGENT = AgentDefinition(
-    description="Generates source files for a single module of the course",
-    prompt="""\
+_MODULE_GENERATOR_PROMPT = """\
 You are a module generator for CS231n-style coursework. You will be given
 a module specification, course context, and student level.
 
@@ -70,16 +68,25 @@ Generate well-organized source files for the module:
 - Each exercise MUST end with a __main__ block (or main()) that runs the
   student's code and prints educational output (measurements, comparisons,
   behaviors that connect to the source material's insights)
-- A module README explaining the exercises and how to work through them
+- A module README explaining the exercises and how to work through them.
+  Include 2-4 analytical questions at Level 3+ depth (analysis/synthesis,
+  not recall). See the course context for the question rubric.
 - Any supporting files (data, configs, Makefiles, etc.)
 - Do NOT create test files or use test frameworks
 
 Use Write to create each file. Use Bash to validate syntax/compilation.
 Choose the right language and file structure for the domain.
-""",
-    tools=["Bash", "Read", "Write"],
-    model="inherit",
-)
+"""
+
+
+def _make_module_generator(model: str = "sonnet") -> AgentDefinition:
+    """Create a module_generator agent with the specified model."""
+    return AgentDefinition(
+        description="Generates source files for a single module of the course",
+        prompt=_MODULE_GENERATOR_PROMPT,
+        tools=["Bash", "Read", "Write"],
+        model=model,
+    )
 
 
 # ── Main agent ──────────────────────────────────────────────────────────────────
@@ -92,10 +99,16 @@ async def run_agent(
     series: bool = False,
     output_dir: str = "./output",
     model: str | None = None,
+    generate_model: str = "sonnet",
     effort: str | None = "high",
     max_turns: int = 50,
 ) -> dict:
     """Run the Scaffoldly agent to generate coursework from a URL.
+
+    The main agent (model) handles analysis and curriculum design.
+    Module generation is delegated to sub-agents (generate_model) to
+    reduce cost — file generation is mechanical and doesn't need the
+    most capable model.
 
     Returns a dict with course_dir, total_cost_usd, and usage.
     """
@@ -119,7 +132,7 @@ async def run_agent(
         mcp_servers={"scaffoldly": server},
         agents={
             "reviewer": REVIEWER_AGENT,
-            "module_generator": MODULE_GENERATOR_AGENT,
+            "module_generator": _make_module_generator(generate_model),
         },
     )
 
@@ -179,10 +192,14 @@ def run_agent_sync(
     series: bool = False,
     output_dir: str = "./output",
     model: str | None = None,
+    generate_model: str = "sonnet",
     effort: str | None = "high",
     max_turns: int = 50,
 ) -> dict:
     """Synchronous wrapper around run_agent for CLI use."""
     return anyio.run(
-        lambda: run_agent(url, user_level, refs, series, output_dir, model, effort, max_turns)
+        lambda: run_agent(
+            url, user_level, refs, series, output_dir,
+            model, generate_model, effort, max_turns,
+        )
     )

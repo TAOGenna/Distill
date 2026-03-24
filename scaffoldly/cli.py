@@ -63,7 +63,17 @@ def main():
     gen_parser.add_argument(
         "--model",
         default="claude-opus-4-6",
-        help="Claude model to use (default: claude-opus-4-6)",
+        help="Model for analysis and curriculum design (default: claude-opus-4-6)",
+    )
+    gen_parser.add_argument(
+        "--generate-model",
+        default="sonnet",
+        dest="generate_model",
+        help=(
+            "Model for file generation sub-agents (default: sonnet). "
+            "File generation is mostly mechanical — a cheaper model keeps "
+            "costs down without sacrificing learning quality."
+        ),
     )
     gen_parser.add_argument(
         "--effort",
@@ -99,6 +109,7 @@ def _cmd_generate(args):
         mode = "series" if args.series else "reference"
         print(f"  Refs ({mode}): {len(args.refs)} additional source(s)", file=sys.stderr)
     print(f"  Level:  {args.level}", file=sys.stderr)
+    print(f"  Models: {args.model} (design) → {args.generate_model} (generate)", file=sys.stderr)
     print(f"{'=' * 60}\n", file=sys.stderr)
 
     result = run_agent_sync(
@@ -108,6 +119,7 @@ def _cmd_generate(args):
         user_level=args.level,
         output_dir=args.output,
         model=args.model,
+        generate_model=args.generate_model,
         effort=args.effort,
         max_turns=args.max_turns,
     )
