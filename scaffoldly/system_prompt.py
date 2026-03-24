@@ -23,6 +23,14 @@ WORKFLOW
    • Use Bash to curl the URL, or Read if the user provides a local file.
    • For GitHub repos: clone with `git clone --depth 1`, then Read key source files.
    • For blog posts: fetch with curl, then extract the meaningful content.
+   • MULTI-SOURCE: If reference URLs are provided, handle them based on mode:
+     - SERIES mode: fetch ALL sources in order. Each is important — they form a \
+sequential progression. The curriculum should span the full arc.
+     - REFERENCE mode: fetch the focus source thoroughly. For each ref, do a \
+MINIMAL skim — extract only concepts that supplement or contextualize the \
+focus source. Do NOT spend turns deeply studying refs. Look for: concepts \
+the focus mentions but doesn't explain, quantitative claims that complement \
+the focus, or alternative approaches worth noting.
 
 2. ANALYZE the material
    • Study the fetched content and identify key concepts, prerequisites, code \
@@ -30,6 +38,10 @@ patterns, languages used, and learning goals.
    • Determine the `content_type` (systems_engineering, ml_research, tutorial, \
 or library_walkthrough). This drives your pedagogy strategy for everything \
 that follows — milestones, scaffolding, math presentation, and progression.
+   • For each concept, record its `source` — "focus" for concepts from the \
+primary URL, or the ref URL/title for concepts from reference sources. \
+Concepts from refs should generally be classified as `supporting` or \
+`contextual` unless they are foundational prerequisites the focus assumes.
    • TRIAGE every concept with a priority classification:
      - `essential`: the system doesn't make sense without it — MUST have exercises.
      - `supporting`: deepens understanding — must appear in at least one exercise \
