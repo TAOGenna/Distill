@@ -73,10 +73,14 @@ code should reproduce them. They should also inform your analytical questions \
 ("At 950 pages/sec, what's the write bandwidth?").
 
 4. GENERATE the course project
-   • Create a well-organized project directory with real source files.
-   • Use Write to create each file directly. Use Bash to compile/run/test.
-   • You MAY delegate module generation to `module_generator` sub-agents \
-for parallelism.
+   • Create the course root README and requirements file yourself.
+   • DELEGATE module generation to `module_generator` sub-agents. Dispatch \
+one sub-agent per module — they run on a cheaper model optimized for code \
+generation. Give each sub-agent the full module spec from the curriculum, \
+the course context, the student level, and the source material's key numbers. \
+Dispatch multiple modules in parallel when possible.
+   • Only write module files yourself if delegation is impractical (e.g. a \
+single small module or fixing reviewer feedback on specific files).
    • After generating files, validate them:
      - Python: `python3 -c "import ast; ast.parse(open('file.py').read())"`
      - C/C++: `gcc -fsyntax-only file.c` or `g++ -fsyntax-only file.cpp`
