@@ -15,6 +15,16 @@ class Concept(BaseModel):
     description: str
     importance: Literal["core", "supporting", "tangential"]
     difficulty: Literal["beginner", "intermediate", "advanced", "expert"]
+    priority: Literal["essential", "supporting", "contextual"] = Field(
+        description="Triage classification. 'essential': the system doesn't make "
+        "sense without it — must have exercises. 'supporting': deepens understanding "
+        "— should appear in at least one exercise or analytical question. "
+        "'contextual': operational/tangential — belongs in What's Next section."
+    )
+    priority_rationale: str = Field(
+        description="Why this concept was classified at this priority level. "
+        "This reasoning helps the curriculum designer make better scoping decisions."
+    )
 
 
 class Prerequisite(BaseModel):
@@ -77,6 +87,12 @@ class Module(BaseModel):
     description: str
     learning_objectives: list[str]
     concepts_covered: list[str]
+    depends_on: list[int] = Field(
+        default_factory=list,
+        description="Module indices this module requires as prerequisites. "
+        "Empty list means this module can be started independently. "
+        "Used to generate the learning path in the course README.",
+    )
     exercises: list[Exercise]
     inline_questions: list[InlineQuestion]
     visible_outcome: str
