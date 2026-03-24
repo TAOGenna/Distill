@@ -76,6 +76,21 @@ async def submit_analysis(args: dict) -> dict:
     out.mkdir(parents=True, exist_ok=True)
     (out / "_analysis.json").write_text(json.dumps(_state["analysis"], indent=2, ensure_ascii=False))
 
+    # Summarize concept triage for the agent
+    essential = [c.name for c in analysis.key_concepts if c.priority == "essential"]
+    supporting = [c.name for c in analysis.key_concepts if c.priority == "supporting"]
+    contextual = [c.name for c in analysis.key_concepts if c.priority == "contextual"]
+
+    triage_summary = (
+        f"\n\nConcept triage:"
+        f"\n  Essential ({len(essential)}): {', '.join(essential) or 'none'}"
+        f"\n  Supporting ({len(supporting)}): {', '.join(supporting) or 'none'}"
+        f"\n  Contextual ({len(contextual)}): {', '.join(contextual) or 'none'}"
+        f"\n\nReminder: essential concepts MUST have exercises. "
+        f"Supporting concepts must appear in exercises or analytical questions. "
+        f"Contextual concepts go in the 'What's Next' README section only."
+    )
+
     return {
         "content": [{
             "type": "text",
@@ -83,7 +98,8 @@ async def submit_analysis(args: dict) -> dict:
                 f"Analysis saved. Found {len(analysis.key_concepts)} concepts, "
                 f"{len(analysis.prerequisites)} prerequisites, "
                 f"primary language(s): {', '.join(p.language for p in analysis.code_patterns)}. "
-                "Now design the curriculum with submit_curriculum."
+                f"{triage_summary}"
+                "\n\nNow design the curriculum with submit_curriculum."
             ),
         }]
     }
@@ -119,19 +135,49 @@ async def submit_curriculum(args: dict) -> dict:
         json.dumps(_state["curriculum"], indent=2, ensure_ascii=False)
     )
 
-    module_titles = "\n".join(
-        f"  {m.module_index}. {m.title}" for m in curriculum.modules
-    )
+    module_lines = []
+    for m in curriculum.modules:
+        deps = f" (depends on: {m.depends_on})" if m.depends_on else " (no prerequisites)"
+        module_lines.append(f"  {m.module_index}. {m.title}{deps}")
+    module_listing = "\n".join(module_lines)
+
+    # Lightweight coverage check against analysis triage
+    coverage_note = ""
+    if _state["analysis"]:
+        analysis_concepts = _state["analysis"].get("key_concepts", [])
+        essential_names = {
+            c["name"] for c in analysis_concepts if c.get("priority") == "essential"
+        }
+        covered_names: set[str] = set()
+        for m in curriculum.modules:
+            covered_names.update(m.concepts_covered)
+        uncovered = essential_names - covered_names
+        if uncovered:
+            coverage_note = (
+                f"\n\n⚠ COVERAGE GAP: these essential concepts are not covered "
+                f"by any module: {', '.join(sorted(uncovered))}. "
+                f"Consider adding them to an existing module before generating."
+            )
+        else:
+            coverage_note = (
+                "\n\n✓ All essential concepts are covered by at least one module."
+            )
+
     return {
         "content": [{
             "type": "text",
             "text": (
                 f"Curriculum saved to {course_dir}/_curriculum.json\n"
                 f"Course directory: {course_dir}\n\n"
-                f"{len(curriculum.modules)} modules:\n{module_titles}\n\n"
-                "Now generate the course project. Use Write to create source "
-                "files, tests, READMEs, and any other files directly in the "
-                "course directory. Use Bash to compile/run tests and validate."
+                f"{len(curriculum.modules)} modules:\n{module_listing}\n"
+                f"{coverage_note}\n\n"
+                "NEXT: Re-read the source material's quantitative claims "
+                "(numbers, benchmarks, measurements) before generating. "
+                "These should appear as exercise milestone targets and "
+                "inform your analytical questions.\n\n"
+                "Then generate the course project. Use Write to create source "
+                "files, READMEs, and any other files directly in the "
+                "course directory. Use Bash to compile/run and validate."
             ),
         }]
     }
