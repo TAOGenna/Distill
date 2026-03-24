@@ -88,6 +88,8 @@ Choose the right language and file structure for the domain.
 async def run_agent(
     url: str,
     user_level: str,
+    refs: list[str] | None = None,
+    series: bool = False,
     output_dir: str = "./output",
     model: str | None = None,
     effort: str | None = "high",
@@ -121,9 +123,22 @@ async def run_agent(
         },
     )
 
+    # Build the prompt with optional multi-source context
+    source_lines = [f"  Focus URL: {url}"]
+    if refs:
+        if series:
+            source_lines.append(f"  Mode: SERIES (sources form an ordered progression)")
+            for i, ref in enumerate(refs, start=2):
+                source_lines.append(f"  Part {i}: {ref}")
+        else:
+            source_lines.append(f"  Mode: REFERENCE (focus + supplementary context)")
+            for ref in refs:
+                source_lines.append(f"  Reference: {ref}")
+    sources_block = "\n".join(source_lines)
+
     prompt = (
-        f"Generate a CS231n-style progressive course from this URL:\n"
-        f"  URL: {url}\n"
+        f"Generate a CS231n-style progressive course from these sources:\n"
+        f"{sources_block}\n"
         f"  Student level: {user_level}\n"
         f"  Output directory: {output_dir}\n\n"
         f"Follow the workflow in your instructions exactly: "
@@ -160,6 +175,8 @@ async def run_agent(
 def run_agent_sync(
     url: str,
     user_level: str,
+    refs: list[str] | None = None,
+    series: bool = False,
     output_dir: str = "./output",
     model: str | None = None,
     effort: str | None = "high",
@@ -167,5 +184,5 @@ def run_agent_sync(
 ) -> dict:
     """Synchronous wrapper around run_agent for CLI use."""
     return anyio.run(
-        lambda: run_agent(url, user_level, output_dir, model, effort, max_turns)
+        lambda: run_agent(url, user_level, refs, series, output_dir, model, effort, max_turns)
     )

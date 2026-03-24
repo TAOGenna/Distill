@@ -23,7 +23,29 @@ def main():
     )
     gen_parser.add_argument(
         "url",
-        help="URL of a blog post, GitHub repo, or technical article",
+        help="Primary URL — the focus source that drives the curriculum",
+    )
+    gen_parser.add_argument(
+        "--ref",
+        action="append",
+        default=[],
+        dest="refs",
+        metavar="URL",
+        help=(
+            "Additional reference URL (repeatable). "
+            "Skimmed for supplementary concepts, not deeply analyzed. "
+            "Use with --series if the sources form an ordered progression."
+        ),
+    )
+    gen_parser.add_argument(
+        "--series",
+        action="store_true",
+        default=False,
+        help=(
+            "Treat the primary URL and all --ref URLs as an ordered series "
+            "(e.g. Part 1 → Part 2 → Part 3). The curriculum spans the full "
+            "arc. Without this flag, refs are treated as supplementary context."
+        ),
     )
     gen_parser.add_argument(
         "--level",
@@ -73,11 +95,16 @@ def _cmd_generate(args):
     print(f"\n{'=' * 60}", file=sys.stderr)
     print(f"  Scaffoldly — Generating coursework", file=sys.stderr)
     print(f"  Source: {args.url}", file=sys.stderr)
+    if args.refs:
+        mode = "series" if args.series else "reference"
+        print(f"  Refs ({mode}): {len(args.refs)} additional source(s)", file=sys.stderr)
     print(f"  Level:  {args.level}", file=sys.stderr)
     print(f"{'=' * 60}\n", file=sys.stderr)
 
     result = run_agent_sync(
         url=args.url,
+        refs=args.refs,
+        series=args.series,
         user_level=args.level,
         output_dir=args.output,
         model=args.model,
