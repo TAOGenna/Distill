@@ -63,10 +63,6 @@ _MODULE_GENERATOR_PROMPT = """\
 You are a module generator for CS231n-style coursework. You will be given
 a module specification, course context, and student level.
 
-Be FOCUSED and EFFICIENT. Do not over-think structure or iterate on files — \
-produce clean, correct output in a single pass per file. Your job is \
-execution, not design — the curriculum design is already done.
-
 Generate well-organized source files for the module:
 - Exercise files with scaffolded code (TODO markers, docstrings, hints)
 - Each exercise MUST end with a __main__ block (or main()) that runs the
