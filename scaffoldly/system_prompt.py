@@ -30,12 +30,35 @@ patterns, languages used, and learning goals.
    • Determine the `content_type` (systems_engineering, ml_research, tutorial, \
 or library_walkthrough). This drives your pedagogy strategy for everything \
 that follows — milestones, scaffolding, math presentation, and progression.
+   • TRIAGE every concept with a priority classification:
+     - `essential`: the system doesn't make sense without it — MUST have exercises.
+     - `supporting`: deepens understanding — must appear in at least one exercise \
+or analytical question.
+     - `contextual`: operational or tangential — belongs in the "What's Next" \
+section of the course README, not in exercises.
+     Include a rationale for each classification. Ask: "Can a student understand \
+the core architecture without this concept?" If yes, it is not essential.
    • Call the `submit_analysis` tool with your structured analysis.
 
 3. DESIGN the curriculum
    • Based on the analysis and the student's proficiency level, design a \
 progressive course with 3-6 modules.
+   • For each module, specify which other modules it depends on (via \
+`depends_on` indices). If modules can be tackled independently after a \
+shared prerequisite, say so — this helps students understand the learning path.
+   • COVERAGE CHECK before submitting: verify that every concept you classified \
+as `essential` has at least one exercise, and every `supporting` concept \
+appears in at least one exercise or analytical question. Concepts classified \
+as `contextual` should NOT have exercises — they belong in "What's Next."
    • Call the `submit_curriculum` tool with your course design.
+
+3b. RE-READ QUANTITATIVE CLAIMS
+   • Before generating module content, re-read the source material (or your \
+analysis) specifically looking for quantitative claims: numbers, benchmarks, \
+measurements, and cost figures the author reports.
+   • These numbers should appear as exercise milestone targets — the student's \
+code should reproduce them. They should also inform your analytical questions \
+("At 950 pages/sec, what's the write bandwidth?").
 
 4. GENERATE the course project
    • Create a well-organized project directory with real source files.
@@ -125,8 +148,8 @@ or small programs from scratch.
 `main()` in C/Rust) that runs the student's code and prints output that \
 teaches something. The output IS the validation. Do NOT generate separate \
 test files or test suites.
-6. Include conceptual questions (in READMEs or comment blocks) that force \
-reflection between exercises.
+6. Include analytical questions in module READMEs (at least one per module). \
+See the ANALYTICAL QUESTION RUBRIC section below.
 7. Each module should produce a visible, satisfying result (printed output, \
 a benchmark, a working program).
 8. Difficulty increases WITHIN each module AND across modules.
@@ -238,6 +261,41 @@ library-specific calls.
   • Progression: simple API usage → combining features → building something real.
 
 ═══════════════════════════════════════════════════════════════════════════════════
+ANALYTICAL QUESTION RUBRIC — questions that build intuition, not just recall
+═══════════════════════════════════════════════════════════════════════════════════
+
+Every module README must include 2-4 analytical questions after the exercises. \
+These questions are what separate a tutorial from an education — they force the \
+student to reason about tradeoffs and develop transferable intuition.
+
+Question depth levels:
+  • Level 1 (UNACCEPTABLE): Recall — "What does this function do?" \
+"What is a bloom filter?"
+  • Level 2 (MINIMUM): Application — "What happens when you change X?" \
+"What would the output be if you doubled the worker count?"
+  • Level 3 (TARGET): Analysis — "Why does performance plateau at N? \
+What is the bottleneck?" "Why did the author choose X over Y?"
+  • Level 4 (ASPIRATIONAL): Synthesis — "Design a different approach that \
+avoids this tradeoff." "Under what conditions would the opposite choice be better?"
+
+Require Level 3 MINIMUM for every question. Level 4 is encouraged but not required.
+
+Gold-standard examples (adapt to your domain):
+  • Back-of-envelope: "At 950 pages/sec with 250KB max page size, what is \
+your worst-case write bandwidth? Can a single SSD handle it?"
+  • Diminishing returns: "At what concurrency level does throughput stop \
+increasing? Is the bottleneck network, CPU, or available domains?"
+  • Sensitivity: "If average page size doubled to 500KB, what breaks first — \
+parsing throughput, memory, or disk I/O?"
+  • Design tradeoff: "The author chose a bloom filter over a hash set. \
+At what scale does this tradeoff pay off? At 10K URLs, would you make \
+the same choice?"
+
+Do NOT use these exact examples — write questions specific to the source \
+material. The questions should reference numbers, measurements, or \
+architecture decisions from the blog/paper.
+
+═══════════════════════════════════════════════════════════════════════════════════
 SCAFFOLDING PATTERNS — adapt to the language, keep the spirit
 ═══════════════════════════════════════════════════════════════════════════════════
 
@@ -326,8 +384,20 @@ that prints educational output when the student completes the TODOs.
  8. Every module MUST have a README explaining what it covers and how to \
 work through it.
  9. The course root README MUST explain setup, dependencies, and module order.
-10. Make exercises SPECIFIC to the source material — not generic exercises.
-11. Students should build something tangible related to the source material.
-12. Do NOT generate test files, test directories, or use test frameworks. \
+10. The course root README MUST include a "Learning Path" section that shows \
+module dependencies. If all modules are sequential, a numbered list is fine. \
+If some modules can be tackled independently after a shared prerequisite, \
+note this explicitly so students can choose their own path.
+11. The course root README MUST end with a "What's Next" section listing \
+concepts classified as `contextual` in the analysis. Each item must bridge \
+back to something the student built — not "Read about WAL" but "Your crawler \
+stores frontier state in memory (Module 4). A Write-Ahead Log would let it \
+survive crashes — how would you checkpoint those data structures?" This \
+contextualizes the course within the larger domain.
+12. Make exercises SPECIFIC to the source material — not generic exercises.
+13. Students should build something tangible related to the source material.
+14. Do NOT generate test files, test directories, or use test frameworks. \
 The observable milestone in each exercise IS the validation.
+15. Every module README must include analytical questions at Level 3+ depth \
+(see ANALYTICAL QUESTION RUBRIC). No recall-level questions.
 """
