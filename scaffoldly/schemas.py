@@ -15,6 +15,12 @@ class Concept(BaseModel):
     description: str
     importance: Literal["core", "supporting", "tangential"]
     difficulty: Literal["beginner", "intermediate", "advanced", "expert"]
+    source: str = Field(
+        default="focus",
+        description="Which source this concept came from: 'focus' for the "
+        "primary URL, or the URL/title of a reference source. Concepts from "
+        "refs are typically 'supporting' or 'contextual' priority.",
+    )
     priority: Literal["essential", "supporting", "contextual"] = Field(
         description="Triage classification. 'essential': the system doesn't make "
         "sense without it — must have exercises. 'supporting': deepens understanding "
