@@ -20,10 +20,23 @@ Meanwhile, structured courses like Stanford CS231n are incredibly effective beca
 ## Quick Start
 
 ```bash
-# Generate a course (requires Claude Code)
+# Single source
 uv run scaffoldly generate \
   "https://andrewkchan.dev/posts/yalm.html" \
   --level "mid-level Python developer, new to systems programming"
+
+# Blog series (Part 1 → Part 2 → Part 3)
+uv run scaffoldly generate "https://blog.example.com/crawler-part1" \
+  --ref "https://blog.example.com/crawler-part2" \
+  --ref "https://blog.example.com/crawler-part3" \
+  --series \
+  --level "junior Python dev"
+
+# Focus source + supplementary references
+uv run scaffoldly generate "https://arxiv.org/abs/main-paper" \
+  --ref "https://arxiv.org/abs/background-paper" \
+  --ref "https://blog.example.com/practical-take" \
+  --level "ML engineer, familiar with transformers"
 ```
 
 ## Usage
@@ -31,6 +44,8 @@ uv run scaffoldly generate \
 ```bash
 uv run scaffoldly generate <url> \
   --level "describe your current proficiency" \
+  [--ref <url>] \
+  [--series] \
   [--model claude-opus-4-6] \
   [--effort high] \
   [--output ./output] \
@@ -42,10 +57,18 @@ uv run scaffoldly generate <url> \
 | Flag | Default | Description |
 |------|---------|-------------|
 | `--level` | *required* | Free-text description of the student's current level |
+| `--ref` | — | Additional reference URL (repeatable). Skimmed for supplementary concepts, not deeply analyzed |
+| `--series` | `false` | Treat the primary URL and all `--ref` URLs as an ordered series (e.g. Part 1 → Part 2 → Part 3) |
 | `--model` | `claude-opus-4-6` | Claude model to use |
 | `--effort` | `high` | Agent effort level: `low`, `medium`, `high`, `max` |
 | `--output` | `./output` | Output directory for generated course |
 | `--max-turns` | `50` | Maximum agent turns before stopping |
+
+### Multi-Source Modes
+
+**Reference mode** (default when `--ref` is used): The primary URL drives the curriculum. Refs are skimmed with minimal effort — the agent extracts only concepts that supplement or contextualize the focus source (things it mentions but doesn't explain, complementary benchmarks, alternative approaches). Ref-sourced concepts are typically classified as `supporting` or `contextual`, not `essential`.
+
+**Series mode** (`--series`): All sources form an ordered progression. The curriculum spans the full arc across all posts. Each source is fetched thoroughly.
 
 ### Examples
 
@@ -70,12 +93,12 @@ The agent generates a **real project** with proper file structure. The language 
 
 ```
 output/billion_page_crawler/
-├── README.md                        # Course overview, setup, module order
+├── README.md                        # Course overview, setup, learning path, what's next
 ├── requirements.txt                 # Dependencies
-├── _analysis.json                   # Extracted concepts & prerequisites
-├── _curriculum.json                 # Course design
+├── _analysis.json                   # Extracted concepts with triage & provenance
+├── _curriculum.json                 # Course design with module dependencies
 ├── module_01_fetching/
-│   ├── README.md                    # Module intro & exercise guide
+│   ├── README.md                    # Module intro, exercises, analytical questions
 │   ├── ex01_sync_fetcher.py         # Scaffolded exercise with TODOs + milestone
 │   ├── ex02_async_fetcher.py        # Builds on exercise 01
 │   └── ex03_worker_scaling.py       # Builds on 01 and 02
@@ -84,6 +107,8 @@ output/billion_page_crawler/
 └── module_03_frontier/
     └── ...
 ```
+
+The course README includes a **Learning Path** showing module dependencies (which are sequential, which can be tackled independently) and a **What's Next** section that bridges to advanced topics not covered in exercises — pointing the student toward further exploration with context from what they already built.
 
 Exercises use scaffolded code with TODO markers and end with an **observable milestone** — a `__main__` block that runs the student's code and prints output that teaches something:
 
@@ -134,6 +159,27 @@ Scaffoldly detects the type of source material during analysis and adapts its ap
 
 For example, an ML paper on neural network compression would start with "quantize pi with 8, 4, 2, 1 bits — watch precision degrade" before introducing any equations. A systems blog about web crawlers would start with "fetch 50 pages synchronously — see why 4 pages/sec won't scale to 1 billion."
 
+### Concept Triage
+
+During analysis, every concept is classified with a priority:
+
+| Priority | Treatment |
+|----------|-----------|
+| **Essential** | Must have exercises — the system doesn't make sense without it |
+| **Supporting** | Must appear in at least one exercise or analytical question |
+| **Contextual** | Belongs in the "What's Next" section, not in exercises |
+
+The curriculum tool runs a coverage check after design: if any essential concept lacks an exercise, the agent is warned before generation begins. This prevents silent topic drops without forcing shallow coverage of everything.
+
+### Analytical Questions
+
+Module READMEs include analytical questions at Level 3+ depth — not recall ("What is a bloom filter?") but analysis and synthesis:
+
+- **Back-of-envelope**: "At 950 pages/sec with 250KB max page size, what's your worst-case write bandwidth?"
+- **Diminishing returns**: "At what concurrency level does throughput stop increasing? What's the bottleneck?"
+- **Sensitivity**: "If average page size doubled to 500KB, what breaks first?"
+- **Design tradeoff**: "The author chose a bloom filter over a hash set. At what scale does this pay off?"
+
 ## How It Works
 
 Scaffoldly is powered by the [Claude Agent SDK](https://github.com/anthropics/claude-agent-sdk-python), which runs Claude Code as an autonomous agent with full tool access.
@@ -141,20 +187,24 @@ Scaffoldly is powered by the [Claude Agent SDK](https://github.com/anthropics/cl
 ### Architecture
 
 ```
-scaffoldly generate <url> --level "..."
+scaffoldly generate <url> [--ref ...] [--series] --level "..."
         │
         ▼
-┌─────────────────────────────────┐
-│  Main Agent (Claude Code)       │
-│  System prompt: CS231n pedagogy │
-│                                 │
-│  1. Fetch source material       │
-│  2. Analyze → submit_analysis   │
-│  3. Design → submit_curriculum  │
-│  4. Generate → Write files       │
-│  5. Review (adversarial QA)     │
-│  6. Fix & resubmit if needed    │
-└────────┬───────────┬────────────┘
+┌──────────────────────────────────────┐
+│  Main Agent (Claude Code)            │
+│  System prompt: CS231n pedagogy      │
+│                                      │
+│  1. Fetch source(s)                  │
+│     (focus: deep read, refs: skim)   │
+│  2. Analyze + triage concepts        │
+│     → submit_analysis                │
+│  3. Design + coverage check          │
+│     → submit_curriculum              │
+│  3b. Re-read quantitative claims     │
+│  4. Generate → Write files           │
+│  5. Review (adversarial QA)          │
+│  6. Fix & resubmit if needed         │
+└────────┬───────────┬─────────────────┘
          │           │
     ┌────▼────┐ ┌────▼─────┐
     │module   │ │reviewer  │
