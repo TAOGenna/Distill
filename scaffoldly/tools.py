@@ -57,6 +57,7 @@ def _slugify(title: str) -> str:
         "title": str,
         "summary": str,
         "domain": str,
+        "content_type": str,
         "overall_difficulty": str,
         "key_concepts": list,
         "prerequisites": list,

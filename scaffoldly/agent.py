@@ -3,6 +3,9 @@
 from __future__ import annotations
 
 import sys
+import time
+
+from pathlib import Path
 
 import anyio
 from claude_agent_sdk import (
@@ -11,15 +14,52 @@ from claude_agent_sdk import (
     ClaudeAgentOptions,
     ClaudeSDKClient,
     ResultMessage,
+    TaskNotificationMessage,
+    TaskStartedMessage,
     TextBlock,
+    ToolResultBlock,
+    ToolUseBlock,
 )
 
 from .system_prompt import SYSTEM_PROMPT
 from .tools import create_scaffoldly_server, get_state, reset_state
 
 
-def _log(msg: str) -> None:
-    print(f"  → {msg}", file=sys.stderr, flush=True)
+# ── ANSI colors ──────────────────────────────────────────────────────────────
+
+class _C:
+    """ANSI color codes. Disabled if stderr is not a terminal."""
+    _enabled = hasattr(sys.stderr, "isatty") and sys.stderr.isatty()
+
+    RESET   = "\033[0m"   if _enabled else ""
+    BOLD    = "\033[1m"    if _enabled else ""
+    DIM     = "\033[2m"    if _enabled else ""
+    RED     = "\033[31m"   if _enabled else ""
+    GREEN   = "\033[32m"   if _enabled else ""
+    YELLOW  = "\033[33m"   if _enabled else ""
+    BLUE    = "\033[34m"   if _enabled else ""
+    MAGENTA = "\033[35m"   if _enabled else ""
+    CYAN    = "\033[36m"   if _enabled else ""
+    WHITE   = "\033[37m"   if _enabled else ""
+
+
+# ── Logging ──────────────────────────────────────────────────────────────────
+
+_start_time = 0.0
+
+
+def _log(msg: str, color: str = "") -> None:
+    elapsed = time.time() - _start_time if _start_time else 0
+    mins, secs = divmod(int(elapsed), 60)
+    ts = f"{_C.DIM}[{mins:02d}:{secs:02d}]{_C.RESET}"
+    c = color or _C.RESET
+    print(f"  {ts} {c}{msg}{_C.RESET}", file=sys.stderr, flush=True)
+
+
+def _log_step(msg: str) -> None:
+    """Log a step transition with a visible separator."""
+    print(file=sys.stderr, flush=True)
+    _log(f"{_C.BOLD}{msg}", _C.CYAN)
 
 
 # ── Sub-agent definitions ───────────────────────────────────────────────────────
@@ -128,6 +168,8 @@ async def run_agent(
             "Edit",
             "mcp__scaffoldly__submit_analysis",
             "mcp__scaffoldly__submit_curriculum",
+            "module_generator",
+            "reviewer",
         ],
         mcp_servers={"scaffoldly": server},
         agents={
@@ -158,7 +200,20 @@ async def run_agent(
         f"fetch → analyze → design → generate → review → fix → finish."
     )
 
-    _log("Starting Scaffoldly agent...")
+    global _start_time
+    _start_time = time.time()
+    step_start = _start_time
+    current_step = "fetch"
+
+    def _step_transition(new_step: str) -> None:
+        nonlocal step_start, current_step
+        elapsed = time.time() - step_start
+        mins, secs = divmod(int(elapsed), 60)
+        time_str = f"{mins}m {secs}s" if mins else f"{secs}s"
+        _log_step(f"  {current_step} completed ({time_str})")
+        current_step = new_step
+
+    _log_step("  Starting agent...")
 
     total_cost_usd = None
     usage = None
@@ -171,13 +226,67 @@ async def run_agent(
                 for block in message.content:
                     if isinstance(block, TextBlock):
                         _log(block.text[:200])
+                    elif isinstance(block, ToolUseBlock):
+                        args_str = ", ".join(
+                            f"{k}={str(v)[:60]}" for k, v in (block.input or {}).items()
+                        )
+                        _log(f"{block.name}({args_str})", _C.BLUE)
+                        # Track workflow step transitions
+                        if block.name == "mcp__scaffoldly__submit_analysis":
+                            _step_transition("analyze")
+                        elif block.name == "mcp__scaffoldly__submit_curriculum":
+                            _step_transition("design")
+                    elif isinstance(block, ToolResultBlock):
+                        if block.is_error:
+                            content_text = ""
+                            if isinstance(block.content, list):
+                                content_text = " ".join(
+                                    item.get("text", "") if isinstance(item, dict) else str(item)
+                                    for item in block.content
+                                )
+                            elif isinstance(block.content, str):
+                                content_text = block.content
+                            _log(f"ERROR: {content_text[:200]}", _C.RED)
+            elif isinstance(message, TaskStartedMessage):
+                task_desc = message.description or message.task_type or "unknown"
+                _log(f"sub-agent started: {task_desc}", _C.MAGENTA)
+                if current_step == "design" and "module" in task_desc.lower():
+                    _step_transition("generate")
+                elif "review" in task_desc.lower():
+                    _step_transition("review")
+            elif isinstance(message, TaskNotificationMessage):
+                status = message.status if hasattr(message, "status") else "unknown"
+                summary = (message.summary or "")[:150]
+                color = _C.GREEN if status == "completed" else _C.MAGENTA
+                _log(
+                    f"sub-agent {status}: {summary}" if summary else f"sub-agent {status}",
+                    color,
+                )
             elif isinstance(message, ResultMessage):
+                _step_transition("done")
                 total_cost_usd = message.total_cost_usd
                 usage = message.usage
-                _log("Agent finished.")
+                total_elapsed = time.time() - _start_time
+                mins, secs = divmod(int(total_elapsed), 60)
+                print(file=sys.stderr)
+                _log(f"{_C.BOLD}Agent finished. Total time: {mins}m {secs}s", _C.GREEN)
 
     state = get_state()
-    course_dir = state.get("course_dir", output_dir)
+    course_dir = state.get("course_dir") or output_dir
+
+    # Post-run validation: count generated files
+    course_path = Path(course_dir)
+    if course_path.exists():
+        generated_files = [f for f in course_path.rglob("*") if f.is_file() and not f.name.startswith("_")]
+        all_files = list(course_path.rglob("*"))
+        file_count = len(generated_files)
+        dir_count = sum(1 for f in all_files if f.is_dir())
+        _log(f"{course_dir}: {file_count} files in {dir_count} directories", _C.GREEN)
+        if file_count == 0:
+            _log("No course files were generated! Check errors above.", _C.RED)
+    else:
+        _log(f"Course directory does not exist: {course_dir}", _C.RED)
+
     return {
         "course_dir": course_dir,
         "total_cost_usd": total_cost_usd,
