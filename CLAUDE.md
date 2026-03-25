@@ -14,14 +14,14 @@ scaffoldly/
 
 ## Architecture
 
-Powered by the [Claude Agent SDK](https://github.com/anthropics/claude-agent-sdk-python). The main agent runs Claude Code with a system prompt encoding CS231n pedagogy.
+Powered by the [Claude Agent SDK](https://github.com/anthropics/claude-agent-sdk-python). Three-phase architecture:
 
 ```
 scaffoldly generate <url> [--ref ...] [--series] --level "..."
         │
         ▼
 ┌──────────────────────────────────────┐
-│  Main Agent (Claude Code)            │
+│  Phase 1: Main Agent (Opus)          │
 │                                      │
 │  1. Fetch source(s)                  │
 │     (focus: deep read, refs: skim)   │
@@ -30,24 +30,35 @@ scaffoldly generate <url> [--ref ...] [--series] --level "..."
 │  3. Design + coverage check          │
 │     → submit_curriculum              │
 │  3b. Re-read quantitative claims     │
-│  4. Generate → Write files           │
+│  4. Create root README + dirs        │
+│     → STOP                           │
+└──────────────┬───────────────────────┘
+               │
+               ▼
+┌──────────────────────────────────────┐
+│  Phase 2: Orchestrator (Python)      │
+│                                      │
+│  Parallel dispatch via query():      │
+│  ┌─────────┐ ┌─────────┐ ┌────────┐ │
+│  │module 0 │ │module 1 │ │module N│ │
+│  │(Sonnet) │ │(Sonnet) │ │(Sonnet)│ │
+│  └─────────┘ └─────────┘ └────────┘ │
+└──────────────┬───────────────────────┘
+               │
+               ▼
+┌──────────────────────────────────────┐
+│  Phase 3: Main Agent (Opus)          │
+│                                      │
 │  5. Review (adversarial QA)          │
+│     → reviewer sub-agent (Sonnet)    │
 │  6. Fix & resubmit if needed         │
-└────────┬───────────┬─────────────────┘
-         │           │
-    ┌────▼────┐ ┌────▼─────┐
-    │module   │ │reviewer  │
-    │generator│ │(Sonnet)  │
-    │(parallel│ │Audits 10 │
-    │ per mod)│ │quality   │
-    └─────────┘ │criteria  │
-                └──────────┘
+└──────────────────────────────────────┘
 ```
 
-## Sub-Agents
+## Sub-Agents & Dispatch
 
-- **module_generator** — generates source files for a single module. Can run in parallel.
-- **reviewer** — adversarial quality check against 10 criteria (structure, scaffolding, docs, milestones, progressive difficulty, syntax, realism, questions, outcomes, organization). Returns PASS or REVISE.
+- **module_generator** — dispatched programmatically by the orchestrator (not by the LLM). Uses standalone `query()` per module, all running in parallel via `anyio.create_task_group()`. Each gets a self-contained system prompt with full pedagogy guidelines.
+- **reviewer** — dispatched by the main agent in Phase 3. Adversarial quality check against 10 criteria (structure, scaffolding, docs, milestones, progressive difficulty, syntax, realism, questions, outcomes, organization). Returns PASS or REVISE.
 
 ## Custom Tools (MCP)
 

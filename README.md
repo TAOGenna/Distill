@@ -57,10 +57,11 @@ uv run scaffoldly generate <url> \
 | `--level` | *required* | Free-text description of the student's current level |
 | `--ref` | — | Additional reference URL (repeatable). Skimmed for supplementary concepts |
 | `--series` | `false` | Treat all URLs as an ordered series (e.g. Part 1 → Part 2 → Part 3) |
-| `--model` | `claude-opus-4-6` | Claude model to use |
+| `--model` | `claude-opus-4-6` | Model for analysis and curriculum design |
+| `--generate-model` | `sonnet` | Model for module generation sub-agents |
 | `--effort` | `high` | Agent effort level: `low`, `medium`, `high`, `max` |
 | `--output` | `./output` | Output directory for generated course |
-| `--max-turns` | `50` | Maximum agent turns before stopping |
+| `--max-turns` | `30` | Maximum agent turns per phase |
 
 **Reference mode** (default with `--ref`): The primary URL drives the curriculum. Refs are skimmed with minimal effort for supplementary concepts only.
 
