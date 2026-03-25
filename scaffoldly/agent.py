@@ -75,8 +75,9 @@ CHECK EACH OF THESE (report PASS or FAIL with specifics):
 
 1. PROJECT STRUCTURE: Is the course well-organized into modules/directories?
    Are there clear READMEs explaining how to work through each module?
-2. SCAFFOLDING: Do exercise files use clear TODO markers and comments
-   guiding the student on what to implement?
+2. SCAFFOLDING: Do exercise files use clear TODO markers with line-count
+   hints (~N lines) guiding the student on what to implement? For debug/explore
+   exercises, is the provided code realistic and domain-appropriate?
 3. DOCUMENTATION: Do scaffolded functions have thorough docstrings/comments
    explaining the algorithm step by step?
 4. MILESTONES: Does every exercise end with a __main__ block (or main())
@@ -113,6 +114,8 @@ Generate well-organized source files for the module:
   not recall). See the course context for the question rubric.
 - Any supporting files (data, configs, Makefiles, etc.)
 - Do NOT create test files or use test frameworks
+- For contrastive, debug, explore, and comparative exercises, follow the
+  exercise type's conventions from the course context.
 
 Use Write to create each file. Use Bash to validate syntax/compilation.
 Choose the right language and file structure for the domain.

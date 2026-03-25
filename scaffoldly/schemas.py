@@ -70,7 +70,10 @@ class Analysis(BaseModel):
 
 class Exercise(BaseModel):
     title: str
-    type: Literal["implement", "fill_blank", "debug", "analyze", "extend"]
+    type: Literal[
+        "implement", "fill_blank", "debug", "analyze", "extend",
+        "contrastive", "comparative", "explore",
+    ]
     description: str
     scaffolding_level: Literal["heavy", "medium", "light", "none"]
     what_is_provided: str

@@ -160,6 +160,21 @@ CS231n DESIGN PRINCIPLES — apply these to every curriculum and module
 provided function. Most of the code is given.
 4. Later modules: LIGHTER scaffolding — student implements entire functions \
 or small programs from scratch.
+4b. EXERCISE TYPE PATTERNS (use the matching `type` in the curriculum):
+   • `contrastive`: student implements the NAIVE approach first, runs it, sees \
+it fail or perform poorly, THEN builds the correct solution. The failure \
+experience cements why the real approach matters. Use 1-2 per course where \
+the source material explicitly discusses why a naive approach fails.
+   • `debug`: provide working-looking code with 2-3 SUBTLE bugs (off-by-one, \
+race condition, numerical instability). The milestone reveals the bug via \
+wrong output. Student finds and fixes it; milestone output changes to correct. \
+The bugs must be realistic for the source material's domain.
+   • `comparative`: student implements two approaches (or varies a parameter), \
+runs both, prints a side-by-side comparison. Ideal for ablation studies, \
+algorithm tradeoffs, or parameter sensitivity from the source material.
+   • `explore`: provide COMPLETE working code. Student varies parameters \
+(marked with `# TRY:` comments), runs multiple times, observes how output \
+changes. Follow with an analytical question asking them to explain the pattern.
 5. EVERY exercise must have an observable milestone — a `__main__` block (or \
 `main()` in C/Rust) that runs the student's code and prints output that \
 teaches something. The output IS the validation. Do NOT generate separate \
@@ -169,7 +184,12 @@ See the ANALYTICAL QUESTION RUBRIC section below.
 7. Each module should produce a visible, satisfying result (printed output, \
 a benchmark, a working program).
 8. Difficulty increases WITHIN each module AND across modules.
-9. Later modules should reuse code/concepts from earlier modules.
+9. Later modules should reuse code/concepts from earlier modules. Exercise \
+docstrings should reference prior work explicitly: "Recall: In ex02 of \
+Module 1, you implemented X — here we extend it to handle Y."
+10. Name exercises and README sections as CLAIMS, not topics. \
+"Why Batch Normalization Rescues Deep Networks" not "Batch Normalization". \
+The title tells the student what they will discover.
 
 ═══════════════════════════════════════════════════════════════════════════════════
 OBSERVABLE MILESTONES — the replacement for tests
@@ -184,6 +204,8 @@ Good milestone output:
   • Prints a MEASUREMENT the blog discussed (throughput, memory, latency, recall)
   • The number is surprising or educational — it motivates the next exercise
   • Optionally includes a 1-2 line hint connecting the output to the blog's lesson
+  • Uses MULTIPLE modalities where natural — printed numbers, saved plots \
+(plt.savefig), and ASCII tables/diagrams. A single exercise can combine output forms.
 
 Example (Python):
 ```python
@@ -200,21 +222,8 @@ if __name__ == "__main__":
     print(">> Next exercise: async fetching to close that gap.")
 ```
 
-Example (C):
-```c
-int main(void) {{
-    struct timespec start, end;
-    clock_gettime(CLOCK_MONOTONIC, &start);
-    struct allocator *a = allocator_create(POOL_SIZE);
-    /* ... student's code runs ... */
-    clock_gettime(CLOCK_MONOTONIC, &end);
-    double ms = (end.tv_sec - start.tv_sec) * 1000.0
-              + (end.tv_nsec - start.tv_nsec) / 1e6;
-    printf("Allocated %d objects in %.2f ms\\n", count, ms);
-    printf(">> glibc malloc does this in ~%.2f ms. How close are you?\\n", baseline_ms);
-    return 0;
-}}
-```
+For C/Rust: same pattern in `main()` — use `clock_gettime`/`Instant::now()` \
+and `printf`/`println!` to print measurements + motivating hints.
 
 What NOT to do:
   • Do NOT create tests/ directories or test files
@@ -256,6 +265,9 @@ Introduce equations only after the student has seen the behavior they describe.
   • Math: explain equations in the module README in plain language, then \
 translate them to code in the exercise docstrings step by step. The README \
 says what the equation means, the docstring says how to implement it.
+  • Notation: each module README must open with a Notation section defining \
+every symbol used in that module's exercises (e.g., "W: weight matrix, shape \
+(d_in, d_out)"). Define symbols at point of use, never leave one undefined.
   • Progression: atom → atom → combine. Each exercise covers ONE concept. \
 The final module wires all atoms together to reproduce the paper's result.
   • Example milestone: "Quantize pi: 8-bit→3.1406, 4-bit→3.0, 1-bit→0.0"
@@ -317,9 +329,9 @@ SCAFFOLDING PATTERNS — adapt to the language, keep the spirit
 
 The core idea: give the student a file with structure and context, mark \
 exactly where they need to write code, and end with a runnable milestone \
-that shows them the result.
+that shows them the result. Include an estimated line count (~N lines) in \
+each TODO marker to set student expectations.
 
-For Python:
 ```python
 def function_name(arg1, arg2):
     \"\"\"Thorough docstring explaining the algorithm step by step.
@@ -330,7 +342,7 @@ def function_name(arg1, arg2):
     3. Finally, we return Z
     \"\"\"
     # ========================================================================
-    # TODO: Implement [clear description of what to do]
+    # TODO: Implement [clear description of what to do] (~8-12 lines)
     #
     # Hint: [concrete hint about the approach]
     # ========================================================================
@@ -338,52 +350,10 @@ def function_name(arg1, arg2):
     # ========================================================================
 ```
 
-For C/C++:
-```c
-/*
- * function_name - Brief description
- *
- * The approach:
- * 1. First, allocate...
- * 2. Then, iterate...
- * 3. Finally, return...
- *
- * @param arg1  Description
- * @return      Description
- */
-int function_name(int arg1) {
-    /* ======================================================================
-     * TODO: Implement [clear description]
-     *
-     * Hint: [concrete hint]
-     * ====================================================================== */
-
-    return -1; /* Replace with your implementation */
-}
-```
-
-For Rust:
-```rust
-/// Thorough doc comment explaining the algorithm
-///
-/// # Approach
-/// 1. First, we...
-/// 2. Then, we...
-///
-/// # Examples
-/// ```
-/// let result = function_name(input);
-/// assert_eq!(result, expected);
-/// ```
-pub fn function_name(arg1: Type) -> ReturnType {
-    // ======================================================================
-    // TODO: Implement [clear description]
-    //
-    // Hint: [concrete hint]
-    // ======================================================================
-    todo!("Implement this function")
-}
-```
+Adapt to C/C++ (Doxygen `@param`/`@return`, `/* TODO: ... (~N lines) */`, \
+`return -1;` sentinel) and Rust (`///` doc comments, `// TODO: ... (~N lines)`, \
+`todo!()` macro). The pattern is the same: docstring → TODO with line count → \
+sentinel return.
 
 ═══════════════════════════════════════════════════════════════════════════════════
 HARD REQUIREMENTS
@@ -416,4 +386,6 @@ contextualizes the course within the larger domain.
 The observable milestone in each exercise IS the validation.
 15. Every module README must include analytical questions at Level 3+ depth \
 (see ANALYTICAL QUESTION RUBRIC). No recall-level questions.
+16. The course root README MUST end with a metadata line: \
+"---\\n_Generated from [source URL] on [date] by scaffoldly._"
 """
