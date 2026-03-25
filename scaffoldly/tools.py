@@ -35,7 +35,7 @@ def get_state() -> dict[str, Any]:
 def reset_state(output_dir: str = "./output") -> None:
     _state["analysis"] = None
     _state["curriculum"] = None
-    _state["output_dir"] = output_dir
+    _state["output_dir"] = str(Path(output_dir).resolve())
     _state["course_dir"] = None
 
 
@@ -53,17 +53,7 @@ def _slugify(title: str) -> str:
     "submit_analysis",
     "Submit the structured analysis of the source material. "
     "Call this after you have fetched and studied the content.",
-    {
-        "title": str,
-        "summary": str,
-        "domain": str,
-        "content_type": str,
-        "overall_difficulty": str,
-        "key_concepts": list,
-        "prerequisites": list,
-        "code_patterns": list,
-        "learning_goals": list,
-    },
+    Analysis.model_json_schema(),
 )
 async def submit_analysis(args: dict) -> dict:
     try:
@@ -113,11 +103,7 @@ async def submit_analysis(args: dict) -> dict:
     "submit_curriculum",
     "Submit the course curriculum design. "
     "Call this after submit_analysis, before generating modules.",
-    {
-        "course_title": str,
-        "course_description": str,
-        "modules": list,
-    },
+    Curriculum.model_json_schema(),
 )
 async def submit_curriculum(args: dict) -> dict:
     try:
@@ -173,12 +159,12 @@ async def submit_curriculum(args: dict) -> dict:
                 f"{len(curriculum.modules)} modules:\n{module_listing}\n"
                 f"{coverage_note}\n\n"
                 "NEXT: Re-read the source material's quantitative claims "
-                "(numbers, benchmarks, measurements) before generating. "
-                "These should appear as exercise milestone targets and "
-                "inform your analytical questions.\n\n"
-                "Then generate the course project. Use Write to create source "
-                "files, READMEs, and any other files directly in the "
-                "course directory. Use Bash to compile/run and validate."
+                "(numbers, benchmarks, measurements). Then:\n"
+                "1. Create the course root README.md and requirements file.\n"
+                "2. Create module directories with mkdir.\n"
+                "3. Summarize the key quantitative claims that should appear "
+                "as exercise milestone targets.\n"
+                "4. STOP. Module generation will proceed automatically."
             ),
         }]
     }
