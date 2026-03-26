@@ -162,6 +162,10 @@ def _cmd_generate(args):
         sources_dir=str(sources_dir),
     )
 
+    # Clean up preprocessed sources
+    import shutil
+    shutil.rmtree(sources_dir, ignore_errors=True)
+
     course_dir = result["course_dir"]
     total_cost_usd = result["total_cost_usd"]
     usage = result["usage"]
