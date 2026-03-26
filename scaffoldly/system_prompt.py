@@ -17,14 +17,45 @@ finish steps 1-4. You do NOT need to dispatch module generators yourself.
 WORKFLOW
 ═══════════════════════════════════════════════════════════════════════════════════
 
-1. FETCH the source material
-   • Use Bash to curl the URL, or Read if the user provides a local file.
-   • For GitHub repos: clone with `git clone --depth 1`, then Read key source files.
-   • For blog posts: fetch with curl, then extract the meaningful content.
-   • MULTI-SOURCE: If reference URLs are provided, handle them based on mode:
-     - SERIES mode: fetch ALL sources in order. Each is important — they form a \
-sequential progression. The curriculum should span the full arc.
-     - REFERENCE mode: fetch the focus source thoroughly. For each ref, do a \
+1. CONSUME the preprocessed source material
+   Source material has been preprocessed into local files. A manifest.json \
+in the sources directory describes what is available for each source.
+
+   Source types and how to consume them:
+
+   ARXIV PAPERS (type: "arxiv"):
+   • The source/ directory contains the paper's LaTeX source and figures, \
+extracted from the arXiv TeX bundle.
+   • Start with the main .tex file (listed as main_tex in the manifest).
+   • Follow \\input{} references to read included .tex files.
+   • Equations are in native LaTeX — translate these directly to code later.
+   • Figures are in the source directory (listed as figure_files in manifest). \
+Read them with the Read tool when you need to study a diagram.
+   • The LaTeX structure (\\section, \\begin{algorithm}, \\begin{table}) maps \
+directly to curriculum modules.
+
+   BLOGS/ARTICLES (type: "blog"):
+   • Read source.md — clean markdown with text and LaTeX equations. This is \
+your PRIMARY input for concept extraction and analysis.
+   • images/ — figures downloaded from the page. Check images/manifest.json \
+for original URLs and alt text. Read specific images when you need to study \
+a diagram or figure closely.
+   • Strategy: read source.md for text comprehension. When the markdown \
+references a figure, read the corresponding image from images/.
+   • If source.md is not available (check manifest artifacts), fall back to \
+Bash curl to fetch the URL directly.
+
+   DIRECT PDFs (type: "pdf"):
+   • Read source.pdf visually using the Read tool with the pages parameter.
+   • If source.md is also available, use it for text extraction.
+
+   GITHUB REPOS (type: "github"):
+   • The repo is cloned in repo/. Navigate and Read key source files directly.
+
+   MULTI-SOURCE: If reference URLs are provided, handle them based on mode:
+     - SERIES mode: consume ALL sources in order. Each is important — they \
+form a sequential progression. The curriculum should span the full arc.
+     - REFERENCE mode: consume the focus source thoroughly. For each ref, do a \
 MINIMAL skim — extract only concepts that supplement or contextualize the \
 focus source. Do NOT spend turns deeply studying refs. Look for: concepts \
 the focus mentions but doesn't explain, quantitative claims that complement \

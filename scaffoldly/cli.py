@@ -104,7 +104,6 @@ def main():
         default=30,
         help="Maximum agent turns before stopping (default: 30)",
     )
-
     args = parser.parse_args()
 
     if not args.command:
@@ -118,6 +117,7 @@ def main():
 def _cmd_generate(args):
     """Generate a full course from a URL using the agent."""
     from .agent import run_agent_sync
+    from .fetch import preprocess_sources
 
     _err = lambda s="": print(s, file=sys.stderr)
 
@@ -133,6 +133,21 @@ def _cmd_generate(args):
     _err(f"  {_C.DIM}{'─' * 50}{_C.RESET}")
     _err()
 
+    # Preprocess sources into local artifacts
+    _level_colors = {"info": _C.DIM, "ok": _C.GREEN, "warn": _C.YELLOW, "error": _C.RED}
+    _err(f"  {_C.DIM}Preprocessing sources...{_C.RESET}")
+    sources_dir = preprocess_sources(
+        focus_url=args.url,
+        refs=args.refs,
+        series=args.series,
+        output_dir=args.output,
+        log=lambda msg, level="info": _err(
+            f"    {_level_colors.get(level, _C.DIM)}{msg}{_C.RESET}"
+        ),
+    )
+    _err(f"  {_C.GREEN}Sources ready{_C.RESET}")
+    _err()
+
     wall_start = time.time()
     result = run_agent_sync(
         url=args.url,
@@ -144,7 +159,12 @@ def _cmd_generate(args):
         generate_model=args.generate_model,
         effort=args.effort,
         max_turns=args.max_turns,
+        sources_dir=str(sources_dir),
     )
+
+    # Clean up preprocessed sources
+    import shutil
+    shutil.rmtree(sources_dir, ignore_errors=True)
 
     course_dir = result["course_dir"]
     total_cost_usd = result["total_cost_usd"]

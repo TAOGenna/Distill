@@ -288,6 +288,7 @@ async def run_agent(
     generate_model: str = "sonnet",
     effort: str | None = "high",
     max_turns: int = 50,
+    sources_dir: str | None = None,
 ) -> dict:
     """Run the Scaffoldly agent to generate coursework from a URL.
 
@@ -321,31 +322,45 @@ async def run_agent(
         agents={"reviewer": REVIEWER_AGENT},
     )
 
-    # Build the prompt with optional multi-source context
-    source_lines = [f"  Focus URL: {url}"]
-    if refs:
-        if series:
-            source_lines.append(
-                "  Mode: SERIES (sources form an ordered progression)"
-            )
-            for i, ref in enumerate(refs, start=2):
-                source_lines.append(f"  Part {i}: {ref}")
-        else:
-            source_lines.append(
-                "  Mode: REFERENCE (focus + supplementary context)"
-            )
-            for ref in refs:
-                source_lines.append(f"  Reference: {ref}")
-    sources_block = "\n".join(source_lines)
+    # Build the prompt — use preprocessed sources if available, else raw URLs
+    manifest_path = Path(sources_dir) / "manifest.json" if sources_dir else None
+    if manifest_path and manifest_path.exists():
+        manifest = json.loads(manifest_path.read_text())
+        phase1_prompt = (
+            f"Generate a CS231n-style progressive course from preprocessed sources.\n"
+            f"  Sources directory: {sources_dir}\n"
+            f"  Original URL: {url}\n"
+            f"  Student level: {user_level}\n"
+            f"  Output directory: {abs_output_dir}\n\n"
+            f"Source manifest:\n{json.dumps(manifest, indent=2)}\n\n"
+            f"Follow your workflow: consume → analyze → design → create root files → stop.\n"
+            f"Module generation will be handled automatically after you finish."
+        )
+    else:
+        source_lines = [f"  Focus URL: {url}"]
+        if refs:
+            if series:
+                source_lines.append(
+                    "  Mode: SERIES (sources form an ordered progression)"
+                )
+                for i, ref in enumerate(refs, start=2):
+                    source_lines.append(f"  Part {i}: {ref}")
+            else:
+                source_lines.append(
+                    "  Mode: REFERENCE (focus + supplementary context)"
+                )
+                for ref in refs:
+                    source_lines.append(f"  Reference: {ref}")
+        sources_block = "\n".join(source_lines)
 
-    phase1_prompt = (
-        f"Generate a CS231n-style progressive course from these sources:\n"
-        f"{sources_block}\n"
-        f"  Student level: {user_level}\n"
-        f"  Output directory: {abs_output_dir}\n\n"
-        f"Follow your workflow: fetch → analyze → design → create root files → stop.\n"
-        f"Module generation will be handled automatically after you finish."
-    )
+        phase1_prompt = (
+            f"Generate a CS231n-style progressive course from these sources:\n"
+            f"{sources_block}\n"
+            f"  Student level: {user_level}\n"
+            f"  Output directory: {abs_output_dir}\n\n"
+            f"Follow your workflow: fetch → analyze → design → create root files → stop.\n"
+            f"Module generation will be handled automatically after you finish."
+        )
 
     global _start_time
     _start_time = time.time()
@@ -469,6 +484,7 @@ def run_agent_sync(
     generate_model: str = "sonnet",
     effort: str | None = "high",
     max_turns: int = 50,
+    sources_dir: str | None = None,
 ) -> dict:
     """Synchronous wrapper around run_agent for CLI use."""
     return anyio.run(
@@ -482,5 +498,6 @@ def run_agent_sync(
             generate_model,
             effort,
             max_turns,
+            sources_dir,
         )
     )
