@@ -37,15 +37,11 @@ directly to curriculum modules.
    BLOGS/ARTICLES (type: "blog"):
    • Read source.md — clean markdown with text and LaTeX equations. This is \
 your PRIMARY input for concept extraction and analysis.
-   • source.pdf — visual rendering of the page as the reader sees it. Read \
-specific pages (using the pages parameter) when you need to see figures, \
-diagrams, rendered equations, or understand the visual layout.
-   • images/ — individual figures extracted from the page. Check \
-images/manifest.json for descriptions and captions. Read specific images \
-when you need to study a diagram closely.
-   • Strategy: start with source.md for text comprehension. Consult source.pdf \
-when the markdown references a figure or when you need visual context. Read \
-individual images when a figure is central to a concept.
+   • images/ — figures downloaded from the page. Check images/manifest.json \
+for original URLs and alt text. Read specific images when you need to study \
+a diagram or figure closely.
+   • Strategy: read source.md for text comprehension. When the markdown \
+references a figure, read the corresponding image from images/.
    • If source.md is not available (check manifest artifacts), fall back to \
 Bash curl to fetch the URL directly.
 

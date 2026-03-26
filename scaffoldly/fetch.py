@@ -3,9 +3,9 @@
 Routes each URL by pattern (arxiv, github, pdf, blog) and produces a
 _sources/ directory with artifacts the agent can consume locally.
 
-Blog/article sources get the full Playwright pipeline: browser rendering →
-PDF (screen media), image extraction via element.screenshot(), plus Jina
-Reader for clean markdown. ArXiv papers get TeX source directly.
+ArXiv papers get TeX source directly. Blogs get clean markdown via Jina
+Reader plus images downloaded from the markdown. PDFs are downloaded.
+GitHub repos are shallow-cloned.
 """
 
 from __future__ import annotations
@@ -21,20 +21,15 @@ import tarfile
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable, Literal
+from urllib.parse import urljoin, urlparse
 
 import httpx
-
-try:
-    from playwright.sync_api import sync_playwright
-
-    _HAS_PLAYWRIGHT = True
-except ImportError:
-    _HAS_PLAYWRIGHT = False
 
 SourceType = Literal["arxiv", "github", "pdf", "blog"]
 
 _FIGURE_EXTS = frozenset({".png", ".jpg", ".jpeg", ".pdf", ".eps", ".svg", ".gif"})
-_MIN_IMAGE_DIM = 50  # skip images smaller than 50x50 (icons, tracking pixels)
+_IMAGE_EXTS = frozenset({".png", ".jpg", ".jpeg", ".gif", ".svg", ".webp"})
+_MIN_IMAGE_BYTES = 2048  # skip tiny images (icons, tracking pixels, spacers)
 
 
 # ── Source type detection ────────────────────────────────────────────────────
@@ -142,15 +137,8 @@ def _fetch_arxiv(paper_id: str, dest: Path, log: Callable) -> dict[str, Any]:
     return meta
 
 
-def _fetch_blog(
-    url: str, dest: Path, log: Callable, *, render: bool = True,
-) -> dict[str, Any]:
-    """Fetch blog content: Playwright (PDF + images) + Jina (markdown).
-
-    When render=True and Playwright is available, launches headless Chromium
-    to capture the page as the reader sees it. Falls back to Jina-only if
-    Playwright is unavailable or fails.
-    """
+def _fetch_blog(url: str, dest: Path, log: Callable) -> dict[str, Any]:
+    """Fetch blog content: Jina Reader for markdown, then download images from it."""
     meta: dict[str, Any] = {
         "url": url,
         "type": "blog",
@@ -159,18 +147,8 @@ def _fetch_blog(
         "errors": [],
     }
 
-    # ── Playwright: PDF + images ─────────────────────────────────────────
-    if render and _HAS_PLAYWRIGHT:
-        try:
-            _playwright_render(url, dest, meta, log)
-        except Exception as e:
-            meta["errors"].append(f"Playwright failed: {e}")
-            log(f"Playwright failed: {e}")
-    elif render and not _HAS_PLAYWRIGHT:
-        meta["errors"].append("Playwright not installed, skipping render")
-        log("Playwright not installed — run: pip install playwright && playwright install chromium")
-
     # ── Jina Reader: markdown ────────────────────────────────────────────
+    markdown = None
     log("Fetching markdown via Jina Reader...")
     with httpx.Client(follow_redirects=True, timeout=30) as client:
         try:
@@ -179,11 +157,11 @@ def _fetch_blog(
                 headers={"Accept": "text/markdown"},
             )
             if resp.status_code == 200 and len(resp.text.strip()) > 100:
-                (dest / "source.md").write_text(resp.text)
+                markdown = resp.text
+                (dest / "source.md").write_text(markdown)
                 meta["artifacts"].append("source.md")
-                meta["markdown_source"] = "jina"
-                meta["markdown_length_chars"] = len(resp.text)
-                log(f"Got {len(resp.text)} chars of markdown")
+                meta["markdown_length_chars"] = len(markdown)
+                log(f"Got {len(markdown)} chars of markdown")
             else:
                 meta["errors"].append(
                     f"Jina returned {resp.status_code} or too short"
@@ -193,137 +171,82 @@ def _fetch_blog(
             meta["errors"].append(f"Jina request failed: {e}")
             log("Jina unreachable, agent will curl directly")
 
+    # ── Extract and download images from markdown ────────────────────────
+    if markdown:
+        images = _download_images_from_markdown(markdown, url, dest, log)
+        if images:
+            meta["artifacts"].append("images/")
+            meta["images_downloaded"] = len(images)
+
     (dest / "meta.json").write_text(json.dumps(meta, indent=2))
     return meta
 
 
-def _playwright_render(
-    url: str, dest: Path, meta: dict, log: Callable,
-) -> None:
-    """Use Playwright to render the page, generate PDF, and extract images."""
-    _ensure_chromium(log)
+def _download_images_from_markdown(
+    markdown: str, base_url: str, dest: Path, log: Callable,
+) -> list[dict]:
+    """Parse image URLs from markdown, download them, return manifest entries."""
+    # Match markdown image syntax: ![alt](url)
+    img_pattern = re.compile(r"!\[([^\]]*)\]\(([^)]+)\)")
+    matches = img_pattern.findall(markdown)
+    if not matches:
+        return []
 
-    log("Launching browser...")
-    with sync_playwright() as pw:
-        browser = pw.chromium.launch()
-        page = browser.new_page(viewport={"width": 1280, "height": 900})
+    images_dir = dest / "images"
+    images_dir.mkdir(exist_ok=True)
+    manifest = []
+    seen_urls: set[str] = set()
+    fig_num = 0
 
-        # Navigate and wait for content
-        log("Loading page...")
-        page.goto(url, wait_until="networkidle", timeout=30_000)
+    with httpx.Client(follow_redirects=True, timeout=15) as client:
+        for alt_text, img_url in matches:
+            # Resolve relative URLs
+            resolved = urljoin(base_url, img_url)
 
-        # Scroll to trigger lazy-loaded images
-        page.evaluate("""
-            async () => {
-                const delay = ms => new Promise(r => setTimeout(r, ms));
-                const height = document.body.scrollHeight;
-                const step = window.innerHeight;
-                for (let y = 0; y < height; y += step) {
-                    window.scrollTo(0, y);
-                    await delay(100);
-                }
-                window.scrollTo(0, 0);
-            }
-        """)
-        page.wait_for_load_state("networkidle")
-
-        # Wait for MathJax/KaTeX rendering
-        page.wait_for_function(
-            "() => !document.querySelector('.MathJax_Processing')",
-            timeout=10_000,
-        )
-
-        # Remove cookie banners / overlays
-        page.evaluate("""
-            () => {
-                const selectors = [
-                    '[class*="cookie"]', '[id*="cookie"]',
-                    '[class*="consent"]', '[id*="consent"]',
-                    '[class*="gdpr"]',
-                ];
-                for (const sel of selectors) {
-                    document.querySelectorAll(sel).forEach(el => el.remove());
-                }
-            }
-        """)
-
-        # ── Generate PDF (screen media, not print) ──────────────────────
-        pdf_path = dest / "source.pdf"
-        page.emulate_media(media="screen")
-        page.pdf(
-            path=str(pdf_path),
-            format="A4",
-            print_background=True,
-            margin={"top": "0.5in", "right": "0.5in",
-                    "bottom": "0.5in", "left": "0.5in"},
-        )
-        meta["artifacts"].append("source.pdf")
-        log(f"PDF saved ({pdf_path.stat().st_size // 1024}KB)")
-
-        # ── Extract images ──────────────────────────────────────────────
-        images_dir = dest / "images"
-        images_dir.mkdir(exist_ok=True)
-
-        img_elements = page.query_selector_all("img")
-        image_manifest = []
-        seen_hashes: set[str] = set()
-        fig_num = 0
-
-        for img in img_elements:
-            bbox = img.bounding_box()
-            if not bbox:
+            # Skip duplicates and data URIs
+            if resolved in seen_urls or resolved.startswith("data:"):
                 continue
-            if bbox["width"] < _MIN_IMAGE_DIM or bbox["height"] < _MIN_IMAGE_DIM:
+            seen_urls.add(resolved)
+
+            # Skip non-image URLs
+            parsed = urlparse(resolved)
+            ext = Path(parsed.path).suffix.lower()
+            if ext and ext not in _IMAGE_EXTS:
                 continue
 
-            # Screenshot the element as rendered
-            screenshot_bytes = img.screenshot()
-            if not screenshot_bytes:
+            try:
+                resp = client.get(resolved)
+                if resp.status_code != 200:
+                    continue
+
+                # Skip tiny images (icons, spacers, tracking pixels)
+                if len(resp.content) < _MIN_IMAGE_BYTES:
+                    continue
+
+                # Determine extension from content-type if URL didn't have one
+                if not ext:
+                    ct = resp.headers.get("content-type", "")
+                    ext = _ext_from_content_type(ct) or ".png"
+
+                fig_num += 1
+                filename = f"fig_{fig_num:02d}{ext}"
+                (images_dir / filename).write_bytes(resp.content)
+
+                manifest.append({
+                    "filename": filename,
+                    "original_url": resolved,
+                    "alt_text": alt_text,
+                })
+            except (httpx.RequestError, httpx.HTTPStatusError):
                 continue
 
-            # Deduplicate by content hash
-            img_hash = hashlib.sha256(screenshot_bytes).hexdigest()[:16]
-            if img_hash in seen_hashes:
-                continue
-            seen_hashes.add(img_hash)
+    if manifest:
+        (images_dir / "manifest.json").write_text(json.dumps(manifest, indent=2))
+        log(f"Downloaded {len(manifest)} images")
+    else:
+        log("No content images found")
 
-            fig_num += 1
-            filename = f"fig_{fig_num:02d}.png"
-            (images_dir / filename).write_bytes(screenshot_bytes)
-
-            # Extract context
-            alt = img.get_attribute("alt") or ""
-            src = img.get_attribute("src") or ""
-            caption = img.evaluate("""
-                el => {
-                    const parent = el.closest('figure, .figure, p, section, article') || el.parentElement;
-                    const cap = parent?.querySelector('figcaption')?.textContent?.trim() || '';
-                    return cap;
-                }
-            """)
-
-            image_manifest.append({
-                "filename": filename,
-                "original_url": src,
-                "alt_text": alt,
-                "caption": caption,
-                "dimensions": {
-                    "width": int(bbox["width"]),
-                    "height": int(bbox["height"]),
-                },
-            })
-
-        if image_manifest:
-            (images_dir / "manifest.json").write_text(
-                json.dumps(image_manifest, indent=2)
-            )
-            meta["artifacts"].append("images/")
-            meta["images_extracted"] = len(image_manifest)
-            log(f"Extracted {len(image_manifest)} images")
-        else:
-            log("No content images found")
-
-        browser.close()
+    return manifest
 
 
 def _fetch_pdf(url: str, dest: Path, log: Callable) -> dict[str, Any]:
@@ -403,7 +326,6 @@ def preprocess_sources(
     series: bool = False,
     output_dir: str = "./output",
     log: Callable | None = None,
-    render: bool = True,
 ) -> Path:
     """Preprocess source URLs into local artifacts.
 
@@ -425,7 +347,7 @@ def preprocess_sources(
         manifest["focus"] = _manifest_entry(focus_url, "focus", cached_meta)
     else:
         focus_dest.mkdir(parents=True, exist_ok=True)
-        focus_meta = _fetch_source(focus_url, focus_dest, log, render=render)
+        focus_meta = _fetch_source(focus_url, focus_dest, log)
         manifest["focus"] = _manifest_entry(focus_url, "focus", focus_meta)
 
     # Additional sources
@@ -440,10 +362,7 @@ def preprocess_sources(
                 entry = _manifest_entry(ref_url, dir_name, cached_meta)
             else:
                 ref_dest.mkdir(parents=True, exist_ok=True)
-                # In reference mode, only render the focus source fully;
-                # refs get markdown-only (agent just skims them)
-                ref_render = render if series else False
-                ref_meta = _fetch_source(ref_url, ref_dest, log, render=ref_render)
+                ref_meta = _fetch_source(ref_url, ref_dest, log)
                 entry = _manifest_entry(ref_url, dir_name, ref_meta)
 
             if series:
@@ -458,9 +377,7 @@ def preprocess_sources(
 # ── Helpers ──────────────────────────────────────────────────────────────────
 
 
-def _fetch_source(
-    url: str, dest: Path, log: Callable, *, render: bool = True,
-) -> dict[str, Any]:
+def _fetch_source(url: str, dest: Path, log: Callable) -> dict[str, Any]:
     """Route to the appropriate handler."""
     source_type, metadata = detect_source_type(url)
     log(f"Detected source type: {source_type}")
@@ -472,7 +389,7 @@ def _fetch_source(
     elif source_type == "pdf":
         return _fetch_pdf(url, dest, log)
     else:
-        return _fetch_blog(url, dest, log, render=render)
+        return _fetch_blog(url, dest, log)
 
 
 def _find_main_tex(tex_files: list[Path]) -> Path | None:
@@ -553,26 +470,16 @@ def _manifest_entry(url: str, dir_name: str, meta: dict) -> dict:
     return entry
 
 
-def _ensure_chromium(log: Callable) -> None:
-    """Install Chromium browser if not present."""
-    try:
-        from playwright._impl._driver import compute_driver_executable  # noqa: F401
-
-        # Check if chromium is already installed by trying to find the executable
-        result = subprocess.run(
-            [sys.executable, "-m", "playwright", "install", "--dry-run", "chromium"],
-            capture_output=True, text=True, timeout=10,
-        )
-        # If --dry-run isn't supported, just check if launch works
-        if result.returncode != 0 and "already installed" not in result.stdout.lower():
-            raise FileNotFoundError
-    except Exception:
-        log("Chromium not found — installing (one-time ~200MB download)...")
-        subprocess.run(
-            [sys.executable, "-m", "playwright", "install", "chromium"],
-            timeout=300, check=True,
-        )
-        log("Chromium installed")
+def _ext_from_content_type(ct: str) -> str | None:
+    """Map content-type to file extension."""
+    ct = ct.split(";")[0].strip().lower()
+    return {
+        "image/png": ".png",
+        "image/jpeg": ".jpg",
+        "image/gif": ".gif",
+        "image/svg+xml": ".svg",
+        "image/webp": ".webp",
+    }.get(ct)
 
 
 def _now() -> str:

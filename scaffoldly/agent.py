@@ -322,25 +322,21 @@ async def run_agent(
         agents={"reviewer": REVIEWER_AGENT},
     )
 
-    # Build the prompt — use preprocessed sources if available
-    if sources_dir:
-        manifest_path = Path(sources_dir) / "manifest.json"
-        if manifest_path.exists():
-            manifest = json.loads(manifest_path.read_text())
-            phase1_prompt = (
-                f"Generate a CS231n-style progressive course from preprocessed sources.\n"
-                f"  Sources directory: {sources_dir}\n"
-                f"  Original URL: {url}\n"
-                f"  Student level: {user_level}\n"
-                f"  Output directory: {abs_output_dir}\n\n"
-                f"Source manifest:\n{json.dumps(manifest, indent=2)}\n\n"
-                f"Follow your workflow: consume → analyze → design → create root files → stop.\n"
-                f"Module generation will be handled automatically after you finish."
-            )
-        else:
-            sources_dir = None  # fall through to URL-based prompt
-
-    if not sources_dir:
+    # Build the prompt — use preprocessed sources if available, else raw URLs
+    manifest_path = Path(sources_dir) / "manifest.json" if sources_dir else None
+    if manifest_path and manifest_path.exists():
+        manifest = json.loads(manifest_path.read_text())
+        phase1_prompt = (
+            f"Generate a CS231n-style progressive course from preprocessed sources.\n"
+            f"  Sources directory: {sources_dir}\n"
+            f"  Original URL: {url}\n"
+            f"  Student level: {user_level}\n"
+            f"  Output directory: {abs_output_dir}\n\n"
+            f"Source manifest:\n{json.dumps(manifest, indent=2)}\n\n"
+            f"Follow your workflow: consume → analyze → design → create root files → stop.\n"
+            f"Module generation will be handled automatically after you finish."
+        )
+    else:
         source_lines = [f"  Focus URL: {url}"]
         if refs:
             if series:

@@ -104,18 +104,6 @@ def main():
         default=30,
         help="Maximum agent turns before stopping (default: 30)",
     )
-    gen_parser.add_argument(
-        "--no-render",
-        action="store_true",
-        default=False,
-        dest="no_render",
-        help=(
-            "Skip browser rendering (no PDF/images from web pages). "
-            "Uses Jina Reader for markdown only. Useful in minimal "
-            "environments or when you don't need visual content."
-        ),
-    )
-
     args = parser.parse_args()
 
     if not args.command:
@@ -153,7 +141,6 @@ def _cmd_generate(args):
         series=args.series,
         output_dir=args.output,
         log=lambda msg: _err(f"    {_C.DIM}{msg}{_C.RESET}"),
-        render=not args.no_render,
     )
     _err(f"  {_C.GREEN}Sources ready{_C.RESET}")
     _err()
