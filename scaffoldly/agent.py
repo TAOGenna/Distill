@@ -383,7 +383,8 @@ async def run_agent(
         total_cost += msg.total_cost_usd or 0.0
         if msg.usage:
             for k, v in msg.usage.items():
-                total_usage[k] = total_usage.get(k, 0) + v
+                if isinstance(v, (int, float)):
+                    total_usage[k] = total_usage.get(k, 0) + v
 
     _log_step("  Starting agent...")
 
