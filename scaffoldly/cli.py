@@ -134,13 +134,16 @@ def _cmd_generate(args):
     _err()
 
     # Preprocess sources into local artifacts
+    _level_colors = {"info": _C.DIM, "ok": _C.GREEN, "warn": _C.YELLOW, "error": _C.RED}
     _err(f"  {_C.DIM}Preprocessing sources...{_C.RESET}")
     sources_dir = preprocess_sources(
         focus_url=args.url,
         refs=args.refs,
         series=args.series,
         output_dir=args.output,
-        log=lambda msg: _err(f"    {_C.DIM}{msg}{_C.RESET}"),
+        log=lambda msg, level="info": _err(
+            f"    {_level_colors.get(level, _C.DIM)}{msg}{_C.RESET}"
+        ),
     )
     _err(f"  {_C.GREEN}Sources ready{_C.RESET}")
     _err()

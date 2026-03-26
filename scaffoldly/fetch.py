@@ -80,7 +80,7 @@ def _fetch_arxiv(paper_id: str, dest: Path, log: Callable) -> dict[str, Any]:
 
     if resp.status_code != 200:
         meta["errors"].append(f"arxiv /src returned {resp.status_code}")
-        log("TeX source unavailable, falling back to PDF...")
+        log("TeX source unavailable, falling back to PDF...", "warn")
         return _fallback_arxiv_pdf(paper_id, dest, meta, log)
 
     content = resp.content
@@ -96,7 +96,7 @@ def _fetch_arxiv(paper_id: str, dest: Path, log: Callable) -> dict[str, Any]:
             ]
             _safe_extractall(tar, source_dir, members)
         extracted = True
-        log(f"Extracted {len(members)} files from tarball")
+        log(f"Extracted {len(members)} files from tarball", "ok")
     except (tarfile.TarError, gzip.BadGzipFile, EOFError):
         pass
 
@@ -106,7 +106,7 @@ def _fetch_arxiv(paper_id: str, dest: Path, log: Callable) -> dict[str, Any]:
             text = gzip.decompress(content).decode("utf-8", errors="replace")
             (source_dir / "main.tex").write_text(text)
             extracted = True
-            log("Extracted single .tex file")
+            log("Extracted single .tex file", "ok")
         except Exception:
             meta["errors"].append("Could not extract source")
             return _fallback_arxiv_pdf(paper_id, dest, meta, log)
@@ -131,7 +131,7 @@ def _fetch_arxiv(paper_id: str, dest: Path, log: Callable) -> dict[str, Any]:
     if main_tex:
         meta["main_tex"] = str(main_tex.relative_to(source_dir))
 
-    log(f"Found {len(tex_files)} .tex files, {len(figure_files)} figures")
+    log(f"Found {len(tex_files)} .tex files, {len(figure_files)} figures", "ok")
     (dest / "meta.json").write_text(json.dumps(meta, indent=2))
     return meta
 
@@ -160,15 +160,15 @@ def _fetch_blog(url: str, dest: Path, log: Callable) -> dict[str, Any]:
                 (dest / "source.md").write_text(markdown)
                 meta["artifacts"].append("source.md")
                 meta["markdown_length_chars"] = len(markdown)
-                log(f"Got {len(markdown)} chars of markdown")
+                log(f"Got {len(markdown)} chars of markdown", "ok")
             else:
                 meta["errors"].append(
                     f"Jina returned {resp.status_code} or too short"
                 )
-                log("Jina failed, agent will curl directly")
+                log("Jina failed, agent will curl directly", "warn")
         except httpx.RequestError as e:
             meta["errors"].append(f"Jina request failed: {e}")
-            log("Jina unreachable, agent will curl directly")
+            log("Jina unreachable, agent will curl directly", "error")
 
     # ── Extract and download images from markdown ────────────────────────
     if markdown:
@@ -241,9 +241,9 @@ def _download_images_from_markdown(
 
     if manifest:
         (images_dir / "manifest.json").write_text(json.dumps(manifest, indent=2))
-        log(f"Downloaded {len(manifest)} images")
+        log(f"Downloaded {len(manifest)} images", "ok")
     else:
-        log("No content images found")
+        log("No content images found", "warn")
 
     return manifest
 
@@ -264,7 +264,7 @@ def _fetch_pdf(url: str, dest: Path, log: Callable) -> dict[str, Any]:
         if resp.status_code == 200:
             (dest / "source.pdf").write_bytes(resp.content)
             meta["artifacts"].append("source.pdf")
-            log(f"Downloaded {len(resp.content) // 1024}KB")
+            log(f"Downloaded {len(resp.content) // 1024}KB", "ok")
 
             # Try Jina for text extraction
             try:
@@ -280,6 +280,7 @@ def _fetch_pdf(url: str, dest: Path, log: Callable) -> dict[str, Any]:
                 pass  # PDF alone is fine
         else:
             meta["errors"].append(f"Download failed: {resp.status_code}")
+            log(f"Download failed: {resp.status_code}", "error")
 
     (dest / "meta.json").write_text(json.dumps(meta, indent=2))
     return meta
@@ -307,10 +308,10 @@ def _fetch_github(repo: str, dest: Path, log: Callable) -> dict[str, Any]:
     )
     if result.returncode == 0:
         meta["artifacts"].append("repo/")
-        log("Cloned successfully")
+        log("Cloned successfully", "ok")
     else:
         meta["errors"].append(f"git clone failed: {result.stderr.strip()}")
-        log(f"Clone failed: {result.stderr.strip()[:100]}")
+        log(f"Clone failed: {result.stderr.strip()[:100]}", "error")
 
     (dest / "meta.json").write_text(json.dumps(meta, indent=2))
     return meta
@@ -331,7 +332,7 @@ def preprocess_sources(
     Returns the _sources/ directory path.
     """
     if log is None:
-        log = lambda msg: print(f"  {msg}", file=sys.stderr)
+        log = lambda msg, level="info": print(f"  {msg}", file=sys.stderr)
 
     sources_dir = Path(output_dir) / "_sources"
     sources_dir.mkdir(parents=True, exist_ok=True)
@@ -341,7 +342,7 @@ def preprocess_sources(
     # Focus URL
     focus_dest = sources_dir / "focus"
     if _is_cached(focus_dest, focus_url):
-        log(f"Using cached source for {focus_url}")
+        log(f"Using cached source for {focus_url}", "ok")
         cached_meta = json.loads((focus_dest / "meta.json").read_text())
         manifest["focus"] = _manifest_entry(focus_url, "focus", cached_meta)
     else:
@@ -356,7 +357,7 @@ def preprocess_sources(
             ref_dest = sources_dir / dir_name
 
             if _is_cached(ref_dest, ref_url):
-                log(f"Using cached source for {ref_url}")
+                log(f"Using cached source for {ref_url}", "ok")
                 cached_meta = json.loads((ref_dest / "meta.json").read_text())
                 entry = _manifest_entry(ref_url, dir_name, cached_meta)
             else:
@@ -423,9 +424,10 @@ def _fallback_arxiv_pdf(
         (dest / "source.pdf").write_bytes(resp.content)
         meta["artifacts"].append("source.pdf")
         meta["fallback"] = "pdf"
-        log(f"Downloaded PDF ({len(resp.content) // 1024}KB)")
+        log(f"Downloaded PDF ({len(resp.content) // 1024}KB)", "ok")
     else:
         meta["errors"].append(f"PDF download failed: {resp.status_code}")
+        log(f"PDF download failed: {resp.status_code}", "error")
     (dest / "meta.json").write_text(json.dumps(meta, indent=2))
     return meta
 
