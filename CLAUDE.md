@@ -6,6 +6,7 @@
 scaffoldly/
 ├── __main__.py       # python -m scaffoldly
 ├── cli.py            # CLI argument parsing
+├── fetch.py          # Source preprocessing — URL → local artifacts (no LLM)
 ├── agent.py          # Claude Agent SDK orchestrator + sub-agent definitions
 ├── tools.py          # Custom @tool definitions (MCP server)
 ├── schemas.py        # Pydantic models for structured output
@@ -21,10 +22,22 @@ scaffoldly generate <url> [--ref ...] [--series] --level "..."
         │
         ▼
 ┌──────────────────────────────────────┐
+│  Preprocessing (fetch.py, no LLM)    │
+│                                      │
+│  URL → detect type → handler:        │
+│  arxiv  → TeX source tarball         │
+│  blog   → Jina markdown + images     │
+│  pdf    → download + Jina text       │
+│  github → git clone --depth 1        │
+│                                      │
+│  Output: _sources/ + manifest.json   │
+└──────────────┬───────────────────────┘
+               │
+               ▼
+┌──────────────────────────────────────┐
 │  Phase 1: Main Agent (Opus)          │
 │                                      │
-│  1. Fetch source(s)                  │
-│     (focus: deep read, refs: skim)   │
+│  1. Consume preprocessed sources     │
 │  2. Analyze + triage concepts        │
 │     → submit_analysis                │
 │  3. Design + coverage check          │
@@ -70,6 +83,9 @@ scaffoldly generate <url> [--ref ...] [--series] --level "..."
 The agent also uses Claude Code built-in tools (Bash, Read, Write, Edit) to create all course files directly.
 
 ## Key Design Decisions
+
+### Source Preprocessing
+URLs are preprocessed into local artifacts before the agent starts (`fetch.py`). This saves LLM tokens and gives the agent richer input — especially for arXiv papers (native LaTeX) and blogs (markdown + downloaded figures). The agent reads local files from `_sources/` instead of curling raw HTML. Jina Reader provides clean markdown; images are extracted from the markdown and downloaded directly (no browser dependency).
 
 ### Concept Triage
 Every concept gets a priority (essential/supporting/contextual) with a rationale during analysis. The `submit_curriculum` tool checks that all essential concepts have exercises before generation begins. Contextual concepts go in the "What's Next" section, not exercises.
