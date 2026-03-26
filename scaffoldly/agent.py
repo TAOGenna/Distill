@@ -167,7 +167,11 @@ async def _generate_module(
         if isinstance(msg, ResultMessage):
             cost = msg.total_cost_usd or 0.0
             if msg.usage:
-                usage = dict(msg.usage)
+                usage = {
+                    k: v
+                    for k, v in msg.usage.items()
+                    if isinstance(v, (int, float))
+                }
 
     _log(f"Module {idx} ({title}) generated", _C.GREEN)
     return {"module_index": idx, "title": title, "cost": cost, "usage": usage}
@@ -416,7 +420,8 @@ async def run_agent(
             for r in gen_results:
                 total_cost += r["cost"]
                 for k, v in r.get("usage", {}).items():
-                    total_usage[k] = total_usage.get(k, 0) + v
+                    if isinstance(v, (int, float)):
+                        total_usage[k] = total_usage.get(k, 0) + v
 
         _step_transition("review")
 
