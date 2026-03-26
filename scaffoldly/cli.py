@@ -104,6 +104,17 @@ def main():
         default=30,
         help="Maximum agent turns before stopping (default: 30)",
     )
+    gen_parser.add_argument(
+        "--no-render",
+        action="store_true",
+        default=False,
+        dest="no_render",
+        help=(
+            "Skip browser rendering (no PDF/images from web pages). "
+            "Uses Jina Reader for markdown only. Useful in minimal "
+            "environments or when you don't need visual content."
+        ),
+    )
 
     args = parser.parse_args()
 
@@ -118,6 +129,7 @@ def main():
 def _cmd_generate(args):
     """Generate a full course from a URL using the agent."""
     from .agent import run_agent_sync
+    from .fetch import preprocess_sources
 
     _err = lambda s="": print(s, file=sys.stderr)
 
@@ -133,6 +145,19 @@ def _cmd_generate(args):
     _err(f"  {_C.DIM}{'─' * 50}{_C.RESET}")
     _err()
 
+    # Preprocess sources into local artifacts
+    _err(f"  {_C.DIM}Preprocessing sources...{_C.RESET}")
+    sources_dir = preprocess_sources(
+        focus_url=args.url,
+        refs=args.refs,
+        series=args.series,
+        output_dir=args.output,
+        log=lambda msg: _err(f"    {_C.DIM}{msg}{_C.RESET}"),
+        render=not args.no_render,
+    )
+    _err(f"  {_C.GREEN}Sources ready{_C.RESET}")
+    _err()
+
     wall_start = time.time()
     result = run_agent_sync(
         url=args.url,
@@ -144,6 +169,7 @@ def _cmd_generate(args):
         generate_model=args.generate_model,
         effort=args.effort,
         max_turns=args.max_turns,
+        sources_dir=str(sources_dir),
     )
 
     course_dir = result["course_dir"]
