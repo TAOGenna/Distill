@@ -20,20 +20,32 @@ There are brilliant technical blogs out there — [Andrew Chan](https://andrewkc
 ## Quick Start
 
 ```bash
+pip install scaffoldly
+# or: uv pip install scaffoldly
+
+# Launch the web UI
+scaffoldly
+# → opens http://localhost:8420 in your browser
+# → paste a URL, pick your level, hit generate
+```
+
+Or use the CLI directly:
+
+```bash
 # Single source
-uv run scaffoldly generate \
+scaffoldly generate \
   "https://andrewkchan.dev/posts/yalm.html" \
   --level "mid-level Python developer, new to systems programming"
 
 # Blog series (Part 1 → Part 2 → Part 3)
-uv run scaffoldly generate "https://blog.example.com/crawler-part1" \
+scaffoldly generate "https://blog.example.com/crawler-part1" \
   --ref "https://blog.example.com/crawler-part2" \
   --ref "https://blog.example.com/crawler-part3" \
   --series \
   --level "junior Python dev"
 
 # Focus source + supplementary references
-uv run scaffoldly generate "https://arxiv.org/abs/main-paper" \
+scaffoldly generate "https://arxiv.org/abs/main-paper" \
   --ref "https://arxiv.org/abs/background-paper" \
   --ref "https://blog.example.com/practical-take" \
   --level "ML engineer, familiar with transformers"
@@ -41,8 +53,22 @@ uv run scaffoldly generate "https://arxiv.org/abs/main-paper" \
 
 ## Usage
 
+### Web UI (recommended)
+
 ```bash
-uv run scaffoldly generate <url> \
+scaffoldly                    # launch at localhost:8420
+scaffoldly --port 3000        # custom port
+scaffoldly --no-open          # don't auto-open browser
+```
+
+Paste a URL, describe your level, and hit generate. Progress streams in real time. Generated courses appear in the history and are saved to the output directory.
+
+API key: if you have [Claude Code](https://docs.anthropic.com/en/docs/claude-code) installed, auth is automatic. Otherwise, add your `ANTHROPIC_API_KEY` in the settings section of the web UI.
+
+### CLI
+
+```bash
+scaffoldly generate <url> \
   --level "describe your current proficiency" \
   [--ref <url>] \
   [--series] \

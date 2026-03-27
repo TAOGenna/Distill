@@ -5,17 +5,27 @@
 ```
 scaffoldly/
 ├── __main__.py       # python -m scaffoldly
-├── cli.py            # CLI argument parsing
+├── cli.py            # CLI argument parsing + web UI launcher
+├── server.py         # Local Starlette web server + SSE progress streaming
 ├── fetch.py          # Source preprocessing — URL → local artifacts (no LLM)
 ├── agent.py          # Claude Agent SDK orchestrator + sub-agent definitions
 ├── tools.py          # Custom @tool definitions (MCP server)
 ├── schemas.py        # Pydantic models for structured output
-└── system_prompt.py  # CS231n pedagogy + workflow instructions
+├── system_prompt.py  # CS231n pedagogy + workflow instructions
+└── web/              # Static frontend (no build step)
+    ├── index.html    # Generation form + progress + course list + settings
+    ├── style.css     # JetBrains Mono, minimal monochrome aesthetic
+    └── app.js        # Vanilla JS — SSE, form handling, config persistence
 ```
 
 ## Architecture
 
-Powered by the [Claude Agent SDK](https://github.com/anthropics/claude-agent-sdk-python). Three-phase architecture:
+Powered by the [Claude Agent SDK](https://github.com/anthropics/claude-agent-sdk-python). Two interfaces, same pipeline:
+
+- **Web UI** (default): `scaffoldly` → opens browser at localhost:8420
+- **CLI**: `scaffoldly generate <url> --level "..."` → headless generation
+
+Three-phase architecture:
 
 ```
 scaffoldly generate <url> [--ref ...] [--series] --level "..."
@@ -102,3 +112,9 @@ The `content_type` field (systems_engineering, ml_research, tutorial, library_wa
 
 ### No Test Frameworks
 Observable milestones replace tests. Each exercise ends with a `__main__` block that prints measurements, comparisons, or visualizations. The output IS the validation.
+
+### Web UI Architecture
+The web UI is a thin Starlette layer over the same generation pipeline the CLI uses. No React, no build step — just static HTML/CSS/JS served from the package. Progress streams to the browser via Server-Sent Events (SSE). Config (API key, output dir) persists to `~/.config/scaffoldly/config.json`. Claude Code auth is auto-detected — no API key needed if Claude Code is installed.
+
+### Event Emission
+`agent.py` uses a `ContextVar`-based event sink so the web server can receive real-time progress (log messages, phase transitions, module completions) without changing the existing logging to stderr. When no sink is registered (CLI mode), events are silently dropped.
