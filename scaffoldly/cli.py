@@ -130,14 +130,26 @@ def main():
         default=30,
         help="Maximum agent turns (default: 30)",
     )
+    parser.add_argument(
+        "--port",
+        type=int,
+        default=8420,
+        help="Port for the web UI (default: 8420)",
+    )
+    parser.add_argument(
+        "--no-open",
+        action="store_true",
+        default=False,
+        help="Don't open the browser automatically",
+    )
 
     args = parser.parse_args()
 
     if not args.command:
-        parser.print_help()
-        sys.exit(1)
+        from .server import serve
 
-    if args.command == "generate":
+        serve(port=args.port, open_browser=not args.no_open)
+    elif args.command == "generate":
         _cmd_generate(args)
     elif args.command == "review":
         _cmd_review(args)
