@@ -12,10 +12,11 @@ scaffoldly/
 ├── tools.py          # Custom @tool definitions (MCP server)
 ├── schemas.py        # Pydantic models for structured output
 ├── system_prompt.py  # CS231n pedagogy + workflow instructions
-└── web/              # Static frontend (no build step)
+└── web/              # Static frontend (no build step, no node_modules)
     ├── index.html    # Generation form + progress + course list + settings
-    ├── style.css     # JetBrains Mono, minimal monochrome aesthetic
-    └── app.js        # Vanilla JS — SSE, form handling, config persistence
+    ├── style.css     # JetBrains Mono, monochrome aesthetic
+    ├── app.js        # Vanilla JS — SSE, form handling, DAG visualization
+    └── test_dag.html # Standalone DAG test page with mock data presets
 ```
 
 ## Architecture
@@ -52,6 +53,8 @@ scaffoldly generate <url> [--ref ...] [--series] --level "..."
 │     → submit_analysis                │
 │  3. Design + coverage check          │
 │     → submit_curriculum              │
+│     → emits `curriculum` event       │
+│       (DAG appears in web UI)        │
 │  3b. Re-read quantitative claims     │
 │  4. Create root README + dirs        │
 │     → STOP                           │
@@ -66,6 +69,8 @@ scaffoldly generate <url> [--ref ...] [--series] --level "..."
 │  │module 0 │ │module 1 │ │module N│ │
 │  │(Sonnet) │ │(Sonnet) │ │(Sonnet)│ │
 │  └─────────┘ └─────────┘ └────────┘ │
+│  Each emits `module_complete` event  │
+│  (node lights up in web UI DAG)      │
 └──────────────┬───────────────────────┘
                │
                ▼
@@ -92,6 +97,27 @@ scaffoldly generate <url> [--ref ...] [--series] --level "..."
 
 The agent also uses Claude Code built-in tools (Bash, Read, Write, Edit) to create all course files directly.
 
+## Web UI
+
+### Launch Banner
+Orange-themed two-panel box with a pixel art cactus mascot (green with black Mario Bros-style eyes, orange pot). Left panel: mascot + clickable URL. Right panel: tips + recent courses + auth/output info. Detects WSL to skip browser auto-open.
+
+### DAG Visualization
+After Phase 1 completes, the curriculum structure is emitted as a `curriculum` event. The web UI renders a Brilliant-style DAG:
+
+- **Layout**: proper topological layering using `depends_on` fields — not just linear. Modules at the same depth layer are positioned side-by-side. Single modules per layer zigzag left/right.
+- **Edges**: SVG cubic bezier curves with arrowheads, following actual dependency relationships. Deduplicated by coordinate key.
+- **Progressive**: nodes start in pending state (outlined, dim). As each module finishes generating in parallel, its node transitions to generated state (filled, 3D box-shadow depth effect).
+- **Animation**: path draws in via stroke-dashoffset, nodes appear with staggered fade+scale by layer.
+
+Test the DAG without running a generation at `/test_dag.html` — presets for linear, diamond, fan-out, and complex graphs.
+
+### Log Box
+Scrollable (200px max-height) with a top fade mask. New entries auto-scroll into view. The DAG lives outside the log box in the main page flow.
+
+### Settings & Auth
+Config persists to `~/.config/scaffoldly/config.json`. Claude Code auth is auto-detected (checks for `claude` CLI in PATH). Falls back to `ANTHROPIC_API_KEY` from config or env.
+
 ## Key Design Decisions
 
 ### Source Preprocessing
@@ -113,8 +139,5 @@ The `content_type` field (systems_engineering, ml_research, tutorial, library_wa
 ### No Test Frameworks
 Observable milestones replace tests. Each exercise ends with a `__main__` block that prints measurements, comparisons, or visualizations. The output IS the validation.
 
-### Web UI Architecture
-The web UI is a thin Starlette layer over the same generation pipeline the CLI uses. No React, no build step — just static HTML/CSS/JS served from the package. Progress streams to the browser via Server-Sent Events (SSE). Config (API key, output dir) persists to `~/.config/scaffoldly/config.json`. Claude Code auth is auto-detected — no API key needed if Claude Code is installed.
-
 ### Event Emission
-`agent.py` uses a `ContextVar`-based event sink so the web server can receive real-time progress (log messages, phase transitions, module completions) without changing the existing logging to stderr. When no sink is registered (CLI mode), events are silently dropped.
+`agent.py` uses a `ContextVar`-based event sink so the web server can receive real-time progress without changing the existing logging to stderr. Event types: `log`, `phase`, `curriculum` (full DAG structure), `module_complete`. When no sink is registered (CLI mode), events are silently dropped.

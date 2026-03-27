@@ -1,21 +1,10 @@
 # Scaffoldly
 
-Turn technical blog posts and repos into progressive, hands-on coursework.
+Turn technical blog posts, papers, and repos into progressive, hands-on coursework.
 
 Scaffoldly takes expert-level content — deep blog posts, GitHub repos, papers — and generates [CS231n](https://cs231n.stanford.edu/)-style projects with scaffolded exercises, observable milestones, and analytical questions. It adapts its pedagogy to the source material: systems engineering blogs get measurement-driven milestones, ML papers get atom-first exercises with visualization milestones, tutorials get enhanced scaffolding.
 
-The goal: make it possible for mid/junior engineers to actually *learn from* the incredible content that senior engineers and researchers publish, instead of just reading and nodding along.
-
-## The Problem
-
-There are brilliant technical blogs out there — [Andrew Chan](https://andrewkchan.dev/) on GPU optimization and LLM inference, [Wilson Lin](https://blog.wilsonl.in/) on search engines and vector databases — but they're written expert-to-expert. A junior/mid engineer reading them faces:
-
-- **Assumed prerequisites** that aren't explained
-- **No exercises** — you read but don't build muscle memory
-- **No feedback** — no way to know if you actually understood
-- **Integrated multi-domain knowledge** with no clear learning path
-
-**Scaffoldly bridges this gap.**
+The goal: make it possible for anyone to actually *learn from* the incredible content that senior engineers and researchers publish, instead of just reading and nodding along.
 
 ## Quick Start
 
@@ -25,31 +14,11 @@ pip install scaffoldly
 
 # Launch the web UI
 scaffoldly
-# → opens http://localhost:8420 in your browser
+# → opens http://localhost:8420
 # → paste a URL, pick your level, hit generate
 ```
 
-Or use the CLI directly:
-
-```bash
-# Single source
-scaffoldly generate \
-  "https://andrewkchan.dev/posts/yalm.html" \
-  --level "mid-level Python developer, new to systems programming"
-
-# Blog series (Part 1 → Part 2 → Part 3)
-scaffoldly generate "https://blog.example.com/crawler-part1" \
-  --ref "https://blog.example.com/crawler-part2" \
-  --ref "https://blog.example.com/crawler-part3" \
-  --series \
-  --level "junior Python dev"
-
-# Focus source + supplementary references
-scaffoldly generate "https://arxiv.org/abs/main-paper" \
-  --ref "https://arxiv.org/abs/background-paper" \
-  --ref "https://blog.example.com/practical-take" \
-  --level "ML engineer, familiar with transformers"
-```
+That's it. A local web UI opens where you paste a URL, describe your level, and generate a full course. If you have [Claude Code](https://docs.anthropic.com/en/docs/claude-code) installed, auth is automatic — no API key needed.
 
 ## Usage
 
@@ -61,9 +30,15 @@ scaffoldly --port 3000        # custom port
 scaffoldly --no-open          # don't auto-open browser
 ```
 
-Paste a URL, describe your level, and hit generate. Progress streams in real time. Generated courses appear in the history and are saved to the output directory.
+**What you see:**
 
-API key: if you have [Claude Code](https://docs.anthropic.com/en/docs/claude-code) installed, auth is automatic. Otherwise, add your `ANTHROPIC_API_KEY` in the settings section of the web UI.
+1. Paste a source URL, add optional references, describe your level
+2. Hit generate — logs stream in real time in a scrollable box
+3. Once the curriculum is designed, a **DAG visualization** appears showing the module dependency graph (Brilliant-style flowing path with animated nodes)
+4. Modules generate in parallel — each node lights up as its code is ready
+5. The finished course appears in your output directory and in the course history
+
+**Auth:** Claude Code is auto-detected. Otherwise, add your `ANTHROPIC_API_KEY` in the settings section at the bottom of the page.
 
 ### CLI
 
@@ -73,6 +48,7 @@ scaffoldly generate <url> \
   [--ref <url>] \
   [--series] \
   [--model claude-opus-4-6] \
+  [--generate-model sonnet] \
   [--effort high] \
   [--output ./output] \
   [--max-turns 50]
@@ -123,9 +99,7 @@ if __name__ == "__main__":
     print(f">> Next exercise: what happens at 100 workers?")
 ```
 
-No test framework — the output *is* the feedback. Works with any language (Python, C, Rust, Go).
-
-The course README includes a **Learning Path** (module dependencies) and a **What's Next** section bridging to advanced topics not covered in exercises.
+No test framework — the output *is* the feedback.
 
 Module READMEs include **analytical questions** that push beyond recall into tradeoff reasoning:
 
@@ -133,11 +107,32 @@ Module READMEs include **analytical questions** that push beyond recall into tra
 - *"At what concurrency level does throughput stop increasing? What's the bottleneck?"*
 - *"The author chose a bloom filter over a hash set. At what scale does this pay off?"*
 
+## How It Works
+
+1. **Preprocess** — URLs are fetched into local artifacts (arXiv → TeX source, blogs → markdown + images, GitHub → shallow clone). No LLM tokens spent here.
+2. **Analyze & Design** — An Opus agent identifies key concepts, triages them (essential/supporting/contextual), and designs a curriculum with module dependencies. The web UI shows the dependency DAG at this point.
+3. **Generate** — Module generators run in parallel (Sonnet by default). Each module gets scaffolded exercises, observable milestones, and analytical questions. Nodes in the DAG light up as each module finishes.
+4. **Review** — An adversarial reviewer checks 10 quality criteria. If issues are found, the agent fixes and re-reviews.
+
 ## Requirements
 
 - Python 3.10+
-- [Claude Code](https://claude.ai/code) (provides the Agent SDK)
+- [Claude Code](https://docs.anthropic.com/en/docs/claude-code) (provides the Agent SDK + automatic auth) or an `ANTHROPIC_API_KEY`
 - [uv](https://docs.astral.sh/uv/) (recommended) or pip
+
+## Development
+
+```bash
+git clone https://github.com/TAOGenna/scaffoldly.git
+cd scaffoldly
+uv sync
+uv run scaffoldly
+```
+
+Test the DAG visualization without running a generation:
+```
+http://localhost:8420/test_dag.html
+```
 
 ## Acknowledgments
 
