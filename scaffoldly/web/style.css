@@ -1,0 +1,329 @@
+*, *::before, *::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+html {
+    border-top: 2px solid #383838;
+}
+
+body {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 14px;
+    font-weight: 400;
+    line-height: 1.725;
+    color: #383838;
+    background: #fff;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: geometricPrecision;
+}
+
+.container {
+    max-width: 48rem;
+    margin: 0 auto;
+    padding: 3rem 1.5rem;
+}
+
+h1 {
+    font-size: 1.4em;
+    font-weight: 700;
+    margin-bottom: 0.15rem;
+}
+
+.tagline {
+    color: #999;
+    margin-bottom: 3rem;
+    font-size: 0.85em;
+}
+
+h2 {
+    font-size: 1em;
+    font-weight: 700;
+    margin-bottom: 1rem;
+    margin-top: 2.5rem;
+}
+
+/* ── Form ─────────────────────────────────────────── */
+
+.field {
+    margin-bottom: 1.25rem;
+}
+
+label {
+    display: block;
+    font-size: 0.85em;
+    color: #999;
+    margin-bottom: 0.25rem;
+}
+
+input[type="text"],
+input[type="url"],
+input[type="password"],
+select {
+    width: 100%;
+    font-family: inherit;
+    font-size: inherit;
+    line-height: inherit;
+    color: inherit;
+    background: none;
+    border: none;
+    border-bottom: 1px solid #ddd;
+    padding: 0.25rem 0;
+    outline: none;
+    transition: border-color 0.2s;
+}
+
+input:focus,
+select:focus {
+    border-bottom-color: #383838;
+}
+
+input::placeholder {
+    color: #ccc;
+}
+
+select {
+    cursor: pointer;
+    -webkit-appearance: none;
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23999'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 0 center;
+    padding-right: 1rem;
+}
+
+.field-row {
+    display: flex;
+    gap: 2rem;
+}
+
+.field-row .field {
+    flex: 1;
+}
+
+.checkbox-field {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 1.25rem;
+    font-size: 0.85em;
+}
+
+.checkbox-field input[type="checkbox"] {
+    width: auto;
+    accent-color: #383838;
+}
+
+.checkbox-field label {
+    color: #383838;
+    margin-bottom: 0;
+}
+
+.checkbox-field .hint {
+    color: #999;
+}
+
+/* ── Buttons ──────────────────────────────────────── */
+
+button {
+    font-family: inherit;
+    font-size: inherit;
+    cursor: pointer;
+}
+
+.btn {
+    background: #383838;
+    color: #fff;
+    border: none;
+    padding: 0.4rem 1.5rem;
+    font-size: 0.85em;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    transition: opacity 0.2s;
+}
+
+.btn:hover {
+    opacity: 0.8;
+}
+
+.btn:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+}
+
+.link-btn {
+    background: none;
+    border: none;
+    color: #999;
+    padding: 0;
+    font-size: 0.85em;
+}
+
+.link-btn:hover {
+    color: #383838;
+}
+
+/* ── Refs ─────────────────────────────────────────── */
+
+.ref-row {
+    display: flex;
+    gap: 0.5rem;
+    align-items: flex-end;
+    margin-bottom: 0.5rem;
+}
+
+.ref-row input {
+    flex: 1;
+}
+
+.ref-remove {
+    background: none;
+    border: none;
+    color: #ccc;
+    font-size: 1.1em;
+    padding: 0.25rem;
+    line-height: 1;
+}
+
+.ref-remove:hover {
+    color: #c0392b;
+}
+
+/* ── Progress ─────────────────────────────────────── */
+
+#progress {
+    display: none;
+}
+
+#progress.active {
+    display: block;
+}
+
+.phase-label {
+    margin-top: 1.25rem;
+    margin-bottom: 0.25rem;
+    font-size: 0.85em;
+    color: #999;
+}
+
+.phase-label:first-child {
+    margin-top: 0;
+}
+
+.log-entry {
+    font-size: 0.8em;
+    line-height: 1.8;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.log-entry .ts {
+    color: #bbb;
+    margin-right: 0.5rem;
+}
+
+.log-entry.ok { color: #2d8a56; }
+.log-entry.error { color: #c0392b; }
+.log-entry.warn { color: #b8860b; }
+.log-entry.dim { color: #999; }
+
+.result-box {
+    margin-top: 1.5rem;
+    padding: 1rem 0;
+    border-top: 1px solid #eee;
+}
+
+.result-box strong {
+    display: block;
+    margin-bottom: 0.5rem;
+}
+
+.result-box .stat {
+    font-size: 0.85em;
+    color: #999;
+}
+
+.result-box .stat span {
+    color: #383838;
+}
+
+/* ── Courses ──────────────────────────────────────── */
+
+.course-item {
+    padding: 0.75rem 0;
+    border-bottom: 1px solid #f0f0f0;
+}
+
+.course-item:last-child {
+    border-bottom: none;
+}
+
+.course-name {
+    font-weight: 700;
+    font-size: 0.85em;
+}
+
+.course-meta {
+    font-size: 0.8em;
+    color: #999;
+}
+
+.course-path {
+    font-size: 0.75em;
+    color: #bbb;
+    word-break: break-all;
+}
+
+/* ── Settings ─────────────────────────────────────── */
+
+.settings-row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 0.75rem;
+    font-size: 0.85em;
+}
+
+.settings-row label {
+    width: 4.5rem;
+    flex-shrink: 0;
+    margin-bottom: 0;
+    text-align: right;
+}
+
+.settings-row input {
+    flex: 1;
+}
+
+/* ── Utility ──────────────────────────────────────── */
+
+.dim { color: #999; }
+
+.separator {
+    border: none;
+    border-top: 1px solid #eee;
+    margin: 2.5rem 0;
+}
+
+.warning {
+    background: #fffbe6;
+    border-left: 3px solid #b8860b;
+    padding: 0.6rem 1rem;
+    margin-bottom: 2rem;
+    font-size: 0.85em;
+    color: #6b5900;
+    display: none;
+}
+
+.warning.visible {
+    display: block;
+}
+
+.warning code {
+    background: rgba(0,0,0,0.06);
+    padding: 0.1rem 0.3rem;
+    font-size: 0.95em;
+}
