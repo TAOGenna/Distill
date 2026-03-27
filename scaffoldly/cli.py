@@ -104,6 +104,33 @@ def main():
         default=30,
         help="Maximum agent turns before stopping (default: 30)",
     )
+    # ── review ─────────────────────────────────────────────────────────────
+    rev_parser = subparsers.add_parser(
+        "review",
+        help="Run only the review phase on an existing course directory",
+    )
+    rev_parser.add_argument(
+        "course_dir",
+        help="Path to a previously generated course directory (must contain _curriculum.json)",
+    )
+    rev_parser.add_argument(
+        "--model",
+        default="claude-opus-4-6",
+        help="Model for the review agent (default: claude-opus-4-6)",
+    )
+    rev_parser.add_argument(
+        "--effort",
+        choices=["low", "medium", "high", "max"],
+        default="high",
+        help="Agent effort level (default: high)",
+    )
+    rev_parser.add_argument(
+        "--max-turns",
+        type=int,
+        default=30,
+        help="Maximum agent turns (default: 30)",
+    )
+
     args = parser.parse_args()
 
     if not args.command:
@@ -112,6 +139,8 @@ def main():
 
     if args.command == "generate":
         _cmd_generate(args)
+    elif args.command == "review":
+        _cmd_review(args)
 
 
 def _cmd_generate(args):
@@ -207,6 +236,51 @@ def _cmd_generate(args):
     )
 
     print(f"\n{course_dir}")
+
+
+def _cmd_review(args):
+    """Run only the review phase on an existing course directory."""
+    from .agent import run_review_sync
+
+    _err = lambda s="": print(s, file=sys.stderr)
+
+    course_dir = str(Path(args.course_dir).resolve())
+
+    _err()
+    _err(f"  {_C.CYAN}{_C.BOLD}Scaffoldly — Review{_C.RESET}")
+    _err(f"  {_C.DIM}{'─' * 50}{_C.RESET}")
+    _err(f"  {_C.DIM}Course:{_C.RESET}  {course_dir}")
+    _err(f"  {_C.DIM}Model:{_C.RESET}   {args.model}")
+    _err(f"  {_C.DIM}{'─' * 50}{_C.RESET}")
+    _err()
+
+    wall_start = time.time()
+    result = run_review_sync(
+        course_dir=course_dir,
+        model=args.model,
+        effort=args.effort,
+        max_turns=args.max_turns,
+    )
+
+    total_cost_usd = result["total_cost_usd"]
+    usage = result["usage"]
+
+    wall_elapsed = time.time() - wall_start
+    wall_mins, wall_secs = divmod(int(wall_elapsed), 60)
+
+    course_path = Path(course_dir)
+    file_count = len([f for f in course_path.rglob("*") if f.is_file() and not f.name.startswith("_")])
+
+    _err()
+    _err(f"  {_C.DIM}{'─' * 50}{_C.RESET}")
+    _err()
+    _err(f"  {_C.GREEN}{_C.BOLD}Review complete{_C.RESET}")
+    _err(f"  {course_dir} ({file_count} files)")
+    _err()
+    _print_stats(
+        _err, course_dir, file_count, wall_mins, wall_secs,
+        total_cost_usd, usage,
+    )
 
 
 def _print_stats(_err, course_dir, file_count, wall_mins, wall_secs,

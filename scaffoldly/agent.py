@@ -511,3 +511,100 @@ def run_agent_sync(
             sources_dir,
         )
     )
+
+
+async def run_review(
+    course_dir: str,
+    model: str | None = None,
+    effort: str | None = "high",
+    max_turns: int = 30,
+) -> dict:
+    """Run only Phase 3 (review) on an existing course directory."""
+    course_path = Path(course_dir).resolve()
+    curriculum_path = course_path / "_curriculum.json"
+    if not curriculum_path.exists():
+        raise FileNotFoundError(
+            f"No _curriculum.json found in {course_path}"
+        )
+
+    curriculum = json.loads(curriculum_path.read_text())
+
+    # Hydrate state so the reviewer agent has context
+    from .tools import _state
+    _state["curriculum"] = curriculum
+    _state["course_dir"] = str(course_path)
+    _state["output_dir"] = str(course_path.parent)
+
+    server = create_scaffoldly_server()
+    options = ClaudeAgentOptions(
+        system_prompt=SYSTEM_PROMPT,
+        max_turns=max_turns,
+        model=model,
+        effort=effort,
+        allowed_tools=[
+            "Bash",
+            "Read",
+            "Write",
+            "Edit",
+            "reviewer",
+        ],
+        mcp_servers={"scaffoldly": server},
+        agents={"reviewer": REVIEWER_AGENT},
+    )
+
+    global _start_time
+    _start_time = time.time()
+    total_cost = 0.0
+    total_usage: dict[str, int] = {}
+
+    def _accumulate_result(msg: ResultMessage) -> None:
+        nonlocal total_cost
+        total_cost += msg.total_cost_usd or 0.0
+        if msg.usage:
+            for k, v in msg.usage.items():
+                if isinstance(v, (int, float)):
+                    total_usage[k] = total_usage.get(k, 0) + v
+
+    n_modules = len(curriculum["modules"])
+    phase3_prompt = (
+        f"All {n_modules} modules have been generated in:\n"
+        f"  {course_path}\n\n"
+        f"Proceed to step 5 (REVIEW). Dispatch the `reviewer` "
+        f"sub-agent to check course quality. If it says REVISE, "
+        f"fix the specific issues and re-review.\n\n"
+        f"Then proceed to step 6 (FINISH) — summarize what was "
+        f"generated."
+    )
+
+    _log_step("  Starting review...")
+
+    async with ClaudeSDKClient(options=options) as client:
+        await client.query(phase3_prompt)
+        async for message in client.receive_response():
+            _process_message(
+                message,
+                lambda new_step: None,  # no step transitions needed
+                _accumulate_result,
+            )
+
+    elapsed = time.time() - _start_time
+    mins, secs = divmod(int(elapsed), 60)
+    _log(f"{_C.BOLD}Review finished. Time: {mins}m {secs}s", _C.GREEN)
+
+    return {
+        "course_dir": str(course_path),
+        "total_cost_usd": total_cost,
+        "usage": total_usage or None,
+    }
+
+
+def run_review_sync(
+    course_dir: str,
+    model: str | None = None,
+    effort: str | None = "high",
+    max_turns: int = 30,
+) -> dict:
+    """Synchronous wrapper around run_review for CLI use."""
+    return anyio.run(
+        lambda: run_review(course_dir, model, effort, max_turns)
+    )
