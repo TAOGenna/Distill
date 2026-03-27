@@ -416,12 +416,16 @@ async def run_agent(
                 student_level=user_level,
                 generate_model=generate_model,
             )
-            # Accumulate module generation costs
-            for r in gen_results:
-                total_cost += r["cost"]
-                for k, v in r.get("usage", {}).items():
-                    if isinstance(v, (int, float)):
-                        total_usage[k] = total_usage.get(k, 0) + v
+            # Accumulate module generation costs (best-effort — never
+            # let bookkeeping crash a successful generation run)
+            try:
+                for r in gen_results:
+                    total_cost += r["cost"]
+                    for k, v in r.get("usage", {}).items():
+                        if isinstance(v, (int, float)):
+                            total_usage[k] = total_usage.get(k, 0) + v
+            except Exception as exc:  # noqa: BLE001
+                _log(f"Warning: failed to accumulate usage stats: {exc}", _C.YELLOW)
 
         _step_transition("review")
 
