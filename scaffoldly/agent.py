@@ -9,8 +9,10 @@ Three-phase architecture:
 from __future__ import annotations
 
 import json
+import re
 import sys
 import time
+from contextvars import ContextVar
 from pathlib import Path
 from typing import Any
 
@@ -53,6 +55,19 @@ class _C:
     WHITE = "\033[37m" if _enabled else ""
 
 
+# ── Event emission ───────────────────────────────────────────────────────────
+
+_event_sink: ContextVar[Any] = ContextVar("_event_sink", default=None)
+_ANSI_RE = re.compile(r"\033\[[0-9;]*m")
+
+
+def _emit(event: dict) -> None:
+    """Push an event to the registered sink (set by the web server)."""
+    cb = _event_sink.get(None)
+    if cb is not None:
+        cb(event)
+
+
 # ── Logging ──────────────────────────────────────────────────────────────────
 
 _start_time = 0.0
@@ -64,6 +79,7 @@ def _log(msg: str, color: str = "") -> None:
     ts = f"{_C.DIM}[{mins:02d}:{secs:02d}]{_C.RESET}"
     c = color or _C.RESET
     print(f"  {ts} {c}{msg}{_C.RESET}", file=sys.stderr, flush=True)
+    _emit({"type": "log", "message": _ANSI_RE.sub("", msg)})
 
 
 def _log_step(msg: str) -> None:
@@ -174,6 +190,7 @@ async def _generate_module(
                 }
 
     _log(f"Module {idx} ({title}) generated", _C.GREEN)
+    _emit({"type": "module_complete", "module_index": idx, "title": title})
     return {"module_index": idx, "title": title, "cost": cost, "usage": usage}
 
 
@@ -293,6 +310,7 @@ async def run_agent(
     effort: str | None = "high",
     max_turns: int = 50,
     sources_dir: str | None = None,
+    on_event: Any = None,
 ) -> dict:
     """Run the Scaffoldly agent to generate coursework from a URL.
 
@@ -303,6 +321,7 @@ async def run_agent(
 
     Returns a dict with course_dir, total_cost_usd, and usage.
     """
+    token = _event_sink.set(on_event) if on_event is not None else None
     reset_state(output_dir)
 
     server = create_scaffoldly_server()
@@ -379,6 +398,7 @@ async def run_agent(
         mins, secs = divmod(int(elapsed), 60)
         time_str = f"{mins}m {secs}s" if mins else f"{secs}s"
         _log_step(f"  {current_step} completed ({time_str})")
+        _emit({"type": "phase", "phase": new_step})
         current_step = new_step
         step_start = time.time()
 
@@ -476,6 +496,9 @@ async def run_agent(
             )
     else:
         _log(f"Course directory does not exist: {course_dir}", _C.RED)
+
+    if token is not None:
+        _event_sink.reset(token)
 
     return {
         "course_dir": course_dir,
