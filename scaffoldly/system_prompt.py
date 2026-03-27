@@ -103,7 +103,8 @@ code should reproduce them. They should also inform your analytical questions \
 
 4. CREATE ROOT FILES
    • Create the course root README and requirements file (or equivalent) yourself.
-   • Create module directories using Bash mkdir.
+   • Do NOT create module directories — they are created automatically by the \
+orchestrator during module generation.
    • DO NOT generate module exercise files — module generation is handled \
 automatically by the orchestrator after you stop.
    • Summarize the key quantitative claims (numbers, benchmarks, measurements, \
