@@ -437,7 +437,11 @@ async def run_agent(
                         {
                             "index": m.get("module_index", i),
                             "title": m.get("title", ""),
+                            "description": m.get("description", ""),
                             "exercise_count": len(m.get("exercises", [])),
+                            "exercises": [
+                                e.get("title", "") for e in m.get("exercises", [])
+                            ],
                             "depends_on": m.get("depends_on", []),
                         }
                         for i, m in enumerate(curriculum.get("modules", []))

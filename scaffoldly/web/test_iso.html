@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>isometric icon POC</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: "JetBrains Mono", monospace;
+            background: #fff;
+            color: #383838;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 3rem;
+            gap: 2rem;
+        }
+        h2 { font-size: 1em; }
+        .row {
+            display: flex;
+            gap: 3rem;
+            align-items: flex-end;
+        }
+        .sample {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .sample span {
+            font-size: 0.75em;
+            color: #999;
+        }
+        .controls {
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+            font-size: 0.85em;
+        }
+        .controls label { color: #999; }
+        .controls input { width: 60px; font-family: inherit; }
+    </style>
+</head>
+<body>
+    <h2>isometric node — POC</h2>
+
+    <div class="controls">
+        <label>bottom w <input type="number" id="bw" value="1.1" step="0.05"></label>
+        <label>bottom d <input type="number" id="bd" value="1.1" step="0.05"></label>
+        <label>bottom h <input type="number" id="bh" value="0.25" step="0.05"></label>
+        <label>top w <input type="number" id="tw" value="0.75" step="0.05"></label>
+        <label>top d <input type="number" id="td" value="0.75" step="0.05"></label>
+        <label>top h <input type="number" id="th" value="0.35" step="0.05"></label>
+        <label>gap <input type="number" id="gap" value="0.06" step="0.02"></label>
+        <label>scale <input type="number" id="sc" value="13" step="1"></label>
+    </div>
+
+    <h2 style="margin-top:1rem">colors</h2>
+    <div class="controls">
+        <label>gen bottom: L<input type="number" id="gbl" value="51" step="5"> R<input type="number" id="gbr" value="68" step="5"> T<input type="number" id="gbt" value="85" step="5"></label>
+        <label>gen top: L<input type="number" id="gtl" value="85" step="5"> R<input type="number" id="gtr" value="102" step="5"> T<input type="number" id="gtt" value="136" step="5"></label>
+    </div>
+    <div class="controls">
+        <label>pend bottom: L<input type="number" id="pbl" value="195" step="5"> R<input type="number" id="pbr" value="208" step="5"> T<input type="number" id="pbt" value="220" step="5"></label>
+        <label>pend top: L<input type="number" id="ptl" value="210" step="5"> R<input type="number" id="ptr" value="220" step="5"> T<input type="number" id="ptt" value="232" step="5"></label>
+    </div>
+
+    <div class="row">
+        <div class="sample" id="generated">
+            <span>generated</span>
+        </div>
+        <div class="sample" id="pending">
+            <span>pending</span>
+        </div>
+        <div class="sample" id="large">
+            <span>large (120px)</span>
+        </div>
+    </div>
+
+    <script>
+        // ── Isometric projection ─────────────────────────
+        function iso(x, y, z, S, cx, cy) {
+            return {
+                x: cx + (x - y) * S * 0.866,
+                y: cy + (x + y) * S * 0.5 - z * S,
+            };
+        }
+
+        function pts(arr) {
+            return arr.map(function (p) { return p.x.toFixed(1) + "," + p.y.toFixed(1); }).join(" ");
+        }
+
+        function face(points, fill, stroke) {
+            return '<polygon points="' + pts(points) + '" fill="' + fill + '"' +
+                (stroke ? ' stroke="' + stroke + '" stroke-width="0.5"' : '') + '/>';
+        }
+
+        // ── Build isometric block ────────────────────────
+        function block(w, d, h, z0, S, cx, cy, colors) {
+            // 3 visible faces of a box: top, left (front-left), right (front-right)
+            var svg = "";
+
+            // Left face (front-left, darkest)
+            var leftF = [
+                iso(-w, d, z0 + h, S, cx, cy),
+                iso(w, d, z0 + h, S, cx, cy),
+                iso(w, d, z0, S, cx, cy),
+                iso(-w, d, z0, S, cx, cy),
+            ];
+            svg += face(leftF, colors.left, colors.stroke);
+
+            // Right face (front-right, medium)
+            var rightF = [
+                iso(w, -d, z0 + h, S, cx, cy),
+                iso(w, -d, z0, S, cx, cy),
+                iso(w, d, z0, S, cx, cy),
+                iso(w, d, z0 + h, S, cx, cy),
+            ];
+            svg += face(rightF, colors.right, colors.stroke);
+
+            // Top face (lightest)
+            var topF = [
+                iso(-w, -d, z0 + h, S, cx, cy),
+                iso(w, -d, z0 + h, S, cx, cy),
+                iso(w, d, z0 + h, S, cx, cy),
+                iso(-w, d, z0 + h, S, cx, cy),
+            ];
+            svg += face(topF, colors.top, colors.stroke);
+
+            return svg;
+        }
+
+        // ── Color palettes (built from inputs) ────────────
+        function hex(v) {
+            var n = Math.max(0, Math.min(255, Math.round(v)));
+            var h = n.toString(16);
+            return "#" + (h.length < 2 ? "0" + h : h) + (h.length < 2 ? "0" + h : h) + (h.length < 2 ? "0" + h : h);
+        }
+        function gray(v) {
+            var n = Math.max(0, Math.min(255, Math.round(v)));
+            var h = n.toString(16).padStart(2, "0");
+            return "#" + h + h + h;
+        }
+
+        function getPalettes() {
+            return {
+                generated: {
+                    bottom: { top: gray(+document.getElementById("gbt").value), right: gray(+document.getElementById("gbr").value), left: gray(+document.getElementById("gbl").value), stroke: null },
+                    top:    { top: gray(+document.getElementById("gtt").value), right: gray(+document.getElementById("gtr").value), left: gray(+document.getElementById("gtl").value), stroke: null },
+                },
+                pending: {
+                    bottom: { top: gray(+document.getElementById("pbt").value), right: gray(+document.getElementById("pbr").value), left: gray(+document.getElementById("pbl").value), stroke: null },
+                    top:    { top: gray(+document.getElementById("ptt").value), right: gray(+document.getElementById("ptr").value), left: gray(+document.getElementById("ptl").value), stroke: null },
+                },
+            };
+        }
+
+        // ── Render icon ──────────────────────────────────
+        function renderIcon(size, palette) {
+            var bw = +document.getElementById("bw").value;
+            var bd = +document.getElementById("bd").value;
+            var bh = +document.getElementById("bh").value;
+            var tw = +document.getElementById("tw").value;
+            var td = +document.getElementById("td").value;
+            var th = +document.getElementById("th").value;
+            var gap = +document.getElementById("gap").value;
+            var S = +document.getElementById("sc").value * (size / 60);
+
+            var cx = size / 2;
+            var cy = size * 0.55;
+
+            var svg = '<svg viewBox="0 0 ' + size + ' ' + size +
+                '" width="' + size + '" height="' + size +
+                '" xmlns="http://www.w3.org/2000/svg">';
+
+            // Bottom block
+            svg += block(bw, bd, bh, 0, S, cx, cy, palette.bottom);
+
+            // Top block (sitting on bottom)
+            svg += block(tw, td, th, bh + gap, S, cx, cy, palette.top);
+
+            svg += "</svg>";
+            return svg;
+        }
+
+        // ── Redraw on any change ─────────────────────────
+        function redraw() {
+            var p = getPalettes();
+            document.getElementById("generated").innerHTML =
+                renderIcon(60, p.generated) + "<span>generated</span>";
+            document.getElementById("pending").innerHTML =
+                renderIcon(60, p.pending) + "<span>pending</span>";
+            document.getElementById("large").innerHTML =
+                renderIcon(120, p.generated) + "<span>large (120px)</span>";
+        }
+
+        // Listen to all inputs
+        document.querySelectorAll("input").forEach(function (el) {
+            el.addEventListener("input", redraw);
+        });
+
+        redraw();
+    </script>
+</body>
+</html>

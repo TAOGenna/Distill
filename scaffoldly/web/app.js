@@ -11,6 +11,59 @@ let genStart = null;
 let flowNodes = {};   // module_index → DOM node
 let flowActive = false;
 
+/* ── Isometric icon builder ───────────────────────── */
+
+var ISO_PALETTES = {
+  generated: {
+    bottom: { left: "#2e2e2e", right: "#444444", top: "#5a5a5a" },
+    top:    { left: "#a5a5a5", right: "#666666", top: "#888888" },
+  },
+  pending: {
+    bottom: { left: "#bebebe", right: "#bebebe", top: "#f0f0f0" },
+    top:    { left: "#bebebe", right: "#bebebe", top: "#f0f0f0" },
+  },
+};
+
+function isoIcon(size, palette) {
+  var S = 13 * (size / 60);
+  var cx = size / 2;
+  var cy = size * 0.55;
+
+  function pr(x, y, z) {
+    return {
+      x: cx + (x - y) * S * 0.866,
+      y: cy + (x + y) * S * 0.5 - z * S,
+    };
+  }
+
+  function poly(a, b, c, d, fill) {
+    var p = [a, b, c, d]
+      .map(function (v) { return v.x.toFixed(1) + "," + v.y.toFixed(1); })
+      .join(" ");
+    return '<polygon points="' + p + '" fill="' + fill + '"/>';
+  }
+
+  function blk(w, d, h, z0, col) {
+    var svg = "";
+    // left face (front-left, darkest)
+    svg += poly(pr(-w, d, z0 + h), pr(w, d, z0 + h), pr(w, d, z0), pr(-w, d, z0), col.left);
+    // right face (front-right, medium)
+    svg += poly(pr(w, -d, z0 + h), pr(w, -d, z0), pr(w, d, z0), pr(w, d, z0 + h), col.right);
+    // top face (lightest)
+    svg += poly(pr(-w, -d, z0 + h), pr(w, -d, z0 + h), pr(w, d, z0 + h), pr(-w, d, z0 + h), col.top);
+    return svg;
+  }
+
+  var svg =
+    '<svg viewBox="0 0 ' + size + " " + size +
+    '" width="' + size + '" height="' + size +
+    '" xmlns="http://www.w3.org/2000/svg">';
+  svg += blk(1.1, 1.1, 0.35, 0, palette.bottom);
+  svg += blk(0.75, 0.75, 0.35, 0.41, palette.top);
+  svg += "</svg>";
+  return svg;
+}
+
 /* ── Config ───────────────────────────────────────── */
 
 fetch("/api/config")
@@ -353,22 +406,6 @@ function renderCurriculumFlow(data) {
     svg.style.cssText =
       "position:absolute;top:0;left:0;pointer-events:none;";
 
-    // Arrowhead marker
-    var defs = document.createElementNS(NS, "defs");
-    var marker = document.createElementNS(NS, "marker");
-    marker.setAttribute("id", "arrow");
-    marker.setAttribute("markerWidth", "8");
-    marker.setAttribute("markerHeight", "6");
-    marker.setAttribute("refX", "7");
-    marker.setAttribute("refY", "3");
-    marker.setAttribute("orient", "auto");
-    var tri = document.createElementNS(NS, "polygon");
-    tri.setAttribute("points", "0 0.5, 7 3, 0 5.5");
-    tri.setAttribute("fill", "#ddd");
-    marker.appendChild(tri);
-    defs.appendChild(marker);
-    svg.appendChild(defs);
-
     // Build edges: start→roots, then parent→child (deduplicated)
     var edges = [];
     var edgeSeen = {};
@@ -394,23 +431,53 @@ function renderCurriculumFlow(data) {
       }
     });
 
-    // Draw edges as beziers with arrowheads (offset to stop at node edges)
+    // For vertical edges, compute bow direction away from sibling edges
+    function bowDir(edge) {
+      var ox = 0, n = 0;
+      edges.forEach(function (e) {
+        if (e === edge) return;
+        // Sibling from same source: bow away from where it goes
+        if (Math.abs(e.from.x - edge.from.x) < 5 && Math.abs(e.from.y - edge.from.y) < 5) {
+          ox += e.to.x - edge.from.x; n++;
+        }
+        // Sibling into same target: bow away from where it comes from
+        if (Math.abs(e.to.x - edge.to.x) < 5 && Math.abs(e.to.y - edge.to.y) < 5) {
+          ox += e.from.x - edge.to.x; n++;
+        }
+      });
+      return (n > 0 && ox > 0) ? -45 : 45;
+    }
+
+    // Draw edges as smooth curves (offset to stop at node edges)
     edges.forEach(function (edge) {
       var fy = edge.fromDot ? edge.from.y + 10 : edge.from.y + 5;
       var ty = edge.to.y - 38;
+      var fx = edge.from.x;
+      var tx = edge.to.x;
       var midY = (fy + ty) / 2;
-      var d =
-        "M " + edge.from.x + " " + fy +
-        " C " + edge.from.x + " " + midY +
-        ", " + edge.to.x + " " + midY +
-        ", " + edge.to.x + " " + ty;
+
+      var d;
+      if (Math.abs(tx - fx) < 20) {
+        // Nearly vertical — bow away from siblings
+        var bow = bowDir(edge);
+        d = "M " + fx + " " + fy +
+          " C " + (fx + bow) + " " + midY +
+          ", " + (tx + bow) + " " + midY +
+          ", " + tx + " " + ty;
+      } else {
+        // S-curve between offset nodes
+        d = "M " + fx + " " + fy +
+          " C " + fx + " " + midY +
+          ", " + tx + " " + midY +
+          ", " + tx + " " + ty;
+      }
 
       var pathEl = document.createElementNS(NS, "path");
       pathEl.setAttribute("d", d);
       pathEl.setAttribute("stroke", "#ddd");
-      pathEl.setAttribute("stroke-width", "2");
+      pathEl.setAttribute("stroke-width", "2.5");
       pathEl.setAttribute("fill", "none");
-      pathEl.setAttribute("marker-end", "url(#arrow)");
+      pathEl.setAttribute("stroke-linecap", "round");
       svg.appendChild(pathEl);
     });
     flow.appendChild(svg);
@@ -451,12 +518,21 @@ function renderCurriculumFlow(data) {
           node.className = "flow-node pending";
           node.style.left = pos.x + "px";
           node.style.top = pos.y + "px";
+          var tipHtml = "";
+          if (m.description) {
+            tipHtml += '<div class="tip-desc">' + esc(m.description) + "</div>";
+          }
+          if (m.exercises && m.exercises.length) {
+            tipHtml += m.exercises.map(function (t) {
+              return '<div class="tip-ex">' + esc(t) + "</div>";
+            }).join("");
+          }
+
           node.innerHTML =
-            '<div class="flow-icon">' +
-            String(m.index).padStart(2, "0") +
-            "</div>" +
+            '<div class="flow-icon">' + isoIcon(56, ISO_PALETTES.pending) + "</div>" +
             '<div class="flow-label">' + esc(m.title) + "</div>" +
-            '<div class="flow-sub">' + m.exercise_count + " exercises</div>";
+            '<div class="flow-sub">' + m.exercise_count + " exercises</div>" +
+            (tipHtml ? '<div class="flow-tooltip">' + tipHtml + "</div>" : "");
           flow.appendChild(node);
           flowNodes[m.index] = node;
 
@@ -473,6 +549,9 @@ function activateFlowNode(moduleIndex) {
   if (node) {
     node.classList.remove("pending");
     node.classList.add("generated");
+    // Swap to generated palette SVG
+    var icon = node.querySelector(".flow-icon");
+    if (icon) icon.innerHTML = isoIcon(56, ISO_PALETTES.generated);
   }
 }
 

@@ -78,10 +78,18 @@
             diamond: {
                 title: "ML Training Pipeline",
                 modules: [
-                    { index: 0, title: "Data Loading", exercise_count: 3, depends_on: [] },
-                    { index: 1, title: "Feature Engineering", exercise_count: 4, depends_on: [0] },
-                    { index: 2, title: "Model Architecture", exercise_count: 3, depends_on: [0] },
-                    { index: 3, title: "Training Loop", exercise_count: 5, depends_on: [1, 2] },
+                    { index: 0, title: "Data Loading", exercise_count: 3, depends_on: [],
+                      description: "Build efficient data pipelines for training",
+                      exercises: ["CSV & Parquet reader", "Batched DataLoader", "Prefetch pipeline"] },
+                    { index: 1, title: "Feature Engineering", exercise_count: 4, depends_on: [0],
+                      description: "Transform raw data into model-ready features",
+                      exercises: ["Normalization", "One-hot encoding", "Feature crosses", "Embedding lookup"] },
+                    { index: 2, title: "Model Architecture", exercise_count: 3, depends_on: [0],
+                      description: "Design and implement neural network layers",
+                      exercises: ["Linear layer from scratch", "ReLU + softmax", "Multi-layer network"] },
+                    { index: 3, title: "Training Loop", exercise_count: 5, depends_on: [1, 2],
+                      description: "Wire everything into a working training pipeline",
+                      exercises: ["Forward pass", "Backprop", "SGD optimizer", "Learning rate schedule", "Full training run"] },
                 ],
             },
             wide: {
