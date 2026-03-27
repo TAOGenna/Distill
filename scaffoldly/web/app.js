@@ -8,6 +8,8 @@ const coursesEl = $("#courses");
 const goBtn = $("#go");
 
 let genStart = null;
+let flowNodes = {};   // module_index → DOM node
+let flowActive = false;
 
 /* ── Config ───────────────────────────────────────── */
 
@@ -122,6 +124,8 @@ form.addEventListener("submit", async (e) => {
   logEl.innerHTML = "";
   progressEl.classList.add("active");
   genStart = Date.now();
+  flowNodes = {};
+  flowActive = false;
 
   try {
     const res = await fetch("/api/generate", {
@@ -155,7 +159,10 @@ function connectSSE(jobId) {
       appendPhase(ev.phase);
     } else if (ev.type === "log") {
       appendLog(ev.message, ev.level || "");
+    } else if (ev.type === "curriculum") {
+      renderCurriculumFlow(ev.data);
     } else if (ev.type === "module_complete") {
+      activateFlowNode(ev.module_index);
       appendLog(
         "module " + ev.module_index + " (" + ev.title + ") generated",
         "ok"
@@ -214,20 +221,266 @@ function appendLog(message, level) {
 
 function showResult(result) {
   genStart = null;
-  const el = document.createElement("div");
-  el.className = "result-box";
 
-  let html = "<strong>course generated</strong>";
-  if (result.course_dir)
-    html += '<div class="stat">path <span>' + esc(result.course_dir) + "</span></div>";
-  if (result.total_cost_usd != null)
-    html +=
-      '<div class="stat">cost <span>$' +
-      result.total_cost_usd.toFixed(4) +
+  // If the flow was already rendered progressively, just finalize it
+  if (flowActive) {
+    finalizeFlow(result);
+    return;
+  }
+
+  // Fallback: curriculum came with the complete event (no progressive render)
+  if (
+    result.curriculum &&
+    result.curriculum.modules &&
+    result.curriculum.modules.length > 0
+  ) {
+    renderCurriculumFlow(result.curriculum);
+    // Immediately activate all nodes
+    result.curriculum.modules.forEach(function (m) {
+      activateFlowNode(m.index);
+    });
+    finalizeFlow(result);
+  } else {
+    var el = document.createElement("div");
+    el.className = "result-box";
+    el.innerHTML =
+      "<strong>course generated</strong>" +
+      '<div class="stat">path <span>' +
+      esc(result.course_dir || "\u2014") +
       "</span></div>";
+    logEl.appendChild(el);
+  }
+}
 
-  el.innerHTML = html;
-  logEl.appendChild(el);
+/* ── Course flow visualization (Brilliant-style) ── */
+
+function renderCurriculumFlow(data) {
+  flowNodes = {};
+  flowActive = true;
+
+  var modules = data.modules;
+  var totalEx = modules.reduce(function (s, m) {
+    return s + m.exercise_count;
+  }, 0);
+
+  var el = document.createElement("div");
+  el.className = "course-result";
+  el.id = "course-result";
+  el.innerHTML =
+    '<div class="course-result-header">' +
+    '<div class="course-result-title">' + esc(data.title) + "</div>" +
+    '<div class="course-result-meta">' +
+    modules.length + " modules \u00b7 " + totalEx + " exercises</div>" +
+    '<div class="course-result-dir" id="flow-dir"></div>' +
+    "</div>" +
+    '<div class="course-flow"></div>';
+
+  progressEl.appendChild(el);
+  el.scrollIntoView({ behavior: "smooth", block: "start" });
+
+  var flow = el.querySelector(".course-flow");
+
+  requestAnimationFrame(function () {
+    var W = flow.offsetWidth;
+    if (!W) return;
+
+    // ── DAG layout ───────────────────────────────────
+    var byIdx = {};
+    modules.forEach(function (m) { byIdx[m.index] = m; });
+
+    // Assign layers: longest path from any root
+    var depth = {};
+    function getDepth(idx) {
+      if (depth[idx] !== undefined) return depth[idx];
+      var m = byIdx[idx];
+      if (!m || !m.depends_on || m.depends_on.length === 0) {
+        depth[idx] = 0;
+        return 0;
+      }
+      var maxParent = 0;
+      m.depends_on.forEach(function (p) {
+        var d = getDepth(p);
+        if (d + 1 > maxParent) maxParent = d + 1;
+      });
+      depth[idx] = maxParent;
+      return maxParent;
+    }
+    modules.forEach(function (m) { getDepth(m.index); });
+
+    // Group by layer
+    var layers = {};
+    var maxLayer = 0;
+    modules.forEach(function (m) {
+      var d = depth[m.index];
+      if (!layers[d]) layers[d] = [];
+      layers[d].push(m);
+      if (d > maxLayer) maxLayer = d;
+    });
+
+    // Position nodes
+    var layerSpacing = 120;
+    var startY = 24;
+    var startX = W * 0.5;
+    var totalH = startY + (maxLayer + 2) * layerSpacing;
+    flow.style.height = totalH + "px";
+
+    var positions = {}; // index → {x, y}
+    for (var layer = 0; layer <= maxLayer; layer++) {
+      var group = layers[layer] || [];
+      var count = group.length;
+      var y = startY + (layer + 1) * layerSpacing;
+      group.forEach(function (m, i) {
+        // Spread nodes across the width for this layer
+        var x;
+        if (count === 1) {
+          // Single node: alternate sides by layer for visual interest
+          x = layer % 2 === 0 ? W * 0.35 : W * 0.65;
+        } else {
+          // Multiple nodes: distribute evenly
+          var margin = W * 0.2;
+          var usable = W - 2 * margin;
+          x = margin + (usable * (i + 0.5)) / count;
+        }
+        positions[m.index] = { x: x, y: y };
+      });
+    }
+
+    // ── SVG edges ────────────────────────────────────
+    var NS = "http://www.w3.org/2000/svg";
+    var svg = document.createElementNS(NS, "svg");
+    svg.setAttribute("width", W);
+    svg.setAttribute("height", totalH);
+    svg.style.cssText =
+      "position:absolute;top:0;left:0;pointer-events:none;";
+
+    // Arrowhead marker
+    var defs = document.createElementNS(NS, "defs");
+    var marker = document.createElementNS(NS, "marker");
+    marker.setAttribute("id", "arrow");
+    marker.setAttribute("markerWidth", "8");
+    marker.setAttribute("markerHeight", "6");
+    marker.setAttribute("refX", "7");
+    marker.setAttribute("refY", "3");
+    marker.setAttribute("orient", "auto");
+    var tri = document.createElementNS(NS, "polygon");
+    tri.setAttribute("points", "0 0.5, 7 3, 0 5.5");
+    tri.setAttribute("fill", "#ddd");
+    marker.appendChild(tri);
+    defs.appendChild(marker);
+    svg.appendChild(defs);
+
+    // Build edges: start→roots, then parent→child (deduplicated)
+    var edges = [];
+    var edgeSeen = {};
+    function addEdge(from, to, fromDot) {
+      var key = Math.round(from.x) + "," + Math.round(from.y) +
+                "-" + Math.round(to.x) + "," + Math.round(to.y);
+      if (edgeSeen[key]) return;
+      edgeSeen[key] = true;
+      edges.push({ from: from, to: to, fromDot: fromDot });
+    }
+    modules.forEach(function (m) {
+      if (!m.depends_on || m.depends_on.length === 0) {
+        addEdge({ x: startX, y: startY }, positions[m.index], true);
+      }
+    });
+    modules.forEach(function (m) {
+      if (m.depends_on) {
+        m.depends_on.forEach(function (parentIdx) {
+          if (positions[parentIdx]) {
+            addEdge(positions[parentIdx], positions[m.index], false);
+          }
+        });
+      }
+    });
+
+    // Draw edges as beziers with arrowheads (offset to stop at node edges)
+    edges.forEach(function (edge) {
+      var fy = edge.fromDot ? edge.from.y + 10 : edge.from.y + 5;
+      var ty = edge.to.y - 38;
+      var midY = (fy + ty) / 2;
+      var d =
+        "M " + edge.from.x + " " + fy +
+        " C " + edge.from.x + " " + midY +
+        ", " + edge.to.x + " " + midY +
+        ", " + edge.to.x + " " + ty;
+
+      var pathEl = document.createElementNS(NS, "path");
+      pathEl.setAttribute("d", d);
+      pathEl.setAttribute("stroke", "#ddd");
+      pathEl.setAttribute("stroke-width", "2");
+      pathEl.setAttribute("fill", "none");
+      pathEl.setAttribute("marker-end", "url(#arrow)");
+      svg.appendChild(pathEl);
+    });
+    flow.appendChild(svg);
+
+    // Animate all paths drawing in
+    var paths = svg.querySelectorAll("path");
+    paths.forEach(function (p) {
+      var len = p.getTotalLength();
+      p.style.strokeDasharray = len;
+      p.style.strokeDashoffset = len;
+    });
+    setTimeout(function () {
+      paths.forEach(function (p) {
+        p.style.transition = "stroke-dashoffset 1.2s ease-out";
+        p.style.strokeDashoffset = "0";
+      });
+    }, 100);
+
+    // ── Nodes ────────────────────────────────────────
+
+    // Start dot
+    var dot = document.createElement("div");
+    dot.className = "flow-node";
+    dot.style.left = startX + "px";
+    dot.style.top = startY + "px";
+    dot.innerHTML = '<div class="flow-dot"></div>';
+    flow.appendChild(dot);
+    setTimeout(function () { dot.classList.add("visible"); }, 150);
+
+    // Module nodes by layer — appear in pending state
+    var animDur = 1.2;
+    for (var ly = 0; ly <= maxLayer; ly++) {
+      (function (layer) {
+        var group = layers[layer] || [];
+        group.forEach(function (m) {
+          var pos = positions[m.index];
+          var node = document.createElement("div");
+          node.className = "flow-node pending";
+          node.style.left = pos.x + "px";
+          node.style.top = pos.y + "px";
+          node.innerHTML =
+            '<div class="flow-icon">' +
+            String(m.index).padStart(2, "0") +
+            "</div>" +
+            '<div class="flow-label">' + esc(m.title) + "</div>" +
+            '<div class="flow-sub">' + m.exercise_count + " exercises</div>";
+          flow.appendChild(node);
+          flowNodes[m.index] = node;
+
+          var delay = (animDur * (layer + 1)) / (maxLayer + 2);
+          setTimeout(function () { node.classList.add("visible"); }, delay * 1000 + 100);
+        });
+      })(ly);
+    }
+  });
+}
+
+function activateFlowNode(moduleIndex) {
+  var node = flowNodes[moduleIndex];
+  if (node) {
+    node.classList.remove("pending");
+    node.classList.add("generated");
+  }
+}
+
+function finalizeFlow(result) {
+  var dirEl = document.getElementById("flow-dir");
+  if (dirEl && result.course_dir) {
+    dirEl.textContent = result.course_dir;
+  }
 }
 
 /* ── Helpers ──────────────────────────────────────── */

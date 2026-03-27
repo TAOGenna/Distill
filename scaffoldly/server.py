@@ -186,13 +186,34 @@ async def _run_generation(
         _jobs[job_id]["status"] = "complete"
         _jobs[job_id]["result"] = result
 
+        # Read curriculum for path visualization
+        curriculum_summary = None
+        course_path = Path(result.get("course_dir", ""))
+        curr_file = course_path / "_curriculum.json"
+        if curr_file.exists():
+            try:
+                curr = json.loads(curr_file.read_text())
+                curriculum_summary = {
+                    "title": curr.get("course_title", ""),
+                    "modules": [
+                        {
+                            "index": m.get("module_index", i),
+                            "title": m.get("title", ""),
+                            "exercise_count": len(m.get("exercises", [])),
+                            "depends_on": m.get("depends_on", []),
+                        }
+                        for i, m in enumerate(curr.get("modules", []))
+                    ],
+                }
+            except (json.JSONDecodeError, OSError):
+                pass
+
         emit(
             {
                 "type": "complete",
                 "result": {
                     "course_dir": result.get("course_dir"),
-                    "total_cost_usd": result.get("total_cost_usd"),
-                    "usage": result.get("usage"),
+                    "curriculum": curriculum_summary,
                 },
             }
         )

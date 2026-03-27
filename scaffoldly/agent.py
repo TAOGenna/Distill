@@ -426,6 +426,25 @@ async def run_agent(
         analysis = state.get("analysis")
         course_dir = state.get("course_dir")
 
+        # Emit curriculum structure for live DAG visualization
+        if curriculum:
+            _emit({
+                "type": "curriculum",
+                "data": {
+                    "title": curriculum.get("course_title", ""),
+                    "course_dir": course_dir,
+                    "modules": [
+                        {
+                            "index": m.get("module_index", i),
+                            "title": m.get("title", ""),
+                            "exercise_count": len(m.get("exercises", [])),
+                            "depends_on": m.get("depends_on", []),
+                        }
+                        for i, m in enumerate(curriculum.get("modules", []))
+                    ],
+                },
+            })
+
         if not curriculum or not course_dir:
             _log("No curriculum found — skipping module generation", _C.RED)
         else:

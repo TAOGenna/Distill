@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>scaffoldly — DAG test</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/style.css">
+    <style>
+        .test-controls {
+            margin-bottom: 2rem;
+            font-size: 0.85em;
+        }
+        .test-controls button {
+            margin-right: 0.5rem;
+            margin-bottom: 0.5rem;
+            padding: 0.3rem 0.8rem;
+            font-family: inherit;
+            font-size: inherit;
+            background: #383838;
+            color: #fff;
+            border: none;
+            cursor: pointer;
+        }
+        .test-controls button:hover { opacity: 0.8; }
+        .test-controls button.outline {
+            background: none;
+            border: 1px solid #ddd;
+            color: #383838;
+        }
+        .test-hint { color: #999; margin-top: 0.5rem; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>scaffoldly</h1>
+        <p class="tagline">DAG visualization test</p>
+
+        <div class="test-controls">
+            <div>
+                <button onclick="loadPreset('linear')">linear (4)</button>
+                <button onclick="loadPreset('diamond')">diamond</button>
+                <button onclick="loadPreset('wide')">wide fan-out</button>
+                <button onclick="loadPreset('complex')">complex (6)</button>
+                <button onclick="loadPreset('single')">single module</button>
+            </div>
+            <div style="margin-top: 0.75rem;">
+                <button class="outline" onclick="activateNext()">activate next module</button>
+                <button class="outline" onclick="activateAll()">activate all</button>
+                <button class="outline" onclick="resetAll()">reset</button>
+            </div>
+            <p class="test-hint">click a preset to render the DAG, then activate modules one by one</p>
+        </div>
+
+        <div id="progress" class="active">
+            <div id="log"></div>
+        </div>
+
+        <hr class="separator">
+        <h2>courses</h2>
+        <p class="dim">test page — no real courses</p>
+    </div>
+
+    <script src="/app.js"></script>
+    <script>
+        var presets = {
+            linear: {
+                title: "Billion Page Crawler",
+                modules: [
+                    { index: 0, title: "HTTP Fetching", exercise_count: 3, depends_on: [] },
+                    { index: 1, title: "Async & Concurrency", exercise_count: 4, depends_on: [0] },
+                    { index: 2, title: "Politeness & Rate Limiting", exercise_count: 3, depends_on: [1] },
+                    { index: 3, title: "Frontier & Scheduling", exercise_count: 2, depends_on: [2] },
+                ],
+            },
+            diamond: {
+                title: "ML Training Pipeline",
+                modules: [
+                    { index: 0, title: "Data Loading", exercise_count: 3, depends_on: [] },
+                    { index: 1, title: "Feature Engineering", exercise_count: 4, depends_on: [0] },
+                    { index: 2, title: "Model Architecture", exercise_count: 3, depends_on: [0] },
+                    { index: 3, title: "Training Loop", exercise_count: 5, depends_on: [1, 2] },
+                ],
+            },
+            wide: {
+                title: "Distributed Systems",
+                modules: [
+                    { index: 0, title: "Fundamentals", exercise_count: 3, depends_on: [] },
+                    { index: 1, title: "Networking", exercise_count: 2, depends_on: [0] },
+                    { index: 2, title: "Serialization", exercise_count: 2, depends_on: [0] },
+                    { index: 3, title: "Consensus", exercise_count: 3, depends_on: [0] },
+                    { index: 4, title: "Replication", exercise_count: 4, depends_on: [1, 2, 3] },
+                ],
+            },
+            complex: {
+                title: "GPU Optimization",
+                modules: [
+                    { index: 0, title: "Memory Model", exercise_count: 3, depends_on: [] },
+                    { index: 1, title: "Kernel Basics", exercise_count: 4, depends_on: [0] },
+                    { index: 2, title: "Shared Memory", exercise_count: 3, depends_on: [0] },
+                    { index: 3, title: "Warp Scheduling", exercise_count: 2, depends_on: [1] },
+                    { index: 4, title: "Memory Coalescing", exercise_count: 3, depends_on: [1, 2] },
+                    { index: 5, title: "Full Pipeline", exercise_count: 5, depends_on: [3, 4] },
+                ],
+            },
+            single: {
+                title: "Quick Tutorial",
+                modules: [
+                    { index: 0, title: "Getting Started", exercise_count: 5, depends_on: [] },
+                ],
+            },
+        };
+
+        var currentPreset = null;
+        var activatedCount = 0;
+
+        function loadPreset(name) {
+            // Clear previous
+            var old = document.getElementById("course-result");
+            if (old) old.remove();
+            flowNodes = {};
+            flowActive = false;
+            activatedCount = 0;
+
+            currentPreset = presets[name];
+            renderCurriculumFlow(currentPreset);
+        }
+
+        function activateNext() {
+            if (!currentPreset) return;
+            var modules = currentPreset.modules;
+            if (activatedCount < modules.length) {
+                activateFlowNode(modules[activatedCount].index);
+                activatedCount++;
+            }
+        }
+
+        function activateAll() {
+            if (!currentPreset) return;
+            currentPreset.modules.forEach(function (m) {
+                activateFlowNode(m.index);
+            });
+            activatedCount = currentPreset.modules.length;
+        }
+
+        function resetAll() {
+            if (!currentPreset) loadPreset("linear");
+            else loadPreset(Object.keys(presets).find(function (k) { return presets[k] === currentPreset; }) || "linear");
+        }
+
+        // Load default on start
+        loadPreset("diamond");
+    </script>
+</body>
+</html>
