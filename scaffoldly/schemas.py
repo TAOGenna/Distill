@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 # ── Stage 1: Analysis ──────────────────────────────────────────────────────────
@@ -68,6 +68,17 @@ class Analysis(BaseModel):
 # ── Stage 2: Curriculum Design ─────────────────────────────────────────────────
 
 
+_SCAFFOLDING_MAP: dict[str, str] = {
+    # canonical
+    "heavy": "heavy", "medium": "medium", "light": "light", "none": "none",
+    # common synonyms models use
+    "full": "heavy", "high": "heavy",
+    "partial": "medium", "moderate": "medium", "guided": "medium",
+    "minimal": "light", "low": "light", "lite": "light",
+    "zero": "none", "no": "none",
+}
+
+
 class Exercise(BaseModel):
     title: str
     type: Literal[
@@ -83,6 +94,15 @@ class Exercise(BaseModel):
         "Describe the output — printed measurements, saved plots, or "
         "visualizations that reproduce a key insight from the source material."
     )
+
+    @field_validator("scaffolding_level", mode="before")
+    @classmethod
+    def normalize_scaffolding(cls, v: str) -> str:
+        if isinstance(v, str):
+            mapped = _SCAFFOLDING_MAP.get(v.lower().strip())
+            if mapped:
+                return mapped
+        return v  # let Pydantic raise the literal error if still invalid
 
 
 class InlineQuestion(BaseModel):

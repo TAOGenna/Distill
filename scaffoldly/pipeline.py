@@ -179,6 +179,7 @@ async def _phase_design(
         system=CURRICULUM_DESIGN_SYSTEM_PROMPT,
         response_model=CurriculumDesign,
         max_tokens=16384,
+        max_retries=3,
     )
 
     design = result.structured
