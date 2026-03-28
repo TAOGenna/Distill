@@ -10,6 +10,9 @@ const goBtn = $("#go");
 let genStart = null;
 let flowNodes = {};   // module_index → DOM node
 let flowActive = false;
+let generating = false;
+let totalModules = 0;
+let completedModules = 0;
 
 /* ── Isometric icon builder ───────────────────────── */
 
@@ -45,11 +48,8 @@ function isoIcon(size, palette) {
 
   function blk(w, d, h, z0, col) {
     var svg = "";
-    // left face (front-left, darkest)
     svg += poly(pr(-w, d, z0 + h), pr(w, d, z0 + h), pr(w, d, z0), pr(-w, d, z0), col.left);
-    // right face (front-right, medium)
     svg += poly(pr(w, -d, z0 + h), pr(w, -d, z0), pr(w, d, z0), pr(w, d, z0 + h), col.right);
-    // top face (lightest)
     svg += poly(pr(-w, -d, z0 + h), pr(w, -d, z0 + h), pr(w, d, z0 + h), pr(-w, d, z0 + h), col.top);
     return svg;
   }
@@ -64,46 +64,63 @@ function isoIcon(size, palette) {
   return svg;
 }
 
-/* ── Config ───────────────────────────────────────── */
+/* ── Config + Setup ──────────────────────────────── */
 
 let providerDefaults = {};
+let apiKeySet = false;
 
 function populateModelDropdowns(provider) {
   var defaults = providerDefaults[provider] || { design: "", generate: "" };
   var designSelect = $("#design-model");
   var generateSelect = $("#generate-model");
 
-  // Build options from defaults — user can type custom models too
   designSelect.innerHTML = '<option value="' + esc(defaults.design) + '">' + esc(defaults.design) + '</option>';
   generateSelect.innerHTML = '<option value="' + esc(defaults.generate) + '">' + esc(defaults.generate) + '</option>';
 
-  // Add cross-options so both models are available in both dropdowns
   if (defaults.design !== defaults.generate) {
     designSelect.innerHTML += '<option value="' + esc(defaults.generate) + '">' + esc(defaults.generate) + '</option>';
     generateSelect.innerHTML += '<option value="' + esc(defaults.design) + '">' + esc(defaults.design) + '</option>';
   }
 }
 
-function updateApiKeyVisibility(provider) {
-  var row = $("#api-key-row");
-  if (provider === "ollama") {
-    row.style.display = "none";
+function updateSetupKeyVisibility(provider) {
+  var row = $("#setup-key-row");
+  if (row) row.style.display = provider === "ollama" ? "none" : "";
+  var settingsRow = $("#api-key-row");
+  if (settingsRow) settingsRow.style.display = provider === "ollama" ? "none" : "";
+}
+
+function updateFormState() {
+  if (apiKeySet || $("#cfg-provider").value === "ollama" || ($("#setup-provider") && $("#setup-provider").value === "ollama")) {
+    goBtn.disabled = generating;
+    form.style.opacity = "1";
   } else {
-    row.style.display = "";
+    goBtn.disabled = true;
+    form.style.opacity = "0.5";
   }
 }
 
+function hideSetupPanel() {
+  var panel = $("#setup-panel");
+  if (panel) panel.classList.add("configured");
+  apiKeySet = true;
+  updateFormState();
+}
+
+// Load config
 fetch("/api/config")
   .then((r) => r.json())
   .then((cfg) => {
-    if (!cfg.api_key_set) $("#api-warning").classList.add("visible");
+    apiKeySet = cfg.api_key_set;
+
     if (cfg.output_dir) $("#cfg-output").value = cfg.output_dir;
     if (cfg.api_key_masked) {
       $("#cfg-key").placeholder = cfg.api_key_masked;
     }
     if (cfg.provider) {
       $("#cfg-provider").value = cfg.provider;
-      updateApiKeyVisibility(cfg.provider);
+      if ($("#setup-provider")) $("#setup-provider").value = cfg.provider;
+      updateSetupKeyVisibility(cfg.provider);
     }
     if (cfg.max_revision_cycles !== undefined) {
       $("#cfg-revision-cycles").value = cfg.max_revision_cycles;
@@ -112,10 +129,8 @@ fetch("/api/config")
       providerDefaults = cfg.provider_defaults;
       populateModelDropdowns(cfg.provider || "anthropic");
     }
-    // Restore saved model selections
     if (cfg.design_model) {
       var ds = $("#design-model");
-      // Add option if not already present
       if (!ds.querySelector('option[value="' + cfg.design_model + '"]')) {
         ds.innerHTML += '<option value="' + esc(cfg.design_model) + '">' + esc(cfg.design_model) + '</option>';
       }
@@ -128,9 +143,55 @@ fetch("/api/config")
       }
       gs.value = cfg.generate_model;
     }
-  })
-  .catch(() => {});
 
+    // If key is set, hide setup panel and enable form
+    if (apiKeySet) {
+      hideSetupPanel();
+    } else {
+      updateFormState();
+    }
+  })
+  .catch(() => { updateFormState(); });
+
+// Setup panel save
+if ($("#setup-save")) {
+  $("#setup-save").addEventListener("click", async () => {
+    var provider = $("#setup-provider").value;
+    var key = $("#setup-key").value.trim();
+
+    // Save provider
+    await fetch("/api/config", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ provider: provider }),
+    });
+
+    // Sync the settings provider dropdown
+    $("#cfg-provider").value = provider;
+    populateModelDropdowns(provider);
+
+    if (provider === "ollama" || key) {
+      if (key) {
+        await fetch("/api/config", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ api_key: key, provider: provider }),
+        });
+        $("#cfg-key").placeholder = key.slice(0, 8) + "..." + key.slice(-4);
+      }
+      hideSetupPanel();
+    }
+  });
+}
+
+if ($("#setup-provider")) {
+  $("#setup-provider").addEventListener("change", () => {
+    updateSetupKeyVisibility($("#setup-provider").value);
+    updateFormState();
+  });
+}
+
+// Settings panel handlers
 $("#cfg-provider").addEventListener("change", async () => {
   var provider = $("#cfg-provider").value;
   await fetch("/api/config", {
@@ -139,16 +200,15 @@ $("#cfg-provider").addEventListener("change", async () => {
     body: JSON.stringify({ provider: provider }),
   });
   populateModelDropdowns(provider);
-  updateApiKeyVisibility(provider);
-  // Re-check if key is set for new provider
+  updateSetupKeyVisibility(provider);
   fetch("/api/config").then((r) => r.json()).then((cfg) => {
-    if (!cfg.api_key_set) {
-      $("#api-warning").classList.add("visible");
-      $("#cfg-key").placeholder = "sk-...";
+    apiKeySet = cfg.api_key_set;
+    if (cfg.api_key_masked) {
+      $("#cfg-key").placeholder = cfg.api_key_masked;
     } else {
-      $("#api-warning").classList.remove("visible");
-      if (cfg.api_key_masked) $("#cfg-key").placeholder = cfg.api_key_masked;
+      $("#cfg-key").placeholder = "sk-...";
     }
+    updateFormState();
   });
 });
 
@@ -163,7 +223,8 @@ $("#save-key").addEventListener("click", async () => {
   });
   $("#cfg-key").value = "";
   $("#cfg-key").placeholder = key.slice(0, 8) + "..." + key.slice(-4);
-  $("#api-warning").classList.remove("visible");
+  apiKeySet = true;
+  hideSetupPanel();
 });
 
 $("#browse-output").addEventListener("click", async () => {
@@ -174,7 +235,6 @@ $("#browse-output").addEventListener("click", async () => {
     var data = await res.json();
     if (data.path) {
       $("#cfg-output").value = data.path;
-      // Auto-save
       await fetch("/api/config", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
@@ -219,7 +279,7 @@ $("#add-ref").addEventListener("click", () => {
   row.className = "ref-row";
   row.innerHTML =
     '<input type="url" name="ref" placeholder="https://...">' +
-    '<button type="button" class="ref-remove">&times;</button>';
+    '<button type="button" class="ref-remove" aria-label="remove reference">&times;</button>';
   row.querySelector(".ref-remove").addEventListener("click", () => row.remove());
   $("#refs").appendChild(row);
 });
@@ -230,10 +290,12 @@ function loadCourses() {
   fetch("/api/courses")
     .then((r) => r.json())
     .then((data) => {
+      var section = $("#courses-section");
       if (!data.courses || !data.courses.length) {
-        coursesEl.innerHTML = '<p class="dim">no courses generated yet</p>';
+        section.classList.add("empty");
         return;
       }
+      section.classList.remove("empty");
       coursesEl.innerHTML = data.courses
         .map(
           (c) =>
@@ -256,6 +318,57 @@ function loadCourses() {
 }
 loadCourses();
 
+/* ── Progress bar ────────────────────────────────── */
+
+var phaseWeights = {
+  preprocess: { start: 0, end: 10 },
+  analyze: { start: 10, end: 25 },
+  design: { start: 25, end: 40 },
+  generate: { start: 40, end: 85 },
+  review: { start: 85, end: 100 },
+  done: { start: 100, end: 100 },
+};
+
+var phaseLabels = {
+  preprocess: "preprocessing",
+  analyze: "analyzing",
+  design: "designing curriculum",
+  generate: "generating modules",
+  review: "reviewing",
+  done: "complete",
+};
+
+function updateProgressBar(phase, detail) {
+  var w = phaseWeights[phase];
+  if (!w) return;
+
+  var fill = $("#phase-fill");
+  var label = $("#phase-label");
+  var det = $("#phase-detail");
+
+  fill.style.width = w.start + "%";
+  label.textContent = phaseLabels[phase] || phase;
+  det.textContent = detail || "";
+}
+
+function updateModuleProgress() {
+  var fill = $("#phase-fill");
+  var det = $("#phase-detail");
+  var w = phaseWeights.generate;
+  var pct = w.start + ((w.end - w.start) * completedModules / Math.max(totalModules, 1));
+  fill.style.width = pct + "%";
+  det.textContent = completedModules + "/" + totalModules;
+}
+
+/* ── beforeunload guard ──────────────────────────── */
+
+window.addEventListener("beforeunload", function (e) {
+  if (generating) {
+    e.preventDefault();
+    e.returnValue = "";
+  }
+});
+
 /* ── Generate ─────────────────────────────────────── */
 
 form.addEventListener("submit", async (e) => {
@@ -273,13 +386,18 @@ form.addEventListener("submit", async (e) => {
       .filter(Boolean),
   };
 
+  generating = true;
   goBtn.disabled = true;
   goBtn.textContent = "generating...";
+  goBtn.classList.add("generating");
   logEl.innerHTML = "";
   progressEl.classList.add("active");
   genStart = Date.now();
   flowNodes = {};
   flowActive = false;
+  totalModules = 0;
+  completedModules = 0;
+  updateProgressBar("preprocess", "");
 
   try {
     const res = await fetch("/api/generate", {
@@ -310,18 +428,23 @@ function connectSSE(jobId) {
     const ev = JSON.parse(e.data);
 
     if (ev.type === "phase") {
+      updateProgressBar(ev.phase, "");
       appendPhase(ev.phase);
     } else if (ev.type === "log") {
       appendLog(ev.message, ev.level || "");
     } else if (ev.type === "curriculum") {
+      totalModules = ev.data.modules ? ev.data.modules.length : 0;
       renderCurriculumFlow(ev.data);
     } else if (ev.type === "module_complete") {
+      completedModules++;
+      updateModuleProgress();
       activateFlowNode(ev.module_index);
       appendLog(
         "module " + ev.module_index + " (" + ev.title + ") generated",
         "ok"
       );
     } else if (ev.type === "complete") {
+      updateProgressBar("done", "");
       showResult(ev.result);
       src.close();
       resetBtn();
@@ -336,6 +459,9 @@ function connectSSE(jobId) {
   };
 
   src.onerror = () => {
+    if (generating) {
+      appendLog("connection lost — generation may still be running on the server", "warn");
+    }
     src.close();
     resetBtn();
   };
@@ -343,26 +469,17 @@ function connectSSE(jobId) {
 
 /* ── Log rendering ────────────────────────────────── */
 
-const phaseNames = {
-  preprocess: "preprocessing",
-  agent: "analyzing & designing",
-  analyze: "analyzing",
-  design: "designing curriculum",
-  generate: "generating modules",
-  review: "reviewing",
-  done: "complete",
-};
-
 function appendPhase(phase) {
   const el = document.createElement("div");
   el.className = "phase-label";
-  el.textContent = "\u2500\u2500 " + (phaseNames[phase] || phase) + " \u2500\u2500";
+  el.textContent = "\u2500\u2500 " + (phaseLabels[phase] || phase) + " \u2500\u2500";
   logEl.appendChild(el);
 }
 
 function appendLog(message, level) {
   const el = document.createElement("div");
   el.className = "log-entry" + (level ? " " + level : "");
+  el.title = message;
 
   const secs = genStart ? Math.floor((Date.now() - genStart) / 1000) : 0;
   const mm = String(Math.floor(secs / 60)).padStart(2, "0");
@@ -379,7 +496,6 @@ function showResult(result) {
   // If the flow was already rendered progressively, just finalize it
   if (flowActive) {
     finalizeFlow(result);
-    return;
   }
 
   // Show cost summary
@@ -402,19 +518,7 @@ function showResult(result) {
     appendLog(costLine, "ok");
   }
 
-  // Fallback: curriculum came with the complete event (no progressive render)
-  if (
-    result.curriculum &&
-    result.curriculum.modules &&
-    result.curriculum.modules.length > 0
-  ) {
-    renderCurriculumFlow(result.curriculum);
-    // Immediately activate all nodes
-    result.curriculum.modules.forEach(function (m) {
-      activateFlowNode(m.index);
-    });
-    finalizeFlow(result);
-  } else {
+  if (!flowActive && result.course_dir) {
     var el = document.createElement("div");
     el.className = "result-box";
     el.innerHTML =
@@ -458,11 +562,9 @@ function renderCurriculumFlow(data) {
     var W = flow.offsetWidth;
     if (!W) return;
 
-    // ── DAG layout ───────────────────────────────────
     var byIdx = {};
     modules.forEach(function (m) { byIdx[m.index] = m; });
 
-    // Assign layers: longest path from any root
     var depth = {};
     function getDepth(idx) {
       if (depth[idx] !== undefined) return depth[idx];
@@ -481,7 +583,6 @@ function renderCurriculumFlow(data) {
     }
     modules.forEach(function (m) { getDepth(m.index); });
 
-    // Group by layer
     var layers = {};
     var maxLayer = 0;
     modules.forEach(function (m) {
@@ -491,26 +592,22 @@ function renderCurriculumFlow(data) {
       if (d > maxLayer) maxLayer = d;
     });
 
-    // Position nodes
     var layerSpacing = 120;
     var startY = 24;
     var startX = W * 0.5;
     var totalH = startY + (maxLayer + 2) * layerSpacing;
     flow.style.height = totalH + "px";
 
-    var positions = {}; // index → {x, y}
+    var positions = {};
     for (var layer = 0; layer <= maxLayer; layer++) {
       var group = layers[layer] || [];
       var count = group.length;
       var y = startY + (layer + 1) * layerSpacing;
       group.forEach(function (m, i) {
-        // Spread nodes across the width for this layer
         var x;
         if (count === 1) {
-          // Single node: alternate sides by layer for visual interest
           x = layer % 2 === 0 ? W * 0.35 : W * 0.65;
         } else {
-          // Multiple nodes: distribute evenly
           var margin = W * 0.2;
           var usable = W - 2 * margin;
           x = margin + (usable * (i + 0.5)) / count;
@@ -519,7 +616,6 @@ function renderCurriculumFlow(data) {
       });
     }
 
-    // ── SVG edges ────────────────────────────────────
     var NS = "http://www.w3.org/2000/svg";
     var svg = document.createElementNS(NS, "svg");
     svg.setAttribute("width", W);
@@ -527,7 +623,6 @@ function renderCurriculumFlow(data) {
     svg.style.cssText =
       "position:absolute;top:0;left:0;pointer-events:none;";
 
-    // Build edges: start→roots, then parent→child (deduplicated)
     var edges = [];
     var edgeSeen = {};
     function addEdge(from, to, fromDot) {
@@ -552,16 +647,13 @@ function renderCurriculumFlow(data) {
       }
     });
 
-    // For vertical edges, compute bow direction away from sibling edges
     function bowDir(edge) {
       var ox = 0, n = 0;
       edges.forEach(function (e) {
         if (e === edge) return;
-        // Sibling from same source: bow away from where it goes
         if (Math.abs(e.from.x - edge.from.x) < 5 && Math.abs(e.from.y - edge.from.y) < 5) {
           ox += e.to.x - edge.from.x; n++;
         }
-        // Sibling into same target: bow away from where it comes from
         if (Math.abs(e.to.x - edge.to.x) < 5 && Math.abs(e.to.y - edge.to.y) < 5) {
           ox += e.from.x - edge.to.x; n++;
         }
@@ -569,7 +661,6 @@ function renderCurriculumFlow(data) {
       return (n > 0 && ox > 0) ? -45 : 45;
     }
 
-    // Draw edges as smooth curves (offset to stop at node edges)
     edges.forEach(function (edge) {
       var fy = edge.fromDot ? edge.from.y + 10 : edge.from.y + 5;
       var ty = edge.to.y - 38;
@@ -579,14 +670,12 @@ function renderCurriculumFlow(data) {
 
       var d;
       if (Math.abs(tx - fx) < 20) {
-        // Nearly vertical — bow away from siblings
         var bow = bowDir(edge);
         d = "M " + fx + " " + fy +
           " C " + (fx + bow) + " " + midY +
           ", " + (tx + bow) + " " + midY +
           ", " + tx + " " + ty;
       } else {
-        // S-curve between offset nodes
         d = "M " + fx + " " + fy +
           " C " + fx + " " + midY +
           ", " + tx + " " + midY +
@@ -603,7 +692,6 @@ function renderCurriculumFlow(data) {
     });
     flow.appendChild(svg);
 
-    // Animate all paths drawing in
     var paths = svg.querySelectorAll("path");
     paths.forEach(function (p) {
       var len = p.getTotalLength();
@@ -617,9 +705,6 @@ function renderCurriculumFlow(data) {
       });
     }, 100);
 
-    // ── Nodes ────────────────────────────────────────
-
-    // Start dot
     var dot = document.createElement("div");
     dot.className = "flow-node";
     dot.style.left = startX + "px";
@@ -628,7 +713,6 @@ function renderCurriculumFlow(data) {
     flow.appendChild(dot);
     setTimeout(function () { dot.classList.add("visible"); }, 150);
 
-    // Module nodes by layer — appear in pending state
     var animDur = 1.2;
     for (var ly = 0; ly <= maxLayer; ly++) {
       (function (layer) {
@@ -637,6 +721,8 @@ function renderCurriculumFlow(data) {
           var pos = positions[m.index];
           var node = document.createElement("div");
           node.className = "flow-node pending";
+          node.setAttribute("role", "img");
+          node.setAttribute("aria-label", m.title + " \u2014 pending");
           node.style.left = pos.x + "px";
           node.style.top = pos.y + "px";
           var tipHtml = "";
@@ -670,9 +756,17 @@ function activateFlowNode(moduleIndex) {
   if (node) {
     node.classList.remove("pending");
     node.classList.add("generated");
-    // Swap to generated palette SVG
+    node.setAttribute("aria-label", node.getAttribute("aria-label").replace("pending", "generated"));
     var icon = node.querySelector(".flow-icon");
     if (icon) icon.innerHTML = isoIcon(56, ISO_PALETTES.generated);
+    // Add checkmark
+    var sub = node.querySelector(".flow-sub");
+    if (sub && !node.querySelector(".flow-check")) {
+      var check = document.createElement("div");
+      check.className = "flow-check";
+      check.textContent = "\u2713";
+      sub.after(check);
+    }
   }
 }
 
@@ -686,8 +780,11 @@ function finalizeFlow(result) {
 /* ── Helpers ──────────────────────────────────────── */
 
 function resetBtn() {
+  generating = false;
   goBtn.disabled = false;
   goBtn.textContent = "generate";
+  goBtn.classList.remove("generating");
+  updateFormState();
 }
 
 function esc(s) {

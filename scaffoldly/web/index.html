@@ -14,14 +14,30 @@
         <h1>scaffoldly</h1>
         <p class="tagline">turn technical blogs, papers, and repos into hands-on coursework</p>
 
-        <div id="api-warning" class="warning">
-            no api key configured. add one in settings below.
+        <!-- Inline setup panel — shown when no API key configured -->
+        <div id="setup-panel" class="setup-panel">
+            <h3>get started</h3>
+            <div class="setup-row">
+                <label for="setup-provider">provider</label>
+                <select id="setup-provider">
+                    <option value="anthropic">Anthropic</option>
+                    <option value="openai">OpenAI</option>
+                    <option value="google">Google</option>
+                    <option value="ollama">Ollama (local)</option>
+                    <option value="openrouter">OpenRouter</option>
+                </select>
+            </div>
+            <div class="setup-row" id="setup-key-row">
+                <label for="setup-key">api key</label>
+                <input type="password" id="setup-key" placeholder="sk-...">
+                <button class="btn" id="setup-save">save</button>
+            </div>
         </div>
 
         <form id="form">
             <div class="field">
-                <label>source url</label>
-                <input type="url" name="url" placeholder="https://blog.example.com/deep-dive" required>
+                <label for="url-input">source url</label>
+                <input type="url" id="url-input" name="url" placeholder="https://blog.example.com/deep-dive" required>
             </div>
 
             <div id="refs"></div>
@@ -30,38 +46,50 @@
             <div class="checkbox-field">
                 <input type="checkbox" id="series" name="series">
                 <label for="series">series mode</label>
-                <span class="hint">ordered progression (part 1 &rarr; 2 &rarr; 3)</span>
+                <span class="hint">treat all urls as an ordered series (part 1, 2, 3...)</span>
             </div>
 
             <div class="field">
-                <label>your level</label>
-                <textarea name="level" rows="1" placeholder="mid-level Python dev, new to systems programming" required></textarea>
+                <label for="level-input">describe your background</label>
+                <textarea id="level-input" name="level" rows="1" placeholder="mid-level Python dev, new to systems programming" required></textarea>
+                <div class="field-hint">what languages/tools do you know? what's new to you?</div>
             </div>
 
-            <div class="field-row">
-                <div class="field">
-                    <label>design model</label>
-                    <select name="design_model" id="design-model"></select>
+            <details class="advanced">
+                <summary>model selection</summary>
+                <div class="field-row" style="margin-top: 0.75rem">
+                    <div class="field">
+                        <label for="design-model">design model <span class="hint">(analysis + curriculum)</span></label>
+                        <select name="design_model" id="design-model"></select>
+                    </div>
+                    <div class="field">
+                        <label for="generate-model">generate model <span class="hint">(exercise files)</span></label>
+                        <select name="generate_model" id="generate-model"></select>
+                    </div>
                 </div>
-                <div class="field">
-                    <label>generate model</label>
-                    <select name="generate_model" id="generate-model"></select>
-                </div>
-            </div>
+            </details>
 
-            <button type="submit" class="btn" id="go">generate</button>
+            <button type="submit" class="btn" id="go" disabled>generate</button>
         </form>
 
         <div id="progress">
             <hr class="separator">
-            <div id="log"></div>
+            <div class="phase-bar" id="phase-bar">
+                <span class="phase-bar-label" id="phase-label">starting...</span>
+                <div class="phase-bar-track">
+                    <div class="phase-bar-fill" id="phase-fill"></div>
+                </div>
+                <span class="phase-bar-detail" id="phase-detail"></span>
+            </div>
+            <div id="log" aria-live="polite"></div>
         </div>
 
-        <hr class="separator">
-
-        <h2>courses</h2>
-        <div id="courses">
-            <p class="dim">no courses generated yet</p>
+        <div id="courses-section">
+            <hr class="separator">
+            <h2>courses</h2>
+            <div id="courses">
+                <p class="dim">no courses generated yet</p>
+            </div>
         </div>
 
         <hr class="separator">
@@ -69,7 +97,7 @@
         <h2>settings</h2>
         <form id="settings" onsubmit="return false">
             <div class="settings-row">
-                <label>provider</label>
+                <label for="cfg-provider">provider</label>
                 <select id="cfg-provider">
                     <option value="anthropic">Anthropic</option>
                     <option value="openai">OpenAI</option>
@@ -79,12 +107,12 @@
                 </select>
             </div>
             <div class="settings-row" id="api-key-row">
-                <label>api key</label>
+                <label for="cfg-key">api key</label>
                 <input type="password" id="cfg-key" placeholder="sk-...">
                 <button class="link-btn" id="save-key">save</button>
             </div>
             <div class="settings-row">
-                <label>output</label>
+                <label for="cfg-output">output</label>
                 <input type="text" id="cfg-output" placeholder="./output">
                 <button class="icon-btn" id="browse-output" title="browse for folder">
                     <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
@@ -94,7 +122,7 @@
                 <button class="link-btn" id="save-output">save</button>
             </div>
             <div class="settings-row">
-                <label>max review cycles</label>
+                <label for="cfg-revision-cycles">review rounds</label>
                 <select id="cfg-revision-cycles">
                     <option value="0">0 (skip review)</option>
                     <option value="1" selected>1 (default)</option>
