@@ -89,12 +89,16 @@ function updateSetupKeyVisibility(provider) {
 }
 
 function updateFormState() {
-  var provider = $("#setup-provider") ? $("#setup-provider").value : "anthropic";
-  if (apiKeySet || provider === "ollama") {
-    goBtn.disabled = generating;
-  } else {
+  if (generating) {
     goBtn.disabled = true;
+    return;
   }
+  var provider = $("#setup-provider") ? $("#setup-provider").value : "anthropic";
+  var hasAuth = apiKeySet || provider === "ollama";
+  var hasUrl = $("#url-input").value.trim().length > 0;
+  var hasLevel = $("#level-input").value.trim().length > 0;
+
+  goBtn.disabled = !(hasAuth && hasUrl && hasLevel);
 }
 
 function markConfigured() {
@@ -262,9 +266,18 @@ $("#cfg-revision-cycles").addEventListener("change", async () => {
   });
 });
 
-/* ── Auto-grow textarea ───────────────────────────── */
+/* ── Auto-grow textarea + live form validation ────── */
 
-document.querySelectorAll("textarea").forEach((el) => {
+$("#url-input").addEventListener("input", updateFormState);
+$("#level-input").addEventListener("input", () => {
+  // Auto-grow
+  var el = $("#level-input");
+  el.style.height = "auto";
+  el.style.height = el.scrollHeight + "px";
+  updateFormState();
+});
+
+document.querySelectorAll("textarea:not(#level-input)").forEach((el) => {
   el.addEventListener("input", () => {
     el.style.height = "auto";
     el.style.height = el.scrollHeight + "px";
