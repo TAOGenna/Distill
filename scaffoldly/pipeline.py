@@ -31,6 +31,7 @@ from .prompts import (
 from .schemas import (
     Analysis,
     CurriculumDesign,
+    ExerciseFile,
     GeneratedFile,
     ModuleOutput,
     ModuleReview,
@@ -233,6 +234,7 @@ async def _generate_single_module(
     student_level: str,
     model: str,
     course_dir: Path,
+    shared_defs: dict | None = None,
     revision_feedback: str | None = None,
 ) -> tuple[int, ModuleOutput, Usage]:
     """Generate all files for a single module via one API call."""
@@ -240,11 +242,34 @@ async def _generate_single_module(
     title = module_spec["title"]
     spec_json = json.dumps(module_spec, indent=2, ensure_ascii=False)
 
+    # Build key excerpts section if available
+    key_excerpts = module_spec.get("key_excerpts", [])
+    excerpts_block = ""
+    if key_excerpts:
+        excerpts_block = (
+            "\n\nKEY EXCERPTS FROM SOURCE MATERIAL (use as ground truth):\n"
+            + "\n".join(f"  [{i+1}] {exc}" for i, exc in enumerate(key_excerpts))
+            + "\n\nTranslate these DIRECTLY to code. Do not invent algorithms."
+        )
+
+    # Build shared definitions section
+    shared_block = ""
+    if shared_defs:
+        lang = shared_defs.get("language", "python")
+        deps = shared_defs.get("dependencies", [])
+        shared_block = (
+            f"\n\nShared definitions:\n"
+            f"  Language: {lang}\n"
+            f"  Dependencies: {', '.join(deps) if deps else 'standard library only'}\n"
+        )
+
     prompt = (
         f"Generate all files for Module {idx}: \"{title}\"\n\n"
         f"Student level: {student_level}\n\n"
-        f"Module specification:\n{spec_json}\n\n"
-        f"Course context:\n{course_context}\n\n"
+        f"Module Blueprint (follow scaffold_contract EXACTLY):\n{spec_json}\n\n"
+        f"Course context:\n{course_context}"
+        f"{shared_block}"
+        f"{excerpts_block}\n\n"
         f"Source material excerpts:\n{source_excerpts[:10000]}\n"
     )
 
@@ -262,12 +287,24 @@ async def _generate_single_module(
         system=MODULE_GENERATION_SYSTEM_PROMPT,
         response_model=ModuleOutput,
         max_tokens=16384,
+        max_retries=3,
     )
 
     module_output = result.structured
     assert isinstance(module_output, ModuleOutput)
 
     return idx, module_output, result.usage
+
+
+def _validate_syntax_str(content: str, path: str, language: str) -> str | None:
+    """Validate syntax for a file content string. Returns error or None."""
+    if language == "python":
+        try:
+            ast.parse(content)
+            return None
+        except SyntaxError as e:
+            return f"{path}: SyntaxError at line {e.lineno}: {e.msg}"
+    return None
 
 
 def _write_module_files(
@@ -280,17 +317,38 @@ def _write_module_files(
     # Write README
     (module_dir / "README.md").write_text(module_output.readme, encoding="utf-8")
 
-    # Write all generated files
     errors: list[str] = []
-    for file in module_output.files:
+
+    # Write exercise files (scaffold version for students, solution in _solutions/)
+    solutions_dir = module_dir / "_solutions"
+    solutions_dir.mkdir(parents=True, exist_ok=True)
+
+    for ex in module_output.exercises:
+        # Write scaffold (student-facing)
+        scaffold_path = module_dir / ex.relative_path
+        scaffold_path.parent.mkdir(parents=True, exist_ok=True)
+        scaffold_path.write_text(ex.scaffold_content, encoding="utf-8")
+
+        # Validate scaffold syntax
+        err = _validate_syntax_str(ex.scaffold_content, ex.relative_path, ex.language)
+        if err:
+            errors.append(f"scaffold {err}")
+
+        # Write solution (hidden)
+        solution_path = solutions_dir / ex.relative_path
+        solution_path.parent.mkdir(parents=True, exist_ok=True)
+        solution_path.write_text(ex.solution_content, encoding="utf-8")
+
+        # Validate solution syntax
+        err = _validate_syntax_str(ex.solution_content, ex.relative_path, ex.language)
+        if err:
+            errors.append(f"solution {err}")
+
+    # Write supporting files
+    for file in module_output.supporting_files:
         file_path = module_dir / file.relative_path
         file_path.parent.mkdir(parents=True, exist_ok=True)
         file_path.write_text(file.content, encoding="utf-8")
-
-        # Validate syntax
-        err = _validate_syntax(file)
-        if err:
-            errors.append(err)
 
     return errors
 
@@ -322,6 +380,11 @@ async def _phase_generate(
         f"Key concepts:\n{concept_lines}"
     )
 
+    # Shared definitions for all modules
+    shared_defs = None
+    if hasattr(design, "shared_definitions") and design.shared_definitions:
+        shared_defs = design.shared_definitions.model_dump()
+
     results: dict[int, tuple[ModuleOutput, Usage]] = {}
 
     async def _run(module_spec: dict) -> None:
@@ -336,6 +399,7 @@ async def _phase_generate(
                 student_level=student_level,
                 model=model,
                 course_dir=course_dir,
+                shared_defs=shared_defs,
             )
             results[idx] = (output, usage)
 
@@ -368,8 +432,8 @@ async def _phase_generate(
 # ── Phase 3a: Pre-flight validation ──────────────────────────────────────────
 
 
-def _preflight_module(module_dir: Path) -> list[str]:
-    """Run deterministic checks on a generated module. Returns list of errors."""
+def _preflight_module(module_dir: Path, module_spec: dict | None = None) -> list[str]:
+    """Run deterministic + contract-aware checks. Returns list of errors."""
     errors: list[str] = []
 
     # Check README exists
@@ -399,7 +463,6 @@ def _preflight_module(module_dir: Path) -> list[str]:
                 has_main = True
                 break
         if not has_main:
-            # Also check for a main() function call at module level
             for node in ast.iter_child_nodes(tree):
                 if isinstance(node, ast.Expr) and isinstance(node.value, ast.Call):
                     if isinstance(node.value.func, ast.Name) and node.value.func.id == "main":
@@ -407,6 +470,34 @@ def _preflight_module(module_dir: Path) -> list[str]:
                         break
         if not has_main:
             errors.append(f"{py_file.name}: missing __main__ block or main() call")
+
+        # Contract-aware: check TODO markers exist (scaffold should have them)
+        if "YOUR CODE HERE" not in content and "TODO" not in content:
+            errors.append(f"{py_file.name}: no TODO/YOUR CODE HERE markers found")
+
+        # Contract-aware: check file isn't trivially short (likely placeholder)
+        lines = [l for l in content.splitlines() if l.strip() and not l.strip().startswith("#")]
+        if len(lines) < 15:
+            errors.append(f"{py_file.name}: only {len(lines)} non-comment lines (expected 40+)")
+
+    # Contract-aware: check against validation_criteria if spec available
+    if module_spec:
+        exercises = module_spec.get("exercises", [])
+        for ex in exercises:
+            vc = ex.get("validation_criteria", {})
+            expected_pattern = vc.get("expected_pattern", "")
+            if not expected_pattern:
+                continue
+            # Check that the __main__ block in the solution references the pattern
+            solutions_dir = module_dir / "_solutions"
+            if solutions_dir.exists():
+                for sol_file in solutions_dir.glob("*.py"):
+                    sol_content = sol_file.read_text(errors="replace")
+                    if expected_pattern.lower() not in sol_content.lower():
+                        errors.append(
+                            f"_solutions/{sol_file.name}: expected pattern "
+                            f"'{expected_pattern}' not found in solution"
+                        )
 
     # Check for C/Rust files
     for c_file in list(module_dir.glob("*.c")) + list(module_dir.glob("*.rs")):
@@ -487,14 +578,14 @@ async def _phase_review(
         if cycle > 0:
             _log(f"Revision cycle {cycle}/{max_revision_cycles}", _C.CYAN)
 
-        # 3a: Pre-flight validation
+        # 3a: Pre-flight validation (with contract checks)
         preflight_failures: dict[int, list[str]] = {}
         for module in curriculum.modules:
             idx = module.module_index
             module_slug = f"module_{idx:02d}_{_slugify(module.title)}"
             module_dir = course_dir / module_slug
             if module_dir.exists():
-                errors = _preflight_module(module_dir)
+                errors = _preflight_module(module_dir, module.model_dump())
                 if errors:
                     preflight_failures[idx] = errors
                     _log(

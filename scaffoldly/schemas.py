@@ -1,4 +1,8 @@
-"""Pydantic models for structured LLM output throughout the pipeline."""
+"""Pydantic models for structured LLM output throughout the pipeline.
+
+Blueprint architecture: Phase 1 produces rich contracts (scaffold_contract,
+key_excerpts, validation_criteria) that constrain Phase 2 generation.
+"""
 
 from __future__ import annotations
 
@@ -65,18 +69,71 @@ class Analysis(BaseModel):
     learning_goals: list[str]
 
 
-# ── Stage 2: Curriculum Design ─────────────────────────────────────────────────
+# ── Stage 2: Blueprint (Curriculum Design) ───────────────────────────────────
 
 
 _SCAFFOLDING_MAP: dict[str, str] = {
-    # canonical
     "heavy": "heavy", "medium": "medium", "light": "light", "none": "none",
-    # common synonyms models use
     "full": "heavy", "high": "heavy",
     "partial": "medium", "moderate": "medium", "guided": "medium",
     "minimal": "light", "low": "light", "lite": "light",
     "zero": "none", "no": "none",
 }
+
+
+class ScaffoldContract(BaseModel):
+    """What the exercise provides vs what the student writes."""
+
+    provided: list[str] = Field(
+        description="What is given to the student as working code. Be specific: "
+        "'class Node with __init__ and __repr__', 'import block with numpy/torch', "
+        "'__main__ block with test harness and expected output printing'. "
+        "Target: ~65% of the file should be provided code."
+    )
+    student_implements: list[str] = Field(
+        description="What the student must write. Each item becomes a TODO block. "
+        "Be specific: 'Node.backward() — reverse topological walk, ~8-12 lines', "
+        "'compute_loss() — cross-entropy with softmax, ~5-8 lines'. "
+        "Include line count estimates."
+    )
+    key_insight: str = Field(
+        description="The single most important thing the student should understand "
+        "after completing this exercise. This goes in the docstring and hints."
+    )
+    common_mistakes: list[str] = Field(
+        default_factory=list,
+        description="Mistakes students commonly make on this type of exercise. "
+        "These become warnings in the scaffold's comments."
+    )
+
+
+class ValidationCriteria(BaseModel):
+    """What the __main__ block should demonstrate when the exercise is complete."""
+
+    observable_output: str = Field(
+        description="Description of what the student sees when running the file. "
+        "Be specific: 'prints a table of gradient values vs finite differences, "
+        "all relative errors < 1e-5' or 'prints throughput in pages/sec, "
+        "expected ~950 matching the blog's measurement'."
+    )
+    expected_pattern: str = Field(
+        default="",
+        description="A string or pattern that should appear in stdout when the "
+        "exercise runs correctly. Used for automated validation. "
+        "E.g., 'relative error', 'pages/sec', 'loss curve saved to'."
+    )
+
+
+class PredecessorExport(BaseModel):
+    """Interface contract for cross-exercise dependencies."""
+
+    from_exercise: str = Field(
+        description="Exercise ID this dependency comes from, e.g. 'ex01_basic_dp'."
+    )
+    exports: list[str] = Field(
+        description="What the predecessor provides: function names, class names, "
+        "or data structures. E.g., ['Node class', 'numerical_gradient_check()']."
+    )
 
 
 class Exercise(BaseModel):
@@ -94,6 +151,19 @@ class Exercise(BaseModel):
         "Describe the output — printed measurements, saved plots, or "
         "visualizations that reproduce a key insight from the source material."
     )
+    scaffold_contract: ScaffoldContract = Field(
+        description="Detailed contract specifying what code is provided vs what "
+        "the student implements. This constrains the module generator."
+    )
+    validation_criteria: ValidationCriteria = Field(
+        description="What the __main__ block should print when the exercise works. "
+        "Used by the review phase to check exercise quality."
+    )
+    predecessor_exports: PredecessorExport | None = Field(
+        default=None,
+        description="If this exercise builds on a previous exercise, specify "
+        "what it imports or uses from the predecessor."
+    )
 
     @field_validator("scaffolding_level", mode="before")
     @classmethod
@@ -102,7 +172,7 @@ class Exercise(BaseModel):
             mapped = _SCAFFOLDING_MAP.get(v.lower().strip())
             if mapped:
                 return mapped
-        return v  # let Pydantic raise the literal error if still invalid
+        return v
 
 
 class InlineQuestion(BaseModel):
@@ -118,13 +188,19 @@ class Module(BaseModel):
     concepts_covered: list[str]
     depends_on: list[int] = Field(
         default_factory=list,
-        description="Module indices this module requires as prerequisites. "
-        "Empty list means this module can be started independently. "
-        "Used to generate the learning path in the course README.",
+        description="Module indices this module requires as prerequisites.",
     )
     exercises: list[Exercise]
     inline_questions: list[InlineQuestion]
     visible_outcome: str
+    key_excerpts: list[str] = Field(
+        default_factory=list,
+        description="Verbatim excerpts (200-500 chars each) from the source material "
+        "containing the algorithms, formulas, pseudocode, or techniques this "
+        "module's exercises must implement. These are injected into the module "
+        "generator prompt to ground it in the source material's actual content. "
+        "Extract the EXACT text — do not paraphrase."
+    )
 
 
 class Curriculum(BaseModel):
@@ -144,10 +220,30 @@ def _unescape_content(v: str) -> str:
     return v
 
 
+class SharedDefinitions(BaseModel):
+    """Shared conventions across all modules."""
+
+    language: str = Field(
+        description="Primary programming language for the course: 'python', 'c', 'rust', etc."
+    )
+    dependencies: list[str] = Field(
+        default_factory=list,
+        description="Real packages/libraries used across modules. "
+        "E.g., ['numpy', 'torch', 'matplotlib'] or ['pthread', 'cilk']."
+    )
+    naming_convention: str = Field(
+        default="snake_case",
+        description="Variable/function naming convention: 'snake_case' or 'camelCase'."
+    )
+
+
 class CurriculumDesign(BaseModel):
-    """Phase 1b output — curriculum plus root project files."""
+    """Phase 1b output — Blueprint with rich contracts for module generation."""
 
     curriculum: Curriculum
+    shared_definitions: SharedDefinitions = Field(
+        description="Shared conventions (language, dependencies, naming) for all modules."
+    )
     root_readme: str = Field(
         description="Full content of the course root README.md. Includes setup "
         "instructions, module order/learning path, and What's Next section."
@@ -181,20 +277,61 @@ _EXT_TO_LANGUAGE: dict[str, str] = {
 }
 
 
-class GeneratedFile(BaseModel):
-    """A single file produced by the module generator."""
+class ExerciseFile(BaseModel):
+    """A single exercise with both scaffold (student) and solution versions."""
 
     relative_path: str = Field(
-        description="Path relative to the module directory, e.g. 'ex01_basic.py' "
-        "or 'data/sample.csv'. Do not include the module directory name."
+        description="Path relative to the module directory, e.g. 'ex01_basic_dp.py'."
+    )
+    scaffold_content: str = Field(
+        description="The STUDENT version of the file. Contains ~65% provided code "
+        "(imports, class structures, __main__ block, docstrings, data fixtures) "
+        "and ~35% TODO blocks where the student writes code. TODO blocks must "
+        "include line count hints (e.g., '# YOUR CODE HERE - 8-12 lines'). "
+        "Must parse/compile without errors. NotImplementedError in TODO zones."
+    )
+    solution_content: str = Field(
+        description="The COMPLETE working version with all TODOs filled in. "
+        "Must produce the output described in validation_criteria when executed. "
+        "Same structure as scaffold — identical imports, classes, __main__ block — "
+        "but with solution code replacing TODO markers."
+    )
+    language: str = Field(
+        default="",
+        description="Programming language. Auto-detected from extension if omitted."
+    )
+
+    @field_validator("language", mode="before")
+    @classmethod
+    def infer_language(cls, v: str, info) -> str:
+        if v:
+            return v
+        path = info.data.get("relative_path", "")
+        if path:
+            import os
+            ext = os.path.splitext(path)[1].lower()
+            return _EXT_TO_LANGUAGE.get(ext, "text")
+        return "text"
+
+    @field_validator("scaffold_content", "solution_content", mode="before")
+    @classmethod
+    def fix_file_escaping(cls, v: str) -> str:
+        return _unescape_content(v)
+
+
+class GeneratedFile(BaseModel):
+    """A supporting (non-exercise) file produced by the module generator."""
+
+    relative_path: str = Field(
+        description="Path relative to the module directory, e.g. 'data/sample.csv' "
+        "or 'Makefile'. Do not include the module directory name."
     )
     content: str = Field(
         description="Full file content."
     )
     language: str = Field(
         default="",
-        description="Programming language or file type, e.g. 'python', 'c', 'rust'. "
-        "Optional — auto-detected from file extension if omitted."
+        description="File type. Auto-detected from extension if omitted."
     )
 
     @field_validator("language", mode="before")
@@ -220,11 +357,17 @@ class ModuleOutput(BaseModel):
 
     readme: str = Field(
         description="Full content of the module README.md. Includes learning "
-        "objectives, exercise walkthrough, and 2-4 analytical questions at "
-        "Level 3+ depth."
+        "objectives, exercise walkthrough, 2-4 analytical questions at Level 3+ "
+        "depth, and hints keyed to the scaffold_contract's common_mistakes."
     )
-    files: list[GeneratedFile] = Field(
-        description="All exercise and supporting files for this module."
+    exercises: list[ExerciseFile] = Field(
+        description="Exercise files with both scaffold and solution versions. "
+        "Generate scaffold FIRST (think about pedagogy), then fill in the solution."
+    )
+    supporting_files: list[GeneratedFile] = Field(
+        default_factory=list,
+        description="Any additional files: data fixtures, configs, Makefiles, "
+        "helper modules, header files. Optional."
     )
 
     @field_validator("readme", mode="before")
@@ -276,5 +419,3 @@ class ReviewResult(BaseModel):
     overall_verdict: Literal["pass", "revise"] = Field(
         description="'pass' if all modules pass, 'revise' if any need changes."
     )
-
-
