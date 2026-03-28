@@ -112,6 +112,12 @@ class LLMClient:
         # Instructor-patched async client for structured output
         self._instructor = instructor.from_litellm(litellm.acompletion)
 
+        # Cumulative usage tracking across all calls
+        self.total_input_tokens: int = 0
+        self.total_output_tokens: int = 0
+        self.total_cost_usd: float = 0.0
+        self.total_calls: int = 0
+
     def _setup_api_key(self) -> None:
         """Set the API key in the environment for LiteLLM to pick up."""
         if not self.api_key:
@@ -174,6 +180,7 @@ class LLMClient:
         response = await litellm.acompletion(**kwargs)
         content = response.choices[0].message.content or ""
         usage = self._extract_usage(response, kwargs.get("model", ""))
+        self._track(usage)
         return CompletionResult(content=content, usage=usage)
 
     async def _structured_call(
@@ -183,17 +190,39 @@ class LLMClient:
         max_retries: int,
     ) -> CompletionResult:
         """Structured output via Instructor — returns validated Pydantic model."""
-        result = await self._instructor(
+        # Use Instructor's create with raw completion to get usage data
+        result, raw_response = await self._instructor(
             response_model=response_model,
             max_retries=max_retries,
+            with_raw_response=True,
             **kwargs,
         )
-        # Instructor returns the Pydantic model directly
+        # Extract usage from the raw LiteLLM response
+        usage = self._extract_usage(raw_response, kwargs.get("model", ""))
+        self._track(usage)
         return CompletionResult(
             content=result.model_dump_json(indent=2),
             structured=result,
-            usage=Usage(),  # Instructor doesn't expose usage easily; tracked separately if needed
+            usage=usage,
         )
+
+    def _track(self, usage: Usage) -> None:
+        """Accumulate usage from a single call into running totals."""
+        self.total_input_tokens += usage.input_tokens
+        self.total_output_tokens += usage.output_tokens
+        if usage.cost_usd is not None:
+            self.total_cost_usd += usage.cost_usd
+        self.total_calls += 1
+
+    def get_totals(self) -> dict:
+        """Return cumulative usage stats for the entire session."""
+        return {
+            "input_tokens": self.total_input_tokens,
+            "output_tokens": self.total_output_tokens,
+            "total_tokens": self.total_input_tokens + self.total_output_tokens,
+            "cost_usd": self.total_cost_usd,
+            "api_calls": self.total_calls,
+        }
 
     def _extract_usage(self, response: Any, model: str) -> Usage:
         """Pull token counts and cost from a LiteLLM response."""

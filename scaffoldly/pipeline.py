@@ -21,7 +21,7 @@ from typing import Any
 
 import anyio
 
-from .llm import LLMClient, Usage
+from .llm import LLMClient
 from .prompts import (
     ANALYSIS_SYSTEM_PROMPT,
     CURRICULUM_DESIGN_SYSTEM_PROMPT,
@@ -94,14 +94,6 @@ def _slugify(title: str) -> str:
     slug = "".join(c if c.isalnum() or c == " " else "" for c in slug)
     slug = slug.strip().replace(" ", "_")
     return slug[:50].rstrip("_")
-
-
-def _accumulate_usage(total: dict, usage: Usage) -> None:
-    """Add usage stats to a running total."""
-    total["input_tokens"] = total.get("input_tokens", 0) + usage.input_tokens
-    total["output_tokens"] = total.get("output_tokens", 0) + usage.output_tokens
-    if usage.cost_usd is not None:
-        total["cost_usd"] = total.get("cost_usd", 0.0) + usage.cost_usd
 
 
 # ── Phase 1a: Analyze ────────────────────────────────────────────────────────
@@ -655,8 +647,6 @@ async def run_pipeline(
 
     global _start_time
     _start_time = time.time()
-    total_usage: dict[str, Any] = {}
-    total_cost = 0.0
 
     # ── Phase 0: Read preprocessed sources ────────────────────────────────
     _log_step("Reading preprocessed sources...")
@@ -781,6 +771,9 @@ async def run_pipeline(
     ]
     dir_count = sum(1 for f in course_dir.rglob("*") if f.is_dir())
 
+    # Get cumulative usage from the LLM client
+    totals = llm.get_totals()
+
     print(file=sys.stderr)
     _log(
         f"{_C.BOLD}Done. {len(generated_files)} files in {dir_count} directories. "
@@ -788,12 +781,18 @@ async def run_pipeline(
         _C.GREEN,
     )
     _log(f"Course: {course_dir}", _C.GREEN)
+    _log(
+        f"Cost: ${totals['cost_usd']:.4f} | "
+        f"Tokens: {totals['input_tokens']:,} in / {totals['output_tokens']:,} out | "
+        f"API calls: {totals['api_calls']}",
+        _C.DIM,
+    )
 
     if token is not None:
         _event_sink.reset(token)
 
     return {
         "course_dir": str(course_dir),
-        "total_cost_usd": total_cost,
-        "usage": total_usage or None,
+        "total_cost_usd": totals["cost_usd"],
+        "usage": totals,
     }

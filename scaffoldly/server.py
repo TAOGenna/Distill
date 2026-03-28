@@ -231,6 +231,8 @@ async def _run_generation(
             "type": "complete",
             "result": {
                 "course_dir": result.get("course_dir"),
+                "total_cost_usd": result.get("total_cost_usd"),
+                "usage": result.get("usage"),
             },
         })
 

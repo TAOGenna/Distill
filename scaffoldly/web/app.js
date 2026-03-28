@@ -363,6 +363,26 @@ function showResult(result) {
     return;
   }
 
+  // Show cost summary
+  var costLine = "";
+  if (result.total_cost_usd != null) {
+    costLine += "$" + result.total_cost_usd.toFixed(4);
+  }
+  if (result.usage) {
+    var u = result.usage;
+    if (u.input_tokens || u.output_tokens) {
+      costLine += (costLine ? " \u00b7 " : "") +
+        (u.input_tokens || 0).toLocaleString() + " in / " +
+        (u.output_tokens || 0).toLocaleString() + " out";
+    }
+    if (u.api_calls) {
+      costLine += " \u00b7 " + u.api_calls + " calls";
+    }
+  }
+  if (costLine) {
+    appendLog(costLine, "ok");
+  }
+
   // Fallback: curriculum came with the complete event (no progressive render)
   if (
     result.curriculum &&
