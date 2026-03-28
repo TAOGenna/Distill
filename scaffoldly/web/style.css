@@ -258,6 +258,10 @@ button {
     text-align: right;
 }
 
+.setup-panel input::placeholder {
+    color: #777;
+}
+
 .setup-row input,
 .setup-row select {
     flex: 1;
