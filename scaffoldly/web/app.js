@@ -86,12 +86,11 @@ function populateModelDropdowns(provider) {
 function updateSetupKeyVisibility(provider) {
   var row = $("#setup-key-row");
   if (row) row.style.display = provider === "ollama" ? "none" : "";
-  var settingsRow = $("#api-key-row");
-  if (settingsRow) settingsRow.style.display = provider === "ollama" ? "none" : "";
 }
 
 function updateFormState() {
-  if (apiKeySet || $("#cfg-provider").value === "ollama" || ($("#setup-provider") && $("#setup-provider").value === "ollama")) {
+  var provider = $("#setup-provider") ? $("#setup-provider").value : "anthropic";
+  if (apiKeySet || provider === "ollama") {
     goBtn.disabled = generating;
     form.style.opacity = "1";
   } else {
@@ -114,13 +113,12 @@ fetch("/api/config")
     apiKeySet = cfg.api_key_set;
 
     if (cfg.output_dir) $("#cfg-output").value = cfg.output_dir;
-    if (cfg.api_key_masked) {
-      $("#cfg-key").placeholder = cfg.api_key_masked;
-    }
     if (cfg.provider) {
-      $("#cfg-provider").value = cfg.provider;
       if ($("#setup-provider")) $("#setup-provider").value = cfg.provider;
       updateSetupKeyVisibility(cfg.provider);
+    }
+    if (cfg.api_key_masked && $("#setup-key")) {
+      $("#setup-key").placeholder = cfg.api_key_masked;
     }
     if (cfg.max_revision_cycles !== undefined) {
       $("#cfg-revision-cycles").value = cfg.max_revision_cycles;
@@ -166,8 +164,6 @@ if ($("#setup-save")) {
       body: JSON.stringify({ provider: provider }),
     });
 
-    // Sync the settings provider dropdown
-    $("#cfg-provider").value = provider;
     populateModelDropdowns(provider);
 
     if (provider === "ollama" || key) {
@@ -177,7 +173,6 @@ if ($("#setup-save")) {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ api_key: key, provider: provider }),
         });
-        $("#cfg-key").placeholder = key.slice(0, 8) + "..." + key.slice(-4);
       }
       hideSetupPanel();
     }
@@ -190,42 +185,6 @@ if ($("#setup-provider")) {
     updateFormState();
   });
 }
-
-// Settings panel handlers
-$("#cfg-provider").addEventListener("change", async () => {
-  var provider = $("#cfg-provider").value;
-  await fetch("/api/config", {
-    method: "PUT",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ provider: provider }),
-  });
-  populateModelDropdowns(provider);
-  updateSetupKeyVisibility(provider);
-  fetch("/api/config").then((r) => r.json()).then((cfg) => {
-    apiKeySet = cfg.api_key_set;
-    if (cfg.api_key_masked) {
-      $("#cfg-key").placeholder = cfg.api_key_masked;
-    } else {
-      $("#cfg-key").placeholder = "sk-...";
-    }
-    updateFormState();
-  });
-});
-
-$("#save-key").addEventListener("click", async () => {
-  const key = $("#cfg-key").value.trim();
-  if (!key) return;
-  const provider = $("#cfg-provider").value;
-  await fetch("/api/config", {
-    method: "PUT",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ api_key: key, provider: provider }),
-  });
-  $("#cfg-key").value = "";
-  $("#cfg-key").placeholder = key.slice(0, 8) + "..." + key.slice(-4);
-  apiKeySet = true;
-  hideSetupPanel();
-});
 
 $("#browse-output").addEventListener("click", async () => {
   var btn = $("#browse-output");

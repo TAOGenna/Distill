@@ -270,32 +270,6 @@ button {
     display: none;
 }
 
-/* ── Advanced section (collapsible) ──────────────── */
-
-details.advanced {
-    margin-bottom: 1.25rem;
-}
-
-details.advanced summary {
-    font-size: 0.85em;
-    color: #717171;
-    cursor: pointer;
-    padding: 0.25rem 0;
-    list-style: none;
-}
-
-details.advanced summary::-webkit-details-marker {
-    display: none;
-}
-
-details.advanced summary::before {
-    content: '\25B8  ';
-}
-
-details.advanced[open] summary::before {
-    content: '\25BE  ';
-}
-
 /* ── Refs ─────────────────────────────────────────── */
 
 .ref-row {

@@ -55,19 +55,16 @@
                 <div class="field-hint">what languages/tools do you know? what's new to you?</div>
             </div>
 
-            <details class="advanced">
-                <summary>model selection</summary>
-                <div class="field-row" style="margin-top: 0.75rem">
-                    <div class="field">
-                        <label for="design-model">design model <span class="hint">(analysis + curriculum)</span></label>
-                        <select name="design_model" id="design-model"></select>
-                    </div>
-                    <div class="field">
-                        <label for="generate-model">generate model <span class="hint">(exercise files)</span></label>
-                        <select name="generate_model" id="generate-model"></select>
-                    </div>
+            <div class="field-row">
+                <div class="field">
+                    <label for="design-model">design model <span class="hint">(analysis + curriculum)</span></label>
+                    <select name="design_model" id="design-model"></select>
                 </div>
-            </details>
+                <div class="field">
+                    <label for="generate-model">generate model <span class="hint">(exercise files)</span></label>
+                    <select name="generate_model" id="generate-model"></select>
+                </div>
+            </div>
 
             <button type="submit" class="btn" id="go" disabled>generate</button>
         </form>
@@ -96,21 +93,6 @@
 
         <h2>settings</h2>
         <form id="settings" onsubmit="return false">
-            <div class="settings-row">
-                <label for="cfg-provider">provider</label>
-                <select id="cfg-provider">
-                    <option value="anthropic">Anthropic</option>
-                    <option value="openai">OpenAI</option>
-                    <option value="google">Google</option>
-                    <option value="ollama">Ollama (local)</option>
-                    <option value="openrouter">OpenRouter</option>
-                </select>
-            </div>
-            <div class="settings-row" id="api-key-row">
-                <label for="cfg-key">api key</label>
-                <input type="password" id="cfg-key" placeholder="sk-...">
-                <button class="link-btn" id="save-key">save</button>
-            </div>
             <div class="settings-row">
                 <label for="cfg-output">output</label>
                 <input type="text" id="cfg-output" placeholder="./output">
