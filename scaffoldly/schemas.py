@@ -113,3 +113,97 @@ class Curriculum(BaseModel):
     modules: list[Module]
 
 
+# ── Stage 2b: Curriculum Design (with root files) ────────────────────────────
+
+
+class CurriculumDesign(BaseModel):
+    """Phase 1b output — curriculum plus root project files."""
+
+    curriculum: Curriculum
+    root_readme: str = Field(
+        description="Full content of the course root README.md. Includes setup "
+        "instructions, module order/learning path, and What's Next section."
+    )
+    requirements: str = Field(
+        description="Content of requirements.txt (Python) or equivalent setup "
+        "file (Cargo.toml, Makefile, package.json) for the course."
+    )
+
+
+# ── Stage 3: Module Generation ────────────────────────────────────────────────
+
+
+class GeneratedFile(BaseModel):
+    """A single file produced by the module generator."""
+
+    relative_path: str = Field(
+        description="Path relative to the module directory, e.g. 'ex01_basic.py' "
+        "or 'data/sample.csv'. Do not include the module directory name."
+    )
+    content: str = Field(
+        description="Full file content."
+    )
+    language: str = Field(
+        description="Programming language or file type for syntax validation "
+        "routing, e.g. 'python', 'c', 'rust', 'markdown', 'json', 'csv'."
+    )
+
+
+class ModuleOutput(BaseModel):
+    """Phase 2 output — all files for a single module."""
+
+    readme: str = Field(
+        description="Full content of the module README.md. Includes learning "
+        "objectives, exercise walkthrough, and 2-4 analytical questions at "
+        "Level 3+ depth."
+    )
+    files: list[GeneratedFile] = Field(
+        description="All exercise and supporting files for this module."
+    )
+
+
+# ── Stage 4: Review ───────────────────────────────────────────────────────────
+
+
+class ReviewIssue(BaseModel):
+    """A single issue found during quality review."""
+
+    criterion: str = Field(
+        description="Which rubric criterion this issue falls under, e.g. "
+        "'progressive_difficulty', 'realism', 'question_depth', 'scaffolding'."
+    )
+    description: str = Field(
+        description="What is wrong — specific and actionable."
+    )
+    file_path: str | None = Field(
+        default=None,
+        description="Which file has the issue (relative to module dir), if specific."
+    )
+    suggested_fix: str = Field(
+        description="Concrete revision instruction the module generator can act on."
+    )
+
+
+class ModuleReview(BaseModel):
+    """Review result for a single module."""
+
+    module_index: int
+    verdict: Literal["pass", "revise"] = Field(
+        description="'pass' if the module meets quality standards, "
+        "'revise' if it needs changes."
+    )
+    issues: list[ReviewIssue] = Field(
+        default_factory=list,
+        description="List of issues found. Empty if verdict is 'pass'."
+    )
+
+
+class ReviewResult(BaseModel):
+    """Phase 3b output — review of all modules."""
+
+    modules: list[ModuleReview]
+    overall_verdict: Literal["pass", "revise"] = Field(
+        description="'pass' if all modules pass, 'revise' if any need changes."
+    )
+
+
