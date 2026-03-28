@@ -81,61 +81,6 @@ _SCAFFOLDING_MAP: dict[str, str] = {
 }
 
 
-class ScaffoldContract(BaseModel):
-    """What the exercise provides vs what the student writes."""
-
-    provided: list[str] = Field(
-        description="What is given to the student as working code. Be specific: "
-        "'class Node with __init__ and __repr__', 'import block with numpy/torch', "
-        "'__main__ block with test harness and expected output printing'. "
-        "Target: ~65% of the file should be provided code."
-    )
-    student_implements: list[str] = Field(
-        description="What the student must write. Each item becomes a TODO block. "
-        "Be specific: 'Node.backward() — reverse topological walk, ~8-12 lines', "
-        "'compute_loss() — cross-entropy with softmax, ~5-8 lines'. "
-        "Include line count estimates."
-    )
-    key_insight: str = Field(
-        description="The single most important thing the student should understand "
-        "after completing this exercise. This goes in the docstring and hints."
-    )
-    common_mistakes: list[str] = Field(
-        default_factory=list,
-        description="Mistakes students commonly make on this type of exercise. "
-        "These become warnings in the scaffold's comments."
-    )
-
-
-class ValidationCriteria(BaseModel):
-    """What the __main__ block should demonstrate when the exercise is complete."""
-
-    observable_output: str = Field(
-        description="Description of what the student sees when running the file. "
-        "Be specific: 'prints a table of gradient values vs finite differences, "
-        "all relative errors < 1e-5' or 'prints throughput in pages/sec, "
-        "expected ~950 matching the blog's measurement'."
-    )
-    expected_pattern: str = Field(
-        default="",
-        description="A string or pattern that should appear in stdout when the "
-        "exercise runs correctly. Used for automated validation. "
-        "E.g., 'relative error', 'pages/sec', 'loss curve saved to'."
-    )
-
-
-class PredecessorExport(BaseModel):
-    """Interface contract for cross-exercise dependencies."""
-
-    from_exercise: str = Field(
-        description="Exercise ID this dependency comes from, e.g. 'ex01_basic_dp'."
-    )
-    exports: list[str] = Field(
-        description="What the predecessor provides: function names, class names, "
-        "or data structures. E.g., ['Node class', 'numerical_gradient_check()']."
-    )
-
-
 class Exercise(BaseModel):
     title: str
     type: Literal[
@@ -144,25 +89,32 @@ class Exercise(BaseModel):
     ]
     description: str
     scaffolding_level: Literal["heavy", "medium", "light", "none"]
-    what_is_provided: str
-    what_student_writes: str
+    what_is_provided: str = Field(
+        description="What working code the student receives (~65% of file). "
+        "Be specific: 'class with __init__, import block, __main__ test harness'."
+    )
+    what_student_writes: str = Field(
+        description="What the student implements (~35%). Each TODO block with "
+        "line counts: 'backward() ~8-12 lines, compute_loss() ~5-8 lines'."
+    )
     milestone: str = Field(
         description="What the student sees when they run the exercise. "
-        "Describe the output — printed measurements, saved plots, or "
-        "visualizations that reproduce a key insight from the source material."
+        "Be specific: 'prints gradient table, all errors < 1e-5'."
     )
-    scaffold_contract: ScaffoldContract = Field(
-        description="Detailed contract specifying what code is provided vs what "
-        "the student implements. This constrains the module generator."
+    key_insight: str = Field(
+        default="",
+        description="The single most important thing this exercise teaches. "
+        "Goes in docstring and hints."
     )
-    validation_criteria: ValidationCriteria = Field(
-        description="What the __main__ block should print when the exercise works. "
-        "Used by the review phase to check exercise quality."
+    common_mistakes: str = Field(
+        default="",
+        description="Common student mistakes, semicolon-separated. "
+        "Become warnings in scaffold comments."
     )
-    predecessor_exports: PredecessorExport | None = Field(
-        default=None,
-        description="If this exercise builds on a previous exercise, specify "
-        "what it imports or uses from the predecessor."
+    expected_output_pattern: str = Field(
+        default="",
+        description="String that should appear in stdout when correct. "
+        "E.g., 'relative error', 'pages/sec'. Used for validation."
     )
 
     @field_validator("scaffolding_level", mode="before")
@@ -292,7 +244,7 @@ class ExerciseFile(BaseModel):
     )
     solution_content: str = Field(
         description="The COMPLETE working version with all TODOs filled in. "
-        "Must produce the output described in validation_criteria when executed. "
+        "Must produce the output described in milestone when executed. "
         "Same structure as scaffold — identical imports, classes, __main__ block — "
         "but with solution code replacing TODO markers."
     )
@@ -358,7 +310,7 @@ class ModuleOutput(BaseModel):
     readme: str = Field(
         description="Full content of the module README.md. Includes learning "
         "objectives, exercise walkthrough, 2-4 analytical questions at Level 3+ "
-        "depth, and hints keyed to the scaffold_contract's common_mistakes."
+        "depth, and hints addressing common_mistakes from the Blueprint."
     )
     exercises: list[ExerciseFile] = Field(
         description="Exercise files with both scaffold and solution versions. "

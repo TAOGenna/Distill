@@ -69,58 +69,43 @@ BLUEPRINT DESIGN RULES
 5. Difficulty increases WITHIN each module AND across modules.
 
 ═══════════════════════════════════════════════════════════════════════════════════
-SCAFFOLD CONTRACTS — the key to quality
+EXERCISE DETAIL FIELDS — the key to quality
 ═══════════════════════════════════════════════════════════════════════════════════
 
-For EVERY exercise, you must provide a `scaffold_contract` that specifies:
+For EVERY exercise, fill in these fields carefully:
 
-  `provided`: What code is GIVEN to the student (~65% of the file). Be specific:
-    - "class NeuralNetwork with __init__, forward() placeholder, __repr__"
-    - "import block: numpy, matplotlib, typing"
-    - "__main__ block: loads data, calls student's function, prints comparison table"
-    - "helper function compute_loss() fully implemented as reference"
+  `what_is_provided`: What working code the student receives (~65% of file).
+    Be specific: "class Node with __init__ and __repr__, import block with numpy, \
+    __main__ block with test harness printing comparison table"
 
-  `student_implements`: What the student writes (~35%). Each item = one TODO block:
-    - "NeuralNetwork.backward() — reverse topological gradient walk (~12-15 lines)"
-    - "compute_gradient() — finite difference approximation (~5-8 lines)"
-    Include LINE COUNT ESTIMATES for every item.
+  `what_student_writes`: What the student implements (~35%). Include line counts:
+    "Node.backward() — reverse topological gradient walk (~8-12 lines); \
+    compute_loss() — cross-entropy with softmax (~5-8 lines)"
 
   `key_insight`: The single most important thing this exercise teaches.
-    - "backward() must accumulate gradients at fan-out nodes, not overwrite"
+    "backward() must accumulate gradients at fan-out nodes, not overwrite"
 
-  `common_mistakes`: What students typically get wrong.
-    - "forgetting to zero gradients between batches"
-    - "transposing the weight matrix in the backward pass"
+  `common_mistakes`: Semicolon-separated common errors students make.
+    "forgetting to zero gradients between batches; transposing the weight matrix"
+
+  `expected_output_pattern`: A string that should appear in stdout when correct.
+    "relative error" or "pages/sec" or "loss:"
 
 ═══════════════════════════════════════════════════════════════════════════════════
 KEY EXCERPTS — grounding in the source material
 ═══════════════════════════════════════════════════════════════════════════════════
 
 For EVERY module, extract `key_excerpts` — VERBATIM passages (200-500 chars \
-each) from the source material that contain the algorithms, formulas, \
-pseudocode, or quantitative results that module's exercises must implement.
+each) from the source material containing algorithms, formulas, pseudocode, \
+or quantitative results that module's exercises must implement.
 
-DO NOT paraphrase. Copy the exact text. These excerpts are injected into the \
-module generator's prompt so it translates the source's actual algorithms \
-to code, rather than hallucinating from memory.
+DO NOT paraphrase. Copy the exact text. These are injected into the module \
+generator's prompt to ground it in the source material's actual content.
 
 Examples of good key_excerpts:
   - "dp[i] = min over j<i of (cost(j,i) + dp[j] + lambda)"
   - "The throughput plateaus at ~950 pages/sec due to DNS resolution"
   - "Algorithm 1: for each layer l=L..1: dW[l] = delta[l] @ a[l-1].T"
-
-═══════════════════════════════════════════════════════════════════════════════════
-VALIDATION CRITERIA — what correct output looks like
-═══════════════════════════════════════════════════════════════════════════════════
-
-For EVERY exercise, specify `validation_criteria`:
-
-  `observable_output`: What the student sees when the exercise works.
-    - "Prints gradient table: analytical vs finite-difference, all errors < 1e-5"
-    - "Saves loss_curve.png showing training convergence over 50 epochs"
-
-  `expected_pattern`: A string that should appear in stdout.
-    - "relative error" or "pages/sec" or "loss:"
 
 ═══════════════════════════════════════════════════════════════════════════════════
 EXERCISE TYPES
@@ -189,8 +174,8 @@ MODULE_GENERATION_SYSTEM_PROMPT = """\
 You are a module generator for CS231n-style coursework. You receive a \
 Blueprint specification for one module and must generate all files.
 
-CRITICAL: You are constrained by the Blueprint's scaffold_contract for each \
-exercise. Do NOT deviate from what it specifies as provided vs student-written.
+CRITICAL: You are constrained by the Blueprint's what_is_provided and \
+what_student_writes for each exercise. Do NOT deviate from these specifications.
 
 ═══════════════════════════════════════════════════════════════════════════════════
 GENERATION ORDER — scaffold first, then solution
@@ -204,12 +189,12 @@ For each exercise, generate TWO versions:
    - TODO markers with line counts: "# YOUR CODE HERE - 8-12 lines"
    - NotImplementedError("YOUR CODE HERE") in each TODO zone
    - Must parse/compile without errors AS-IS
-   - Follow the scaffold_contract EXACTLY
+   - Follow what_is_provided and what_student_writes EXACTLY
 
 2. `solution_content` (WRITE THIS SECOND — fill in the TODOs):
    - Identical structure to scaffold (same imports, classes, __main__)
    - TODO zones replaced with correct implementation
-   - Must produce the output described in validation_criteria
+   - Must produce the output described in milestone/expected_output_pattern
 
 ═══════════════════════════════════════════════════════════════════════════════════
 KEY EXCERPTS — use these as ground truth
@@ -319,7 +304,7 @@ HARD REQUIREMENTS
  9. Exercises MUST be SPECIFIC to the source material — not generic.
 10. Do NOT generate test files or use test frameworks.
 11. The __main__ block is ALWAYS fully provided code — never scaffolded.
-12. Follow the scaffold_contract from the Blueprint EXACTLY.
+12. Follow what_is_provided and what_student_writes from the Blueprint EXACTLY.
 """
 
 # ── Phase 3b: Quality Review ────────────────────────────────────────────────
@@ -329,15 +314,15 @@ You are a strict reviewer of CS231n-style programming coursework. \
 Review the generated module files against the Blueprint specification.
 
 You will receive:
-- The module's Blueprint spec (scaffold_contract, validation_criteria, key_excerpts)
+- The module's Blueprint spec (what_is_provided, what_student_writes, key_excerpts)
 - The generated files (README + exercises with scaffold and solution)
 
 ═══════════════════════════════════════════════════════════════════════════════════
 REVIEW CRITERIA
 ═══════════════════════════════════════════════════════════════════════════════════
 
-1. CONTRACT COMPLIANCE: Does the scaffold match the scaffold_contract? \
-Are the specified items provided? Are the student_implements items TODO'd?
+1. CONTRACT COMPLIANCE: Does the scaffold match what_is_provided? \
+Are the what_student_writes items present as TODO blocks?
 
 2. KEY EXCERPT FIDELITY: Do the solution files implement the algorithms \
 from key_excerpts? NOT generic implementations — the SPECIFIC formulas/techniques.
@@ -345,7 +330,7 @@ from key_excerpts? NOT generic implementations — the SPECIFIC formulas/techniq
 3. SCAFFOLDING QUALITY: Are TODO markers present with line counts? \
 Is ~65% of each file provided code? Do docstrings explain the algorithm?
 
-4. MILESTONE QUALITY: Does __main__ print what validation_criteria describes? \
+4. MILESTONE QUALITY: Does __main__ print what the milestone describes? \
 Is the __main__ block 20-50 lines of fully provided test harness?
 
 5. PROGRESSIVE DIFFICULTY: Do later exercises build on earlier ones?

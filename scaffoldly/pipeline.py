@@ -480,15 +480,13 @@ def _preflight_module(module_dir: Path, module_spec: dict | None = None) -> list
         if len(lines) < 15:
             errors.append(f"{py_file.name}: only {len(lines)} non-comment lines (expected 40+)")
 
-    # Contract-aware: check against validation_criteria if spec available
+    # Contract-aware: check solution files against expected output patterns
     if module_spec:
         exercises = module_spec.get("exercises", [])
         for ex in exercises:
-            vc = ex.get("validation_criteria", {})
-            expected_pattern = vc.get("expected_pattern", "")
+            expected_pattern = ex.get("expected_output_pattern", "")
             if not expected_pattern:
                 continue
-            # Check that the __main__ block in the solution references the pattern
             solutions_dir = module_dir / "_solutions"
             if solutions_dir.exists():
                 for sol_file in solutions_dir.glob("*.py"):
