@@ -805,3 +805,263 @@ function esc(s) {
   d.textContent = s;
   return d.innerHTML;
 }
+
+/* ── Form auto-save to localStorage ──────────────── */
+
+var FORM_KEY = "scaffoldly_form";
+
+function getFormState() {
+  return {
+    url: $("#url-input").value,
+    level: $("#level-input").value,
+    series: $("#series").checked,
+    design_model: $("#design-model").value,
+    generate_model: $("#generate-model").value,
+    refs: [...document.querySelectorAll('input[name="ref"]')]
+      .map(function (el) { return el.value; }),
+  };
+}
+
+function restoreFormState(state) {
+  if (!state) return;
+  if (state.url) $("#url-input").value = state.url;
+  if (state.level) {
+    $("#level-input").value = state.level;
+    // Trigger auto-grow
+    var el = $("#level-input");
+    el.style.height = "auto";
+    el.style.height = el.scrollHeight + "px";
+  }
+  if (state.series) $("#series").checked = state.series;
+  if (state.design_model && $("#design-model")) {
+    var ds = $("#design-model");
+    if (!ds.querySelector('option[value="' + state.design_model + '"]')) {
+      ds.innerHTML += '<option value="' + esc(state.design_model) + '">' + esc(state.design_model) + '</option>';
+    }
+    ds.value = state.design_model;
+  }
+  if (state.generate_model && $("#generate-model")) {
+    var gs = $("#generate-model");
+    if (!gs.querySelector('option[value="' + state.generate_model + '"]')) {
+      gs.innerHTML += '<option value="' + esc(state.generate_model) + '">' + esc(state.generate_model) + '</option>';
+    }
+    gs.value = state.generate_model;
+  }
+  if (state.refs && state.refs.length) {
+    state.refs.forEach(function (url) {
+      if (!url) return;
+      var row = document.createElement("div");
+      row.className = "ref-row";
+      row.innerHTML =
+        '<input type="url" name="ref" placeholder="https://..." value="' + esc(url) + '">' +
+        '<button type="button" class="ref-remove" aria-label="remove reference">&times;</button>';
+      row.querySelector(".ref-remove").addEventListener("click", function () {
+        row.remove();
+        saveFormState();
+      });
+      row.querySelector("input").addEventListener("input", saveFormState);
+      $("#refs").appendChild(row);
+    });
+  }
+  updateFormState();
+}
+
+function saveFormState() {
+  try {
+    localStorage.setItem(FORM_KEY, JSON.stringify(getFormState()));
+  } catch (e) {}
+}
+
+function clearForm() {
+  $("#url-input").value = "";
+  $("#level-input").value = "";
+  $("#level-input").style.height = "auto";
+  $("#series").checked = false;
+  $("#refs").innerHTML = "";
+  // Reset models to defaults
+  var provider = $("#setup-provider") ? $("#setup-provider").value : "anthropic";
+  populateModelDropdowns(provider);
+  // Clear stored state
+  try { localStorage.removeItem(FORM_KEY); } catch (e) {}
+  $("#preset-select").value = "";
+  updateFormState();
+}
+
+// Restore on page load (after a small delay so model dropdowns are populated)
+setTimeout(function () {
+  try {
+    var saved = JSON.parse(localStorage.getItem(FORM_KEY));
+    if (saved) restoreFormState(saved);
+  } catch (e) {}
+}, 200);
+
+// Auto-save on all form inputs
+$("#url-input").addEventListener("input", saveFormState);
+$("#level-input").addEventListener("input", saveFormState);
+$("#series").addEventListener("change", saveFormState);
+$("#design-model").addEventListener("change", saveFormState);
+$("#generate-model").addEventListener("change", saveFormState);
+
+// Clear button
+$("#form-clear").addEventListener("click", clearForm);
+
+// Also save when refs change — patch the add-ref handler
+(function () {
+  var origAddRef = $("#add-ref");
+  origAddRef.addEventListener("click", function () {
+    // The ref row was just added by the original handler.
+    // Attach auto-save to the new row's input and remove button.
+    var rows = document.querySelectorAll(".ref-row");
+    var lastRow = rows[rows.length - 1];
+    if (lastRow) {
+      var input = lastRow.querySelector("input");
+      if (input) input.addEventListener("input", saveFormState);
+      var removeBtn = lastRow.querySelector(".ref-remove");
+      if (removeBtn) removeBtn.addEventListener("click", function () { saveFormState(); });
+    }
+  });
+})();
+
+/* ── Background Profiles ─────────────────────────── */
+
+var profiles = []; // [{label, description}]
+
+function loadProfiles() {
+  fetch("/api/config").then(function (r) { return r.json(); }).then(function (cfg) {
+    profiles = cfg.profiles || [];
+    renderProfileDropdown();
+  }).catch(function () {});
+}
+
+function renderProfileDropdown() {
+  var sel = $("#profile-select");
+  sel.innerHTML = '<option value="">profiles...</option>';
+  profiles.forEach(function (p, i) {
+    sel.innerHTML += '<option value="' + i + '">' + esc(p.label) + '</option>';
+  });
+}
+
+function saveProfiles() {
+  return fetch("/api/config", {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ profiles: profiles }),
+  });
+}
+
+$("#profile-select").addEventListener("change", function () {
+  var idx = parseInt(this.value);
+  if (isNaN(idx) || !profiles[idx]) return;
+  $("#level-input").value = profiles[idx].description;
+  // Auto-grow
+  var el = $("#level-input");
+  el.style.height = "auto";
+  el.style.height = el.scrollHeight + "px";
+  saveFormState();
+  updateFormState();
+});
+
+$("#profile-save").addEventListener("click", function () {
+  var desc = $("#level-input").value.trim();
+  if (!desc) return;
+  var label = prompt("profile name (short label):");
+  if (!label || !label.trim()) return;
+  label = label.trim();
+  // Update existing or add new
+  var existing = profiles.findIndex(function (p) { return p.label === label; });
+  if (existing >= 0) {
+    profiles[existing].description = desc;
+  } else {
+    profiles.push({ label: label, description: desc });
+  }
+  saveProfiles().then(function () { renderProfileDropdown(); });
+});
+
+loadProfiles();
+
+/* ── Run Presets ─────────────────────────────────── */
+
+var presets = []; // [{name, url, refs, series, level, design_model, generate_model}]
+
+function loadPresets() {
+  fetch("/api/config").then(function (r) { return r.json(); }).then(function (cfg) {
+    presets = cfg.presets || [];
+    renderPresetDropdown();
+  }).catch(function () {});
+}
+
+function renderPresetDropdown() {
+  var sel = $("#preset-select");
+  sel.innerHTML = '<option value="">load preset...</option>';
+  presets.forEach(function (p, i) {
+    sel.innerHTML += '<option value="' + i + '">' + esc(p.name) + '</option>';
+  });
+  // Show/hide delete button
+  $("#preset-delete").style.display = presets.length ? "" : "none";
+}
+
+function savePresets() {
+  return fetch("/api/config", {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ presets: presets }),
+  });
+}
+
+$("#preset-select").addEventListener("change", function () {
+  var idx = parseInt(this.value);
+  if (isNaN(idx) || !presets[idx]) return;
+  var p = presets[idx];
+  // Clear refs first
+  $("#refs").innerHTML = "";
+  restoreFormState({
+    url: p.url || "",
+    level: p.level || "",
+    series: p.series || false,
+    design_model: p.design_model || "",
+    generate_model: p.generate_model || "",
+    refs: p.refs || [],
+  });
+  saveFormState();
+});
+
+$("#preset-save").addEventListener("click", function () {
+  var state = getFormState();
+  if (!state.url) { alert("fill in at least the source url first"); return; }
+  var name = prompt("preset name:");
+  if (!name || !name.trim()) return;
+  name = name.trim();
+  var existing = presets.findIndex(function (p) { return p.name === name; });
+  var preset = {
+    name: name,
+    url: state.url,
+    refs: state.refs.filter(Boolean),
+    series: state.series,
+    level: state.level,
+    design_model: state.design_model,
+    generate_model: state.generate_model,
+  };
+  if (existing >= 0) {
+    presets[existing] = preset;
+  } else {
+    presets.push(preset);
+  }
+  savePresets().then(function () {
+    renderPresetDropdown();
+    $("#preset-select").value = "" + (existing >= 0 ? existing : presets.length - 1);
+  });
+});
+
+$("#preset-delete").addEventListener("click", function () {
+  var idx = parseInt($("#preset-select").value);
+  if (isNaN(idx) || !presets[idx]) return;
+  var name = presets[idx].name;
+  if (!confirm('delete preset "' + name + '"?')) return;
+  presets.splice(idx, 1);
+  savePresets().then(function () {
+    renderPresetDropdown();
+    $("#preset-select").value = "";
+  });
+});
+
+loadPresets();

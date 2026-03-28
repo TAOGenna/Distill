@@ -54,6 +54,48 @@ h2 {
 
 /* ── Form ─────────────────────────────────────────── */
 
+/* ── Presets bar ──────────────────────────────────── */
+
+.presets-bar {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 1.5rem;
+    font-size: 0.85em;
+}
+
+.presets-bar select {
+    width: auto;
+    max-width: 14rem;
+    border-bottom: 1px solid #aaa;
+}
+
+.presets-spacer {
+    flex: 1;
+}
+
+/* ── Label row (label + inline controls) ─────────── */
+
+.label-row {
+    display: flex;
+    align-items: baseline;
+    gap: 0.5rem;
+    margin-bottom: 0.25rem;
+}
+
+.label-row label {
+    margin-bottom: 0;
+}
+
+.inline-select {
+    width: auto !important;
+    max-width: 10rem;
+    font-size: 0.85em;
+    border-bottom: 1px solid #aaa;
+    padding: 0;
+    color: #717171;
+}
+
 .field {
     margin-bottom: 1.25rem;
 }

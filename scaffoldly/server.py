@@ -119,6 +119,8 @@ async def _config_endpoint(request: Request) -> JSONResponse:
             "design_model": config.get("design_model", ""),
             "generate_model": config.get("generate_model", ""),
             "max_revision_cycles": config.get("max_revision_cycles", 1),
+            "profiles": config.get("profiles", []),
+            "presets": config.get("presets", []),
         }
 
         if provider_key and len(provider_key) > 12:
@@ -146,6 +148,10 @@ async def _config_endpoint(request: Request) -> JSONResponse:
         config["generate_model"] = body["generate_model"]
     if "max_revision_cycles" in body:
         config["max_revision_cycles"] = body["max_revision_cycles"]
+    if "profiles" in body:
+        config["profiles"] = body["profiles"]
+    if "presets" in body:
+        config["presets"] = body["presets"]
 
     _save_config(config)
     return JSONResponse({"ok": True})

@@ -54,6 +54,17 @@
         </div>
 
         <form id="form">
+            <!-- Run presets -->
+            <div class="presets-bar">
+                <select id="preset-select">
+                    <option value="">load preset...</option>
+                </select>
+                <button type="button" class="link-btn" id="preset-save">save preset</button>
+                <button type="button" class="link-btn" id="preset-delete">delete</button>
+                <span class="presets-spacer"></span>
+                <button type="button" class="link-btn" id="form-clear">clear form</button>
+            </div>
+
             <div class="field">
                 <label for="url-input">source url</label>
                 <input type="url" id="url-input" name="url" placeholder="https://blog.example.com/deep-dive" required>
@@ -69,7 +80,13 @@
             </div>
 
             <div class="field">
-                <label for="level-input">describe your background</label>
+                <div class="label-row">
+                    <label for="level-input">describe your background</label>
+                    <select id="profile-select" class="inline-select">
+                        <option value="">profiles...</option>
+                    </select>
+                    <button type="button" class="link-btn" id="profile-save">save profile</button>
+                </div>
                 <textarea id="level-input" name="level" rows="1" placeholder="mid-level Python dev, new to systems programming" required></textarea>
                 <div class="field-hint">what languages/tools do you know? what's new to you?</div>
             </div>
