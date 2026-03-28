@@ -190,11 +190,9 @@ class LLMClient:
         max_retries: int,
     ) -> CompletionResult:
         """Structured output via Instructor — returns validated Pydantic model."""
-        # Use Instructor's create with raw completion to get usage data
-        result, raw_response = await self._instructor(
+        result, raw_response = await self._instructor.create_with_completion(
             response_model=response_model,
             max_retries=max_retries,
-            with_raw_response=True,
             **kwargs,
         )
         # Extract usage from the raw LiteLLM response
