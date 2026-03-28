@@ -61,7 +61,7 @@ h2 {
 label {
     display: block;
     font-size: 0.85em;
-    color: #555;
+    color: #383838;
     margin-bottom: 0.25rem;
 }
 
@@ -256,7 +256,6 @@ button {
     flex-shrink: 0;
     margin-bottom: 0;
     text-align: right;
-    color: #555;
 }
 
 .setup-row input,
@@ -460,7 +459,6 @@ button {
     flex-shrink: 0;
     margin-bottom: 0;
     text-align: right;
-    color: #555;
 }
 
 .settings-row input {
