@@ -177,7 +177,9 @@ if ($("#setup-save")) {
 
 if ($("#setup-provider")) {
   $("#setup-provider").addEventListener("change", () => {
-    updateSetupKeyVisibility($("#setup-provider").value);
+    var provider = $("#setup-provider").value;
+    updateSetupKeyVisibility(provider);
+    populateModelDropdowns(provider);
     updateFormState();
   });
 }
