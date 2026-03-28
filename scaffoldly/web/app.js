@@ -169,6 +169,8 @@ if ($("#setup-save")) {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ api_key: key, provider: provider }),
         });
+        $("#setup-key").value = "";
+        $("#setup-key").placeholder = key.slice(0, 8) + "..." + key.slice(-4);
       }
       markConfigured();
     }
@@ -176,10 +178,25 @@ if ($("#setup-save")) {
 }
 
 if ($("#setup-provider")) {
-  $("#setup-provider").addEventListener("change", () => {
+  $("#setup-provider").addEventListener("change", async () => {
     var provider = $("#setup-provider").value;
     updateSetupKeyVisibility(provider);
     populateModelDropdowns(provider);
+    // Persist provider to server immediately
+    await fetch("/api/config", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ provider: provider }),
+    });
+    // Re-check if this provider has a key saved
+    var cfg = await fetch("/api/config").then((r) => r.json());
+    apiKeySet = cfg.api_key_set;
+    if (cfg.api_key_masked && $("#setup-key")) {
+      $("#setup-key").placeholder = cfg.api_key_masked;
+    } else if ($("#setup-key")) {
+      $("#setup-key").value = "";
+      $("#setup-key").placeholder = "sk-...";
+    }
     updateFormState();
   });
 }
@@ -209,6 +226,34 @@ $("#save-output").addEventListener("click", async () => {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ output_dir: dir }),
+  });
+});
+
+// Auto-save output dir on blur too (not just the save button)
+$("#cfg-output").addEventListener("blur", async () => {
+  const dir = $("#cfg-output").value.trim();
+  if (!dir) return;
+  await fetch("/api/config", {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ output_dir: dir }),
+  });
+});
+
+// Persist model selections on change
+$("#design-model").addEventListener("change", async () => {
+  await fetch("/api/config", {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ design_model: $("#design-model").value }),
+  });
+});
+
+$("#generate-model").addEventListener("change", async () => {
+  await fetch("/api/config", {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ generate_model: $("#generate-model").value }),
   });
 });
 
