@@ -69,6 +69,35 @@ def _get_provider() -> str:
 # ── API endpoints ─────────────────────────────────────────────────────────────
 
 
+async def _browse_folder_endpoint(request: Request) -> JSONResponse:
+    """Open a native OS folder picker dialog and return the selected path."""
+    current = _get_output_dir()
+
+    def _pick() -> str | None:
+        try:
+            import tkinter as tk
+            from tkinter import filedialog
+
+            root = tk.Tk()
+            root.withdraw()
+            # Raise the dialog above other windows
+            root.attributes("-topmost", True)
+            path = filedialog.askdirectory(
+                title="Choose output folder",
+                initialdir=current,
+            )
+            root.destroy()
+            return path or None
+        except Exception:
+            return None
+
+    selected = await anyio.to_thread.run_sync(_pick)
+
+    if selected:
+        return JSONResponse({"path": selected})
+    return JSONResponse({"path": None})
+
+
 async def _config_endpoint(request: Request) -> JSONResponse:
     from .llm import PROVIDER_DEFAULTS, PROVIDER_ENV_VARS, PROVIDER_PREFIXES
 
@@ -328,6 +357,7 @@ def create_app() -> Starlette:
 
     routes = [
         Route("/api/config", _config_endpoint, methods=["GET", "PUT"]),
+        Route("/api/browse-folder", _browse_folder_endpoint, methods=["POST"]),
         Route("/api/generate", _generate_endpoint, methods=["POST"]),
         Route("/api/events/{job_id}", _events_endpoint),
         Route("/api/courses", _courses_endpoint),

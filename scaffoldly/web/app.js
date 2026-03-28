@@ -166,6 +166,25 @@ $("#save-key").addEventListener("click", async () => {
   $("#api-warning").classList.remove("visible");
 });
 
+$("#browse-output").addEventListener("click", async () => {
+  var btn = $("#browse-output");
+  btn.disabled = true;
+  try {
+    var res = await fetch("/api/browse-folder", { method: "POST" });
+    var data = await res.json();
+    if (data.path) {
+      $("#cfg-output").value = data.path;
+      // Auto-save
+      await fetch("/api/config", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ output_dir: data.path }),
+      });
+    }
+  } catch (e) {}
+  btn.disabled = false;
+});
+
 $("#save-output").addEventListener("click", async () => {
   const dir = $("#cfg-output").value.trim();
   if (!dir) return;
