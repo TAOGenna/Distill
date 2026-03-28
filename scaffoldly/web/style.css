@@ -271,9 +271,6 @@ button {
     font-size: 0.85em;
 }
 
-.setup-panel.configured {
-    display: none;
-}
 
 /* ── Refs ─────────────────────────────────────────── */
 
@@ -444,26 +441,6 @@ button {
     word-break: break-all;
 }
 
-/* ── Settings ─────────────────────────────────────── */
-
-.settings-row {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-    margin-bottom: 0.75rem;
-    font-size: 0.85em;
-}
-
-.settings-row label {
-    width: 6rem;
-    flex-shrink: 0;
-    margin-bottom: 0;
-    text-align: right;
-}
-
-.settings-row input {
-    flex: 1;
-}
 
 /* ── Course Flow Visualization ────────────────────── */
 

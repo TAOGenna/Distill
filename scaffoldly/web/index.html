@@ -14,9 +14,9 @@
         <h1>scaffoldly</h1>
         <p class="tagline">turn technical blogs, papers, and repos into hands-on coursework</p>
 
-        <!-- Inline setup panel — shown when no API key configured -->
+        <!-- Configuration panel — always visible -->
         <div id="setup-panel" class="setup-panel">
-            <h3>get started</h3>
+            <h3>settings</h3>
             <div class="setup-row">
                 <label for="setup-provider">provider</label>
                 <select id="setup-provider">
@@ -30,7 +30,26 @@
             <div class="setup-row" id="setup-key-row">
                 <label for="setup-key">api key</label>
                 <input type="password" id="setup-key" placeholder="sk-...">
-                <button class="btn" id="setup-save">save</button>
+                <button class="link-btn" id="setup-save">save</button>
+            </div>
+            <div class="setup-row">
+                <label for="cfg-output">output</label>
+                <input type="text" id="cfg-output" placeholder="./output">
+                <button class="icon-btn" id="browse-output" title="browse for folder">
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M1.5 3.5v9a1 1 0 001 1h11a1 1 0 001-1v-7a1 1 0 00-1-1H7.5l-2-2h-3a1 1 0 00-1 1z"/>
+                    </svg>
+                </button>
+                <button class="link-btn" id="save-output">save</button>
+            </div>
+            <div class="setup-row">
+                <label for="cfg-revision-cycles">review rounds</label>
+                <select id="cfg-revision-cycles">
+                    <option value="0">0 (skip review)</option>
+                    <option value="1" selected>1 (default)</option>
+                    <option value="2">2</option>
+                    <option value="3">3</option>
+                </select>
             </div>
         </div>
 
@@ -89,30 +108,6 @@
             </div>
         </div>
 
-        <hr class="separator">
-
-        <h2>settings</h2>
-        <form id="settings" onsubmit="return false">
-            <div class="settings-row">
-                <label for="cfg-output">output</label>
-                <input type="text" id="cfg-output" placeholder="./output">
-                <button class="icon-btn" id="browse-output" title="browse for folder">
-                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M1.5 3.5v9a1 1 0 001 1h11a1 1 0 001-1v-7a1 1 0 00-1-1H7.5l-2-2h-3a1 1 0 00-1 1z"/>
-                    </svg>
-                </button>
-                <button class="link-btn" id="save-output">save</button>
-            </div>
-            <div class="settings-row">
-                <label for="cfg-revision-cycles">review rounds</label>
-                <select id="cfg-revision-cycles">
-                    <option value="0">0 (skip review)</option>
-                    <option value="1" selected>1 (default)</option>
-                    <option value="2">2</option>
-                    <option value="3">3</option>
-                </select>
-            </div>
-        </form>
     </div>
 
     <script src="/app.js"></script>

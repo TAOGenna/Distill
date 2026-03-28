@@ -97,9 +97,7 @@ function updateFormState() {
   }
 }
 
-function hideSetupPanel() {
-  var panel = $("#setup-panel");
-  if (panel) panel.classList.add("configured");
+function markConfigured() {
   apiKeySet = true;
   updateFormState();
 }
@@ -142,7 +140,7 @@ fetch("/api/config")
 
     // If key is set, hide setup panel and enable form
     if (apiKeySet) {
-      hideSetupPanel();
+      markConfigured();
     } else {
       updateFormState();
     }
@@ -172,7 +170,7 @@ if ($("#setup-save")) {
           body: JSON.stringify({ api_key: key, provider: provider }),
         });
       }
-      hideSetupPanel();
+      markConfigured();
     }
   });
 }
