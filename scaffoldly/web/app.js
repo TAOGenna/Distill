@@ -92,10 +92,8 @@ function updateFormState() {
   var provider = $("#setup-provider") ? $("#setup-provider").value : "anthropic";
   if (apiKeySet || provider === "ollama") {
     goBtn.disabled = generating;
-    form.style.opacity = "1";
   } else {
     goBtn.disabled = true;
-    form.style.opacity = "0.5";
   }
 }
 
