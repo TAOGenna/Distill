@@ -106,8 +106,7 @@ class LLMClient:
 
     def __init__(self, provider: str = "anthropic", api_key: str | None = None):
         self.provider = provider
-        self.api_key = api_key
-        self._setup_api_key()
+        self._setup_api_key(api_key)
 
         # Instructor-patched async client for structured output
         self._instructor = instructor.from_litellm(litellm.acompletion)
@@ -118,13 +117,20 @@ class LLMClient:
         self.total_cost_usd: float = 0.0
         self.total_calls: int = 0
 
-    def _setup_api_key(self) -> None:
-        """Set the API key in the environment for LiteLLM to pick up."""
-        if not self.api_key:
+    def __repr__(self) -> str:
+        return f"LLMClient(provider={self.provider!r})"
+
+    def _setup_api_key(self, api_key: str | None) -> None:
+        """Set the API key in the environment for LiteLLM to pick up.
+
+        The key is NOT stored on the instance — only in os.environ where
+        LiteLLM reads it. This prevents accidental exposure via repr/logging.
+        """
+        if not api_key:
             return
         env_var = PROVIDER_ENV_VARS.get(self.provider)
         if env_var:
-            os.environ[env_var] = self.api_key
+            os.environ[env_var] = api_key
 
     async def complete(
         self,

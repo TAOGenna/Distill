@@ -164,7 +164,7 @@ async function saveApiKey() {
       body: JSON.stringify({ api_key: key, provider: provider }),
     });
     $("#setup-key").value = "";
-    $("#setup-key").placeholder = key.slice(0, 8) + "..." + key.slice(-4);
+    $("#setup-key").placeholder = "****" + key.slice(-4);
   }
   markConfigured();
 }

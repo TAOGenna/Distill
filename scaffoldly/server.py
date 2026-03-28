@@ -43,7 +43,9 @@ def _load_config() -> dict:
 
 def _save_config(config: dict) -> None:
     CONFIG_DIR.mkdir(parents=True, exist_ok=True)
+    os.chmod(CONFIG_DIR, 0o700)
     CONFIG_FILE.write_text(json.dumps(config, indent=2))
+    os.chmod(CONFIG_FILE, 0o600)
 
 
 def _apply_config() -> None:
@@ -123,8 +125,8 @@ async def _config_endpoint(request: Request) -> JSONResponse:
             "presets": config.get("presets", []),
         }
 
-        if provider_key and len(provider_key) > 12:
-            result["api_key_masked"] = provider_key[:8] + "..." + provider_key[-4:]
+        if provider_key and len(provider_key) > 8:
+            result["api_key_masked"] = "****" + provider_key[-4:]
 
         return JSONResponse(result)
 
@@ -273,10 +275,17 @@ async def _run_generation(
 
     except Exception as e:
         _jobs[job_id]["status"] = "error"
-        emit({"type": "error", "message": str(e)})
+        # Sanitize — don't forward raw exceptions (may contain API keys/tokens)
+        import sys
+        print(f"  Generation error: {e}", file=sys.stderr)
+        safe_msg = f"Generation failed ({type(e).__name__}). Check server logs for details."
+        emit({"type": "error", "message": safe_msg})
 
     finally:
         event_queue.put(None)  # sentinel — close the SSE stream
+        # Cleanup job params after completion (don't retain request data)
+        if job_id in _jobs:
+            _jobs[job_id].pop("params", None)
 
 
 async def _events_endpoint(request: Request) -> StreamingResponse | JSONResponse:
@@ -377,13 +386,22 @@ def create_app() -> Starlette:
     from starlette.middleware import Middleware
     from starlette.middleware.base import BaseHTTPMiddleware
 
-    class NoCacheMiddleware(BaseHTTPMiddleware):
+    # Reject requests from non-localhost origins (DNS rebinding protection)
+    ALLOWED_HOSTS = {"localhost", "127.0.0.1"}
+
+    class SecurityMiddleware(BaseHTTPMiddleware):
         async def dispatch(self, request, call_next):
+            # Host header check — block DNS rebinding attacks
+            host = request.headers.get("host", "").split(":")[0]
+            if host not in ALLOWED_HOSTS:
+                return JSONResponse(
+                    {"error": "forbidden"}, status_code=403
+                )
             response = await call_next(request)
             response.headers["Cache-Control"] = "no-store"
             return response
 
-    app.add_middleware(NoCacheMiddleware)
+    app.add_middleware(SecurityMiddleware)
 
     return app
 

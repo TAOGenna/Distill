@@ -354,7 +354,8 @@ async def _phase_generate(
             _emit({"type": "module_complete", "module_index": idx, "title": title})
 
         except Exception as e:
-            _log(f"Module {idx} ({title}) failed: {e}", _C.RED)
+            print(f"  Module {idx} error: {e}", file=sys.stderr)
+            _log(f"Module {idx} ({title}) failed ({type(e).__name__})", _C.RED)
 
     async with anyio.create_task_group() as tg:
         for module in modules:
@@ -535,7 +536,8 @@ async def _phase_review(
                     verdict_color,
                 )
             except Exception as e:
-                _log(f"Module {idx} review failed: {e}", _C.RED)
+                print(f"  Module {idx} review error: {e}", file=sys.stderr)
+                _log(f"Module {idx} review failed ({type(e).__name__})", _C.RED)
                 reviews.append(ModuleReview(
                     module_index=idx,
                     verdict="pass",
@@ -611,7 +613,8 @@ async def _phase_review(
                 _log(f"Module {idx} re-generated", _C.GREEN)
                 _emit({"type": "module_complete", "module_index": idx, "title": mod.title})
             except Exception as e:
-                _log(f"Module {idx} re-generation failed: {e}", _C.RED)
+                print(f"  Module {idx} re-generation error: {e}", file=sys.stderr)
+                _log(f"Module {idx} re-generation failed ({type(e).__name__})", _C.RED)
 
         # Find module specs for modules that need revision
         module_map = {m.module_index: m for m in curriculum.modules}
