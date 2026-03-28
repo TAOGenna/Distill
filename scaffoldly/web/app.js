@@ -147,34 +147,31 @@ fetch("/api/config")
   })
   .catch(() => { updateFormState(); });
 
-// Setup panel save
-if ($("#setup-save")) {
-  $("#setup-save").addEventListener("click", async () => {
-    var provider = $("#setup-provider").value;
-    var key = $("#setup-key").value.trim();
+// Setup panel save — shared logic for button click and blur
+async function saveApiKey() {
+  var provider = $("#setup-provider").value;
+  var key = $("#setup-key") ? $("#setup-key").value.trim() : "";
+  if (!key && provider !== "ollama") return;
 
-    // Save provider
+  if (key) {
     await fetch("/api/config", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ provider: provider }),
+      body: JSON.stringify({ api_key: key, provider: provider }),
     });
+    $("#setup-key").value = "";
+    $("#setup-key").placeholder = key.slice(0, 8) + "..." + key.slice(-4);
+  }
+  markConfigured();
+}
 
-    populateModelDropdowns(provider);
+if ($("#setup-save")) {
+  $("#setup-save").addEventListener("click", saveApiKey);
+}
 
-    if (provider === "ollama" || key) {
-      if (key) {
-        await fetch("/api/config", {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ api_key: key, provider: provider }),
-        });
-        $("#setup-key").value = "";
-        $("#setup-key").placeholder = key.slice(0, 8) + "..." + key.slice(-4);
-      }
-      markConfigured();
-    }
-  });
+// Auto-save API key when user clicks away from the field
+if ($("#setup-key")) {
+  $("#setup-key").addEventListener("blur", saveApiKey);
 }
 
 if ($("#setup-provider")) {
