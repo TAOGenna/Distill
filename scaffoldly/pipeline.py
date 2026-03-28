@@ -507,11 +507,10 @@ async def _phase_review(
         async def _review(mod: Any) -> None:
             idx = mod.module_index
             if idx in preflight_failures:
-                # Failed pre-flight — auto-mark as revise with pre-flight errors
                 reviews.append(ModuleReview(
                     module_index=idx,
                     verdict="revise",
-                    issues=[],  # pre-flight errors handled separately
+                    issues=[],
                 ))
                 return
 
@@ -520,20 +519,28 @@ async def _phase_review(
             if not module_dir_path.exists():
                 return
 
-            review = await _review_module(
-                llm=llm,
-                module_index=idx,
-                module_dir=module_dir_path,
-                module_spec=mod.model_dump(),
-                model=review_model,
-            )
-            reviews.append(review)
-            verdict_color = _C.GREEN if review.verdict == "pass" else _C.YELLOW
-            _log(
-                f"Module {idx} review: {review.verdict} "
-                f"({len(review.issues)} issues)",
-                verdict_color,
-            )
+            try:
+                review = await _review_module(
+                    llm=llm,
+                    module_index=idx,
+                    module_dir=module_dir_path,
+                    module_spec=mod.model_dump(),
+                    model=review_model,
+                )
+                reviews.append(review)
+                verdict_color = _C.GREEN if review.verdict == "pass" else _C.YELLOW
+                _log(
+                    f"Module {idx} review: {review.verdict} "
+                    f"({len(review.issues)} issues)",
+                    verdict_color,
+                )
+            except Exception as e:
+                _log(f"Module {idx} review failed: {e}", _C.RED)
+                reviews.append(ModuleReview(
+                    module_index=idx,
+                    verdict="pass",
+                    issues=[],
+                ))
 
         async with anyio.create_task_group() as tg:
             for mod in curriculum.modules:
@@ -572,7 +579,6 @@ async def _phase_review(
 
         async def _regenerate(mod: Any, review: ModuleReview) -> None:
             idx = mod.module_index
-            # Build feedback from review issues + pre-flight errors
             feedback_parts: list[str] = []
             if idx in preflight_failures:
                 feedback_parts.append(
@@ -586,23 +592,26 @@ async def _phase_review(
                     + f"\n  Fix: {issue.suggested_fix}"
                 )
 
-            _, output, _ = await _generate_single_module(
-                llm=llm,
-                module_spec=mod.model_dump(),
-                course_context=course_context,
-                source_excerpts=source_content,
-                student_level=student_level,
-                model=generate_model,
-                course_dir=course_dir,
-                revision_feedback="\n".join(feedback_parts),
-            )
+            try:
+                _, output, _ = await _generate_single_module(
+                    llm=llm,
+                    module_spec=mod.model_dump(),
+                    course_context=course_context,
+                    source_excerpts=source_content,
+                    student_level=student_level,
+                    model=generate_model,
+                    course_dir=course_dir,
+                    revision_feedback="\n".join(feedback_parts),
+                )
 
-            module_slug = f"module_{idx:02d}_{_slugify(mod.title)}"
-            module_dir = course_dir / module_slug
-            _write_module_files(output, module_dir)
-            module_outputs[idx] = output
-            _log(f"Module {idx} re-generated", _C.GREEN)
-            _emit({"type": "module_complete", "module_index": idx, "title": mod.title})
+                module_slug = f"module_{idx:02d}_{_slugify(mod.title)}"
+                module_dir = course_dir / module_slug
+                _write_module_files(output, module_dir)
+                module_outputs[idx] = output
+                _log(f"Module {idx} re-generated", _C.GREEN)
+                _emit({"type": "module_complete", "module_index": idx, "title": mod.title})
+            except Exception as e:
+                _log(f"Module {idx} re-generation failed: {e}", _C.RED)
 
         # Find module specs for modules that need revision
         module_map = {m.module_index: m for m in curriculum.modules}

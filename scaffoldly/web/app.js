@@ -12,7 +12,7 @@ let flowNodes = {};   // module_index → DOM node
 let flowActive = false;
 let generating = false;
 let totalModules = 0;
-let completedModules = 0;
+let completedModuleSet = new Set();
 
 /* ── Isometric icon builder ───────────────────────── */
 
@@ -366,10 +366,11 @@ function updateProgressBar(phase, detail) {
 function updateModuleProgress() {
   var fill = $("#phase-fill");
   var det = $("#phase-detail");
+  var completed = completedModuleSet.size;
   var w = phaseWeights.generate;
-  var pct = w.start + ((w.end - w.start) * completedModules / Math.max(totalModules, 1));
+  var pct = w.start + ((w.end - w.start) * Math.min(completed, totalModules) / Math.max(totalModules, 1));
   fill.style.width = pct + "%";
-  det.textContent = completedModules + "/" + totalModules;
+  det.textContent = Math.min(completed, totalModules) + "/" + totalModules;
 }
 
 /* ── beforeunload guard ──────────────────────────── */
@@ -408,7 +409,7 @@ form.addEventListener("submit", async (e) => {
   flowNodes = {};
   flowActive = false;
   totalModules = 0;
-  completedModules = 0;
+  completedModuleSet = new Set();
   updateProgressBar("preprocess", "");
 
   try {
@@ -448,7 +449,7 @@ function connectSSE(jobId) {
       totalModules = ev.data.modules ? ev.data.modules.length : 0;
       renderCurriculumFlow(ev.data);
     } else if (ev.type === "module_complete") {
-      completedModules++;
+      completedModuleSet.add(ev.module_index);
       updateModuleProgress();
       activateFlowNode(ev.module_index);
       appendLog(
@@ -505,41 +506,41 @@ function appendLog(message, level) {
 function showResult(result) {
   genStart = null;
 
-  // If the flow was already rendered progressively, just finalize it
   if (flowActive) {
     finalizeFlow(result);
   }
 
-  // Show cost summary
-  var costLine = "";
+  // Build cost summary
+  var costParts = [];
   if (result.total_cost_usd != null) {
-    costLine += "$" + result.total_cost_usd.toFixed(4);
+    costParts.push("$" + result.total_cost_usd.toFixed(4));
   }
   if (result.usage) {
     var u = result.usage;
     if (u.input_tokens || u.output_tokens) {
-      costLine += (costLine ? " \u00b7 " : "") +
+      costParts.push(
         (u.input_tokens || 0).toLocaleString() + " in / " +
-        (u.output_tokens || 0).toLocaleString() + " out";
+        (u.output_tokens || 0).toLocaleString() + " out"
+      );
     }
     if (u.api_calls) {
-      costLine += " \u00b7 " + u.api_calls + " calls";
+      costParts.push(u.api_calls + " calls");
     }
   }
-  if (costLine) {
-    appendLog(costLine, "ok");
-  }
 
-  if (!flowActive && result.course_dir) {
-    var el = document.createElement("div");
-    el.className = "result-box";
-    el.innerHTML =
-      "<strong>course generated</strong>" +
-      '<div class="stat">path <span>' +
-      esc(result.course_dir || "\u2014") +
-      "</span></div>";
-    logEl.appendChild(el);
-  }
+  // Show success banner
+  var banner = document.createElement("div");
+  banner.className = "result-banner";
+  banner.innerHTML =
+    '<div class="result-banner-title">course generated</div>' +
+    (result.course_dir
+      ? '<div class="result-banner-path">' + esc(result.course_dir) + '</div>'
+      : '') +
+    (costParts.length
+      ? '<div class="result-banner-cost">' + esc(costParts.join(" \u00b7 ")) + '</div>'
+      : '');
+  progressEl.appendChild(banner);
+  banner.scrollIntoView({ behavior: "smooth", block: "nearest" });
 }
 
 /* ── Course flow visualization (Brilliant-style) ── */

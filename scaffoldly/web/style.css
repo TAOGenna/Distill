@@ -398,6 +398,34 @@ button {
 .log-entry.warn { color: #946200; }
 .log-entry.dim { color: #717171; }
 
+.result-banner {
+    margin-top: 2rem;
+    padding: 1.25rem 1.5rem;
+    background: #f0f9f4;
+    border: 1px solid #b8e6cc;
+    border-radius: 6px;
+    text-align: center;
+}
+
+.result-banner-title {
+    font-weight: 700;
+    font-size: 1em;
+    color: #1a7a3a;
+    margin-bottom: 0.35rem;
+}
+
+.result-banner-path {
+    font-size: 0.8em;
+    color: #555;
+    word-break: break-all;
+    margin-bottom: 0.25rem;
+}
+
+.result-banner-cost {
+    font-size: 0.8em;
+    color: #777;
+}
+
 .result-box {
     margin-top: 1.5rem;
     padding: 1rem 0;
