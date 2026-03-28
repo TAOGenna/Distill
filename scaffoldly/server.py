@@ -47,59 +47,84 @@ def _save_config(config: dict) -> None:
 
 
 def _apply_config() -> None:
-    """Load saved API key into env if not already set."""
+    """Load saved API keys into env if not already set."""
     config = _load_config()
-    if config.get("api_key") and not os.environ.get("ANTHROPIC_API_KEY"):
-        os.environ["ANTHROPIC_API_KEY"] = config["api_key"]
+    # Support both legacy single api_key and per-provider keys
+    from .llm import PROVIDER_ENV_VARS
+
+    for provider, env_var in PROVIDER_ENV_VARS.items():
+        key = config.get(f"{provider}_api_key") or config.get("api_key", "")
+        if key and not os.environ.get(env_var):
+            os.environ[env_var] = key
 
 
 def _get_output_dir() -> str:
     return _load_config().get("output_dir", "./output")
 
 
-def _has_claude_code() -> bool:
-    """Check if Claude Code CLI is installed (provides auth for the Agent SDK)."""
-    return shutil.which("claude") is not None
+def _get_provider() -> str:
+    return _load_config().get("provider", "anthropic")
 
 
 # ── API endpoints ─────────────────────────────────────────────────────────────
 
 
 async def _config_endpoint(request: Request) -> JSONResponse:
+    from .llm import PROVIDER_DEFAULTS, PROVIDER_ENV_VARS, PROVIDER_PREFIXES
+
     if request.method == "GET":
         config = _load_config()
-        has_key = bool(
-            config.get("api_key") or os.environ.get("ANTHROPIC_API_KEY")
-        )
-        has_claude_code = _has_claude_code()
+        provider = config.get("provider", "anthropic")
+
+        # Check if the current provider has an API key set
+        env_var = PROVIDER_ENV_VARS.get(provider, "")
+        provider_key = config.get(f"{provider}_api_key", "")
+        has_key = bool(provider_key or (env_var and os.environ.get(env_var)))
+
         result: dict[str, Any] = {
             "output_dir": config.get("output_dir", "./output"),
-            "api_key_set": has_key or has_claude_code,
-            "auth_method": (
-                "claude_code" if has_claude_code and not has_key
-                else "api_key" if has_key
-                else "none"
-            ),
+            "provider": provider,
+            "providers": list(PROVIDER_PREFIXES.keys()),
+            "provider_defaults": PROVIDER_DEFAULTS,
+            "api_key_set": has_key,
+            "design_model": config.get("design_model", ""),
+            "generate_model": config.get("generate_model", ""),
+            "max_revision_cycles": config.get("max_revision_cycles", 1),
         }
-        key = config.get("api_key", "")
-        if key and len(key) > 12:
-            result["api_key_masked"] = key[:8] + "..." + key[-4:]
+
+        if provider_key and len(provider_key) > 12:
+            result["api_key_masked"] = provider_key[:8] + "..." + provider_key[-4:]
+
         return JSONResponse(result)
 
     body = await request.json()
     config = _load_config()
 
+    if "provider" in body:
+        config["provider"] = body["provider"]
     if "api_key" in body and body["api_key"]:
-        config["api_key"] = body["api_key"]
-        os.environ["ANTHROPIC_API_KEY"] = body["api_key"]
+        provider = body.get("provider", config.get("provider", "anthropic"))
+        config[f"{provider}_api_key"] = body["api_key"]
+        # Also set in env immediately
+        env_var = PROVIDER_ENV_VARS.get(provider)
+        if env_var:
+            os.environ[env_var] = body["api_key"]
     if "output_dir" in body and body["output_dir"]:
         config["output_dir"] = body["output_dir"]
+    if "design_model" in body:
+        config["design_model"] = body["design_model"]
+    if "generate_model" in body:
+        config["generate_model"] = body["generate_model"]
+    if "max_revision_cycles" in body:
+        config["max_revision_cycles"] = body["max_revision_cycles"]
 
     _save_config(config)
     return JSONResponse({"ok": True})
 
 
 async def _generate_endpoint(request: Request) -> JSONResponse:
+    from .llm import PROVIDER_ENV_VARS
+
     body = await request.json()
 
     url = body.get("url", "").strip()
@@ -109,10 +134,17 @@ async def _generate_endpoint(request: Request) -> JSONResponse:
             {"error": "url and level are required"}, status_code=400
         )
 
-    # Check auth — Claude Code provides auth automatically, otherwise need a key
-    if not os.environ.get("ANTHROPIC_API_KEY") and not _has_claude_code():
+    # Check auth for the configured provider
+    config = _load_config()
+    provider = body.get("provider") or config.get("provider", "anthropic")
+    env_var = PROVIDER_ENV_VARS.get(provider, "")
+    provider_key = config.get(f"{provider}_api_key", "")
+    has_key = bool(provider_key or (env_var and os.environ.get(env_var)))
+
+    # Ollama doesn't need a key
+    if provider != "ollama" and not has_key:
         return JSONResponse(
-            {"error": "no API key configured — set it in settings or install Claude Code"},
+            {"error": f"no API key configured for {provider} — set it in settings"},
             status_code=400,
         )
 
@@ -133,16 +165,24 @@ async def _run_generation(
     event_queue: queue.Queue,
 ) -> None:
     """Run the full generation pipeline, pushing events to the queue."""
-    from .agent import run_agent
     from .fetch import preprocess_sources
+    from .pipeline import run_pipeline
 
+    config = _load_config()
     url = params["url"]
     refs = [r for r in params.get("refs", []) if r.strip()]
     series = params.get("series", False)
     level = params["level"]
-    model = params.get("model", "claude-opus-4-6")
-    generate_model = params.get("generate_model", "sonnet")
+    provider = params.get("provider") or config.get("provider", "anthropic")
+    design_model = params.get("design_model") or config.get("design_model") or None
+    generate_model = params.get("generate_model") or config.get("generate_model") or None
     output_dir = params.get("output_dir") or _get_output_dir()
+    max_revision_cycles = config.get("max_revision_cycles", 1)
+
+    # Resolve API key for the provider
+    from .llm import PROVIDER_ENV_VARS
+    env_var = PROVIDER_ENV_VARS.get(provider, "")
+    api_key = config.get(f"{provider}_api_key") or (os.environ.get(env_var) if env_var else None)
 
     def emit(event: dict) -> None:
         event_queue.put(event)
@@ -165,17 +205,18 @@ async def _run_generation(
         )
         emit({"type": "log", "message": "sources ready", "level": "ok"})
 
-        # ── Agent ─────────────────────────────────────────────────────
-        emit({"type": "phase", "phase": "agent"})
-
-        result = await run_agent(
+        # ── Pipeline ──────────────────────────────────────────────────
+        result = await run_pipeline(
             url=url,
             user_level=level,
             refs=refs,
             series=series,
             output_dir=output_dir,
-            model=model,
+            provider=provider,
+            api_key=api_key,
+            design_model=design_model,
             generate_model=generate_model,
+            max_revision_cycles=max_revision_cycles,
             sources_dir=str(sources_dir),
             on_event=emit,
         )
@@ -186,41 +227,12 @@ async def _run_generation(
         _jobs[job_id]["status"] = "complete"
         _jobs[job_id]["result"] = result
 
-        # Read curriculum for path visualization
-        curriculum_summary = None
-        course_path = Path(result.get("course_dir", ""))
-        curr_file = course_path / "_curriculum.json"
-        if curr_file.exists():
-            try:
-                curr = json.loads(curr_file.read_text())
-                curriculum_summary = {
-                    "title": curr.get("course_title", ""),
-                    "modules": [
-                        {
-                            "index": m.get("module_index", i),
-                            "title": m.get("title", ""),
-                            "description": m.get("description", ""),
-                            "exercise_count": len(m.get("exercises", [])),
-                            "exercises": [
-                                e.get("title", "") for e in m.get("exercises", [])
-                            ],
-                            "depends_on": m.get("depends_on", []),
-                        }
-                        for i, m in enumerate(curr.get("modules", []))
-                    ],
-                }
-            except (json.JSONDecodeError, OSError):
-                pass
-
-        emit(
-            {
-                "type": "complete",
-                "result": {
-                    "course_dir": result.get("course_dir"),
-                    "curriculum": curriculum_summary,
-                },
-            }
-        )
+        emit({
+            "type": "complete",
+            "result": {
+                "course_dir": result.get("course_dir"),
+            },
+        })
 
     except Exception as e:
         _jobs[job_id]["status"] = "error"
@@ -368,8 +380,11 @@ def serve(host: str = "127.0.0.1", port: int = 8420, open_browser: bool = True) 
 
     # ── Gather context ────────────────────────────────────────────
     config = _load_config()
-    has_key = bool(config.get("api_key") or os.environ.get("ANTHROPIC_API_KEY"))
-    auth = "claude code" if _has_claude_code() else ("api key" if has_key else "not set")
+    provider = config.get("provider", "anthropic")
+    from .llm import PROVIDER_ENV_VARS
+    env_var = PROVIDER_ENV_VARS.get(provider, "")
+    has_key = bool(config.get(f"{provider}_api_key") or (env_var and os.environ.get(env_var)))
+    auth = f"{provider}" + (" ✓" if has_key else " (no key)")
     output = config.get("output_dir", "./output")
     if len(output) > 20:
         output = output[:17] + "..."
