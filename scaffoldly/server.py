@@ -364,7 +364,22 @@ def create_app() -> Starlette:
         Mount("/", StaticFiles(directory=str(WEB_DIR), html=True)),
     ]
 
-    return Starlette(routes=routes)
+    app = Starlette(routes=routes)
+
+    # Disable browser caching for all responses — this is a local app,
+    # files are tiny, and stale CSS/JS causes confusing UI bugs.
+    from starlette.middleware import Middleware
+    from starlette.middleware.base import BaseHTTPMiddleware
+
+    class NoCacheMiddleware(BaseHTTPMiddleware):
+        async def dispatch(self, request, call_next):
+            response = await call_next(request)
+            response.headers["Cache-Control"] = "no-store"
+            return response
+
+    app.add_middleware(NoCacheMiddleware)
+
+    return app
 
 
 def _is_wsl() -> bool:
