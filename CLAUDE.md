@@ -5,13 +5,15 @@
 ```
 scaffoldly/
 ├── __main__.py       # python -m scaffoldly
-├── cli.py            # CLI argument parsing + web UI launcher
+├── cli.py            # Server launcher (web UI only, no CLI generation)
 ├── server.py         # Local Starlette web server + SSE progress streaming
 ├── fetch.py          # Source preprocessing — URL → local artifacts (no LLM)
-├── agent.py          # Claude Agent SDK orchestrator + sub-agent definitions
-├── tools.py          # Custom @tool definitions (MCP server)
+├── pipeline.py       # Course generation pipeline — direct API calls
+├── llm.py            # LLM client (LiteLLM + Instructor) — provider abstraction
+├── sources.py        # Source budget management — read + truncate/summarize
+├── prompts.py        # System prompts for each pipeline phase
 ├── schemas.py        # Pydantic models for structured output
-├── system_prompt.py  # CS231n pedagogy + workflow instructions
+├── tools.py          # Pure validation helpers (coverage check, etc.)
 └── web/              # Static frontend (no build step, no node_modules)
     ├── index.html    # Generation form + progress + course list + settings
     ├── style.css     # JetBrains Mono, monochrome aesthetic
@@ -21,15 +23,10 @@ scaffoldly/
 
 ## Architecture
 
-Powered by the [Claude Agent SDK](https://github.com/anthropics/claude-agent-sdk-python). Two interfaces, same pipeline:
-
-- **Web UI** (default): `scaffoldly` → opens browser at localhost:8420
-- **CLI**: `scaffoldly generate <url> --level "..."` → headless generation
-
-Three-phase architecture:
+Agent-agnostic pipeline using direct LLM API calls via LiteLLM + Instructor. Supports multiple providers (Anthropic, OpenAI, Google, Ollama, OpenRouter). Web UI is the sole interface.
 
 ```
-scaffoldly generate <url> [--ref ...] [--series] --level "..."
+Browser → http://localhost:8420
         │
         ▼
 ┌──────────────────────────────────────┐
@@ -46,98 +43,109 @@ scaffoldly generate <url> [--ref ...] [--series] --level "..."
                │
                ▼
 ┌──────────────────────────────────────┐
-│  Phase 1: Main Agent (Opus)          │
+│  Phase 1a: Analyze (1 API call)      │
+│  design model                        │
 │                                      │
-│  1. Consume preprocessed sources     │
-│  2. Analyze + triage concepts        │
-│     → submit_analysis                │
-│  3. Design + coverage check          │
-│     → submit_curriculum              │
-│     → emits `curriculum` event       │
-│       (DAG appears in web UI)        │
-│  3b. Re-read quantitative claims     │
-│  4. Create root README + dirs        │
-│     → STOP                           │
+│  Input: system prompt + sources      │
+│         (token-budget managed)       │
+│  Output: Analysis (Pydantic)         │
+│  Python: validate → _analysis.json   │
 └──────────────┬───────────────────────┘
                │
                ▼
 ┌──────────────────────────────────────┐
-│  Phase 2: Orchestrator (Python)      │
+│  Phase 1b: Design (1 API call)       │
+│  design model                        │
 │                                      │
-│  Parallel dispatch via query():      │
-│  ┌─────────┐ ┌─────────┐ ┌────────┐ │
-│  │module 0 │ │module 1 │ │module N│ │
-│  │(Sonnet) │ │(Sonnet) │ │(Sonnet)│ │
-│  └─────────┘ └─────────┘ └────────┘ │
-│  Each emits `module_complete` event  │
-│  (node lights up in web UI DAG)      │
+│  Input: analysis + source excerpts   │
+│  Output: CurriculumDesign (Pydantic) │
+│          curriculum + root README    │
+│  Python: coverage check, write files │
+│          emit `curriculum` event     │
 └──────────────┬───────────────────────┘
                │
                ▼
 ┌──────────────────────────────────────┐
-│  Phase 3: Main Agent (Opus)          │
+│  Phase 2: Generate (N parallel)      │
+│  generate model                      │
 │                                      │
-│  5. Review (adversarial QA)          │
-│     → reviewer sub-agent (Sonnet)    │
-│  6. Fix & resubmit if needed         │
+│  Per module: 1 API call              │
+│  Input: module spec + source excerpt │
+│  Output: ModuleOutput (all files)    │
+│  Python: write files, validate       │
+│          syntax, emit events         │
+└──────────────┬───────────────────────┘
+               │
+               ▼
+┌──────────────────────────────────────┐
+│  Phase 3: Review                     │
+│                                      │
+│  3a: Pre-flight (Python, no LLM)    │
+│      syntax, structure checks        │
+│  3b: Quality review (LLM per module)│
+│      pedagogical quality, realism    │
+│  Re-generate failed modules          │
 └──────────────────────────────────────┘
 ```
 
-## Sub-Agents & Dispatch
+## LLM Client (llm.py)
 
-- **module_generator** — dispatched programmatically by the orchestrator (not by the LLM). Uses standalone `query()` per module, all running in parallel via `anyio.create_task_group()`. Each gets a self-contained system prompt with full pedagogy guidelines.
-- **reviewer** — dispatched by the main agent in Phase 3. Adversarial quality check against 10 criteria (structure, scaffolding, docs, milestones, progressive difficulty, syntax, realism, questions, outcomes, organization). Returns PASS or REVISE.
+`LLMClient` wraps LiteLLM + Instructor. Supports:
+- **Structured output**: pass `response_model=SomePydanticModel` to get validated objects back
+- **Retry with feedback**: Instructor automatically retries on Pydantic validation failure
+- **Provider routing**: maps `(provider, model)` to LiteLLM model strings
 
-## Custom Tools (MCP)
+Providers: anthropic, openai, google, ollama, openrouter. Model defaults per provider in `PROVIDER_DEFAULTS`.
 
-| Tool | Purpose |
-|------|---------|
-| `submit_analysis` | Structured analysis with Pydantic validation. Returns triage summary. |
-| `submit_curriculum` | Curriculum design + coverage check against essential concepts. |
+## Source Budget Management (sources.py)
 
-The agent also uses Claude Code built-in tools (Bash, Read, Write, Edit) to create all course files directly.
+Reads fetch.py artifacts and manages token limits. Strategy:
+1. Sources fit budget → return as-is
+2. Moderate overflow → truncate by sections (LaTeX/markdown headers)
+3. Large overflow → summarize with cheap model, return summary + excerpts
+
+## Schemas (schemas.py)
+
+| Schema | Phase | Purpose |
+|--------|-------|---------|
+| `Analysis` | 1a | Concept extraction, triage, content type |
+| `CurriculumDesign` | 1b | Curriculum + root README + requirements |
+| `ModuleOutput` | 2 | All files for a module (README + exercises) |
+| `GeneratedFile` | 2 | Single file with path, content, language |
+| `ReviewResult` | 3b | Per-module pass/fail with issues |
 
 ## Web UI
 
 ### Launch Banner
-Orange-themed two-panel box with a pixel art cactus mascot (green with black Mario Bros-style eyes, orange pot). Left panel: mascot + clickable URL. Right panel: tips + recent courses + auth/output info. Detects WSL to skip browser auto-open.
+Orange-themed two-panel box with a pixel art cactus mascot. Detects WSL to skip browser auto-open.
 
 ### DAG Visualization
-After Phase 1 completes, the curriculum structure is emitted as a `curriculum` event. The web UI renders a Brilliant-style DAG:
+After Phase 1b completes, the curriculum structure is emitted as a `curriculum` event. The web UI renders a Brilliant-style DAG with topological layering, SVG bezier edges, and progressive node activation.
 
-- **Layout**: proper topological layering using `depends_on` fields — not just linear. Modules at the same depth layer are positioned side-by-side. Single modules per layer zigzag left/right.
-- **Edges**: SVG cubic bezier curves with arrowheads, following actual dependency relationships. Deduplicated by coordinate key.
-- **Progressive**: nodes start in pending state (outlined, dim). As each module finishes generating in parallel, its node transitions to generated state (filled, 3D box-shadow depth effect).
-- **Animation**: path draws in via stroke-dashoffset, nodes appear with staggered fade+scale by layer.
-
-Test the DAG without running a generation at `/test_dag.html` — presets for linear, diamond, fan-out, and complex graphs.
-
-### Log Box
-Scrollable (200px max-height) with a top fade mask. New entries auto-scroll into view. The DAG lives outside the log box in the main page flow.
-
-### Settings & Auth
-Config persists to `~/.config/scaffoldly/config.json`. Claude Code auth is auto-detected (checks for `claude` CLI in PATH). Falls back to `ANTHROPIC_API_KEY` from config or env.
+### Settings
+Config persists to `~/.config/scaffoldly/config.json`. Settings include:
+- **Provider**: Anthropic, OpenAI, Google, Ollama, OpenRouter
+- **API key**: stored per-provider
+- **Design/generate model**: populated from provider defaults
+- **Output directory**
+- **Max revision cycles**: 0-3 (default 1)
 
 ## Key Design Decisions
 
 ### Source Preprocessing
-URLs are preprocessed into local artifacts before the agent starts (`fetch.py`). This saves LLM tokens and gives the agent richer input — especially for arXiv papers (native LaTeX) and blogs (markdown + downloaded figures). The agent reads local files from `_sources/` instead of curling raw HTML. Jina Reader provides clean markdown; images are extracted from the markdown and downloaded directly (no browser dependency).
+URLs are preprocessed into local artifacts before the pipeline starts (`fetch.py`). Jina Reader provides clean markdown; images are extracted and downloaded directly.
 
 ### Concept Triage
-Every concept gets a priority (essential/supporting/contextual) with a rationale during analysis. The `submit_curriculum` tool checks that all essential concepts have exercises before generation begins. Contextual concepts go in the "What's Next" section, not exercises.
+Every concept gets a priority (essential/supporting/contextual) with a rationale. Coverage check verifies essential concepts have exercises.
 
 ### Analytical Question Rubric
-Module READMEs require Level 3+ questions (analysis/synthesis), not recall. The system prompt includes a 4-level rubric with gold-standard exemplars.
-
-### Multi-Source Support
-- **Reference mode**: focus URL gets deep analysis, refs get minimal skim for supplementary concepts
-- **Series mode**: all sources fetched thoroughly, curriculum spans the full arc
+Module READMEs require Level 3+ questions (analysis/synthesis, not recall).
 
 ### Content-Type Pedagogy
-The `content_type` field (systems_engineering, ml_research, tutorial, library_walkthrough) drives milestone style, scaffolding strategy, and progression pattern. See `system_prompt.py` for details.
+The `content_type` field drives milestone style, scaffolding strategy, and progression pattern. See `prompts.py` for details.
 
 ### No Test Frameworks
-Observable milestones replace tests. Each exercise ends with a `__main__` block that prints measurements, comparisons, or visualizations. The output IS the validation.
+Observable milestones replace tests. Each exercise ends with a `__main__` block that prints measurements, comparisons, or visualizations.
 
 ### Event Emission
-`agent.py` uses a `ContextVar`-based event sink so the web server can receive real-time progress without changing the existing logging to stderr. Event types: `log`, `phase`, `curriculum` (full DAG structure), `module_complete`. When no sink is registered (CLI mode), events are silently dropped.
+`pipeline.py` uses a `ContextVar`-based event sink so the web server can receive real-time progress. Event types: `log`, `phase`, `curriculum`, `module_complete`.
