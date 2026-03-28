@@ -66,6 +66,33 @@ function isoIcon(size, palette) {
 
 /* ── Config ───────────────────────────────────────── */
 
+let providerDefaults = {};
+
+function populateModelDropdowns(provider) {
+  var defaults = providerDefaults[provider] || { design: "", generate: "" };
+  var designSelect = $("#design-model");
+  var generateSelect = $("#generate-model");
+
+  // Build options from defaults — user can type custom models too
+  designSelect.innerHTML = '<option value="' + esc(defaults.design) + '">' + esc(defaults.design) + '</option>';
+  generateSelect.innerHTML = '<option value="' + esc(defaults.generate) + '">' + esc(defaults.generate) + '</option>';
+
+  // Add cross-options so both models are available in both dropdowns
+  if (defaults.design !== defaults.generate) {
+    designSelect.innerHTML += '<option value="' + esc(defaults.generate) + '">' + esc(defaults.generate) + '</option>';
+    generateSelect.innerHTML += '<option value="' + esc(defaults.design) + '">' + esc(defaults.design) + '</option>';
+  }
+}
+
+function updateApiKeyVisibility(provider) {
+  var row = $("#api-key-row");
+  if (provider === "ollama") {
+    row.style.display = "none";
+  } else {
+    row.style.display = "";
+  }
+}
+
 fetch("/api/config")
   .then((r) => r.json())
   .then((cfg) => {
@@ -73,19 +100,66 @@ fetch("/api/config")
     if (cfg.output_dir) $("#cfg-output").value = cfg.output_dir;
     if (cfg.api_key_masked) {
       $("#cfg-key").placeholder = cfg.api_key_masked;
-    } else if (cfg.auth_method === "claude_code") {
-      $("#cfg-key").placeholder = "using Claude Code auth";
+    }
+    if (cfg.provider) {
+      $("#cfg-provider").value = cfg.provider;
+      updateApiKeyVisibility(cfg.provider);
+    }
+    if (cfg.max_revision_cycles !== undefined) {
+      $("#cfg-revision-cycles").value = cfg.max_revision_cycles;
+    }
+    if (cfg.provider_defaults) {
+      providerDefaults = cfg.provider_defaults;
+      populateModelDropdowns(cfg.provider || "anthropic");
+    }
+    // Restore saved model selections
+    if (cfg.design_model) {
+      var ds = $("#design-model");
+      // Add option if not already present
+      if (!ds.querySelector('option[value="' + cfg.design_model + '"]')) {
+        ds.innerHTML += '<option value="' + esc(cfg.design_model) + '">' + esc(cfg.design_model) + '</option>';
+      }
+      ds.value = cfg.design_model;
+    }
+    if (cfg.generate_model) {
+      var gs = $("#generate-model");
+      if (!gs.querySelector('option[value="' + cfg.generate_model + '"]')) {
+        gs.innerHTML += '<option value="' + esc(cfg.generate_model) + '">' + esc(cfg.generate_model) + '</option>';
+      }
+      gs.value = cfg.generate_model;
     }
   })
   .catch(() => {});
 
-$("#save-key").addEventListener("click", async () => {
-  const key = $("#cfg-key").value.trim();
-  if (!key) return;
+$("#cfg-provider").addEventListener("change", async () => {
+  var provider = $("#cfg-provider").value;
   await fetch("/api/config", {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ api_key: key }),
+    body: JSON.stringify({ provider: provider }),
+  });
+  populateModelDropdowns(provider);
+  updateApiKeyVisibility(provider);
+  // Re-check if key is set for new provider
+  fetch("/api/config").then((r) => r.json()).then((cfg) => {
+    if (!cfg.api_key_set) {
+      $("#api-warning").classList.add("visible");
+      $("#cfg-key").placeholder = "sk-...";
+    } else {
+      $("#api-warning").classList.remove("visible");
+      if (cfg.api_key_masked) $("#cfg-key").placeholder = cfg.api_key_masked;
+    }
+  });
+});
+
+$("#save-key").addEventListener("click", async () => {
+  const key = $("#cfg-key").value.trim();
+  if (!key) return;
+  const provider = $("#cfg-provider").value;
+  await fetch("/api/config", {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ api_key: key, provider: provider }),
   });
   $("#cfg-key").value = "";
   $("#cfg-key").placeholder = key.slice(0, 8) + "..." + key.slice(-4);
@@ -99,6 +173,14 @@ $("#save-output").addEventListener("click", async () => {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ output_dir: dir }),
+  });
+});
+
+$("#cfg-revision-cycles").addEventListener("change", async () => {
+  await fetch("/api/config", {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ max_revision_cycles: parseInt($("#cfg-revision-cycles").value) }),
   });
 });
 
@@ -164,7 +246,7 @@ form.addEventListener("submit", async (e) => {
   const params = {
     url: fd.get("url"),
     level: fd.get("level"),
-    model: fd.get("model"),
+    design_model: fd.get("design_model"),
     generate_model: fd.get("generate_model"),
     series: $("#series").checked,
     refs: [...document.querySelectorAll('input[name="ref"]')]
