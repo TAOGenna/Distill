@@ -136,6 +136,14 @@ class Curriculum(BaseModel):
 # ── Stage 2b: Curriculum Design (with root files) ────────────────────────────
 
 
+def _unescape_content(v: str) -> str:
+    """Fix double-escaped newlines that some models produce in JSON strings."""
+    if isinstance(v, str) and "\\n" in v:
+        v = v.replace("\\\\n", "\n").replace("\\n", "\n")
+        v = v.replace("\\\\t", "\t").replace("\\t", "\t")
+    return v
+
+
 class CurriculumDesign(BaseModel):
     """Phase 1b output — curriculum plus root project files."""
 
@@ -149,8 +157,28 @@ class CurriculumDesign(BaseModel):
         "file (Cargo.toml, Makefile, package.json) for the course."
     )
 
+    @field_validator("root_readme", "requirements", mode="before")
+    @classmethod
+    def fix_content_escaping(cls, v: str) -> str:
+        return _unescape_content(v)
+
 
 # ── Stage 3: Module Generation ────────────────────────────────────────────────
+
+
+_EXT_TO_LANGUAGE: dict[str, str] = {
+    ".py": "python", ".pyw": "python",
+    ".c": "c", ".h": "c",
+    ".cpp": "cpp", ".hpp": "cpp", ".cc": "cpp",
+    ".rs": "rust",
+    ".go": "go",
+    ".js": "javascript", ".ts": "typescript",
+    ".java": "java",
+    ".md": "markdown", ".txt": "text",
+    ".json": "json", ".csv": "csv", ".toml": "toml", ".yaml": "yaml", ".yml": "yaml",
+    ".sh": "shell", ".bash": "shell",
+    ".html": "html", ".css": "css",
+}
 
 
 class GeneratedFile(BaseModel):
@@ -164,9 +192,27 @@ class GeneratedFile(BaseModel):
         description="Full file content."
     )
     language: str = Field(
-        description="Programming language or file type for syntax validation "
-        "routing, e.g. 'python', 'c', 'rust', 'markdown', 'json', 'csv'."
+        default="",
+        description="Programming language or file type, e.g. 'python', 'c', 'rust'. "
+        "Optional — auto-detected from file extension if omitted."
     )
+
+    @field_validator("language", mode="before")
+    @classmethod
+    def infer_language(cls, v: str, info) -> str:
+        if v:
+            return v
+        path = info.data.get("relative_path", "")
+        if path:
+            import os
+            ext = os.path.splitext(path)[1].lower()
+            return _EXT_TO_LANGUAGE.get(ext, "text")
+        return "text"
+
+    @field_validator("content", mode="before")
+    @classmethod
+    def fix_file_escaping(cls, v: str) -> str:
+        return _unescape_content(v)
 
 
 class ModuleOutput(BaseModel):
@@ -180,6 +226,11 @@ class ModuleOutput(BaseModel):
     files: list[GeneratedFile] = Field(
         description="All exercise and supporting files for this module."
     )
+
+    @field_validator("readme", mode="before")
+    @classmethod
+    def fix_readme_escaping(cls, v: str) -> str:
+        return _unescape_content(v)
 
 
 # ── Stage 4: Review ───────────────────────────────────────────────────────────
