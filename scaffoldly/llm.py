@@ -68,7 +68,7 @@ PROVIDER_ENV_VARS: dict[str, str] = {
 # Default models per provider (design / generate).
 PROVIDER_DEFAULTS: dict[str, dict[str, str]] = {
     "anthropic": {"design": "claude-opus-4-6", "generate": "claude-sonnet-4-6"},
-    "openai": {"design": "gpt-4o", "generate": "gpt-4o-mini"},
+    "openai": {"design": "gpt-5.4-pro", "generate": "gpt-5.4"},
     "google": {"design": "gemini-2.5-pro", "generate": "gemini-2.5-flash"},
     "ollama": {"design": "llama3", "generate": "llama3"},
     "openrouter": {"design": "anthropic/claude-opus-4-6", "generate": "anthropic/claude-sonnet-4-6"},
