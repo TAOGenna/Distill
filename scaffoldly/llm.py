@@ -108,8 +108,19 @@ class LLMClient:
         self.provider = provider
         self._setup_api_key(api_key)
 
-        # Instructor-patched async client for structured output
-        self._instructor = instructor.from_litellm(litellm.acompletion)
+        # Pick Instructor mode based on provider — newer OpenAI models
+        # don't support tool_choice.function, use JSON_SCHEMA instead
+        mode = {
+            "anthropic": instructor.Mode.TOOLS,
+            "openai": instructor.Mode.JSON_SCHEMA,
+            "google": instructor.Mode.JSON,
+            "ollama": instructor.Mode.JSON,
+            "openrouter": instructor.Mode.TOOLS,
+        }.get(provider, instructor.Mode.JSON)
+
+        self._instructor = instructor.from_litellm(
+            litellm.acompletion, mode=mode
+        )
 
         # Cumulative usage tracking across all calls
         self.total_input_tokens: int = 0
