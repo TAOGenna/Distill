@@ -345,3 +345,135 @@ correct output? Does it faithfully implement the key_excerpts?
 For each criterion, determine if it passes or needs revision. Only flag issues \
 that genuinely affect learning — not style nits.
 """
+
+# ── Phase 2 (conversational): Multi-turn module generation ──────────
+
+MODULE_CONVERSATION_SYSTEM_PROMPT = """\
+You are a world-class technical educator generating course material. You will \
+be given a module Blueprint and the full source material. Over several turns, \
+you will write:
+
+1. A LESSON document (the module README) — this is the primary teaching content
+2. Exercise files one at a time — scaffold then solution for each
+
+CRITICAL RULES:
+- When asked to write the lesson, output ONLY markdown. No code blocks wrapping \
+the entire output. Just write the lesson as a markdown document.
+- When asked to write an exercise file, output ONLY the file content. No \
+explanatory text before or after. Just the raw code that goes into the file.
+- Follow the Blueprint's scaffold contracts exactly.
+- Use key_excerpts as ground truth for algorithms and formulas.
+
+═══════════════════════════════════════════════════════════════════════════════════
+LESSON DOCUMENT STANDARDS (MIT 6.102 quality)
+═══════════════════════════════════════════════════════════════════════════════════
+
+The lesson is NOT a table of contents or exercise list. It is a SELF-CONTAINED \
+TEACHING DOCUMENT that a student spends 30-90 minutes reading. It must:
+
+1. Open with a local table of contents and explicit learning objectives
+2. Develop concepts through a RUNNING EXAMPLE that evolves through the lesson
+3. Integrate code snippets inline — show the concept, then show it in code
+4. Embed COMPREHENSION CHECKS at points of friction (not batched at the end):
+   "**Check your understanding:** What would happen if we set lambda=0? \
+   What about lambda=infinity?"
+5. Translate formulas from the source material step by step — show the math, \
+   explain in plain language, then translate to code
+6. Include 2-4 ANALYTICAL QUESTIONS at Level 3+ depth (analysis/synthesis)
+7. Close with a synthesis section reconnecting to the course's overall goal
+8. Reference specific numbers, benchmarks, or measurements from the source
+
+Target length: 3,000-10,000 words depending on module complexity. Write like \
+a Codeforces grandmaster editorial or an MIT course reading — elaborate, \
+thorough, with every step justified.
+
+═══════════════════════════════════════════════════════════════════════════════════
+EXERCISE FILE STANDARDS
+═══════════════════════════════════════════════════════════════════════════════════
+
+SCAFFOLD files (~65% provided, ~35% TODO):
+- Complete imports, class structures, data fixtures, helper functions
+- Thorough numpy-style docstrings (purpose, parameters with types/shapes, returns)
+- TODO blocks: "# YOUR CODE HERE - 8-12 lines" with hints
+- NotImplementedError("YOUR CODE HERE") in TODO zones
+- __main__ block: 20-50 lines, ALWAYS fully provided, never scaffolded
+- Must parse without errors as-is
+
+SOLUTION files (identical structure, TODOs filled in):
+- Same imports, same __main__ block, same structure
+- TODO zones replaced with correct implementation
+- Must run and produce educational output matching the milestone
+
+When writing exercise 2+, you will see execution output from previous exercises. \
+Reference those actual numbers in the narrative: "In exercise 1 you saw the naive \
+approach achieve 31.2% — now let's see why batch normalization fixes this."
+"""
+
+# Turn-specific user message templates for the conversational flow.
+# These are formatted with .format() in pipeline.py.
+
+LESSON_TURN_TEMPLATE = """\
+Write the lesson document (README.md) for this module.
+
+Module: {module_title}
+Module description: {module_description}
+Learning objectives:
+{objectives}
+
+Key excerpts from source material (use these as ground truth):
+{key_excerpts}
+
+Scaffold contracts for upcoming exercises (reference these in the lesson):
+{exercise_summaries}
+
+Student level: {student_level}
+
+Full source material:
+{source_content}
+
+Write the complete lesson now. Output ONLY the markdown content — no wrapping, \
+no preamble, no "Here is the lesson:" prefix. Just the lesson itself.\
+"""
+
+SCAFFOLD_TURN_TEMPLATE = """\
+Now write the SCAFFOLD (student-facing) version of exercise {ex_index}: \
+"{ex_title}"
+
+Exercise spec:
+  Type: {ex_type}
+  What is provided (~65%): {what_is_provided}
+  What student writes (~35%): {what_student_writes}
+  Key insight: {key_insight}
+  Common mistakes: {common_mistakes}
+  Milestone: {milestone}
+{predecessor_context}
+
+Output ONLY the file content — raw code, no markdown wrapping, no explanation.\
+"""
+
+SOLUTION_TURN_TEMPLATE = """\
+Now write the SOLUTION (complete working) version of the same exercise.
+
+Same structure as the scaffold — identical imports, classes, __main__ block. \
+Replace every TODO / YOUR CODE HERE / NotImplementedError with the correct \
+implementation.
+
+The solution must run and produce output matching: {milestone}
+Expected output should contain: {expected_pattern}
+
+Output ONLY the file content — raw code, no markdown wrapping, no explanation.\
+"""
+
+FIX_TURN_TEMPLATE = """\
+The following files have issues:
+
+{issues}
+
+For each file that needs fixing, output the corrected version. Use this format:
+
+=== FILENAME: path/to/file.py ===
+(corrected file content here)
+=== END ===
+
+Only output files that need changes. Do not repeat files that are fine.\
+"""

@@ -25,17 +25,18 @@ from .llm import LLMClient, QuotaExhaustedError
 from .prompts import (
     ANALYSIS_SYSTEM_PROMPT,
     CURRICULUM_DESIGN_SYSTEM_PROMPT,
+    FIX_TURN_TEMPLATE,
+    LESSON_TURN_TEMPLATE,
+    MODULE_CONVERSATION_SYSTEM_PROMPT,
     MODULE_GENERATION_SYSTEM_PROMPT,
     REVIEW_SYSTEM_PROMPT,
+    SCAFFOLD_TURN_TEMPLATE,
+    SOLUTION_TURN_TEMPLATE,
 )
 from .schemas import (
     Analysis,
     CurriculumDesign,
-    ExerciseFile,
-    GeneratedFile,
-    ModuleOutput,
     ModuleReview,
-    ReviewResult,
 )
 from .sources import prepare_sources, prepare_sources_with_summary
 
@@ -308,6 +309,249 @@ def _validate_syntax_str(content: str, path: str, language: str) -> str | None:
     return None
 
 
+# ── Code execution helper ────────────────────────────────────────────────────
+
+
+def _execute_python(file_path: Path, timeout: int = 10) -> str:
+    """Execute a Python file and capture output. Returns stdout+stderr."""
+    import subprocess
+    try:
+        result = subprocess.run(
+            [sys.executable, str(file_path)],
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+            cwd=str(file_path.parent),
+            env={**__import__("os").environ, "PYTHONDONTWRITEBYTECODE": "1"},
+        )
+        output = ""
+        if result.stdout:
+            output += result.stdout[:2000]
+        if result.stderr:
+            output += ("\n--- stderr ---\n" + result.stderr[:1000])
+        return output.strip() or "(no output)"
+    except subprocess.TimeoutExpired:
+        return "(timed out after {timeout}s)"
+    except Exception as e:
+        return f"(execution failed: {type(e).__name__})"
+
+
+def _strip_code_fences(text: str) -> str:
+    """Remove markdown code fences if the model wrapped its output."""
+    text = text.strip()
+    # Remove ```python ... ``` or ```markdown ... ``` wrapping
+    import re
+    m = re.match(r'^```\w*\s*\n(.*?)```\s*$', text, re.DOTALL)
+    if m:
+        return m.group(1)
+    return text
+
+
+# ── Conversational module generation ─────────────────────────────────────────
+
+
+async def _generate_module_conversational(
+    llm: LLMClient,
+    module_spec: dict,
+    course_context: str,
+    source_content: str,
+    student_level: str,
+    model: str,
+    course_dir: Path,
+    shared_defs: dict | None = None,
+) -> tuple[int, dict]:
+    """Generate a module via multi-turn conversation.
+
+    Returns (module_index, summary_dict) with files written to disk.
+    """
+    idx = module_spec["module_index"]
+    title = module_spec["title"]
+    module_slug = f"module_{idx:02d}_{_slugify(title)}"
+    module_dir = course_dir / module_slug
+    module_dir.mkdir(parents=True, exist_ok=True)
+    solutions_dir = module_dir / "_solutions"
+    solutions_dir.mkdir(parents=True, exist_ok=True)
+
+    exercises = module_spec.get("exercises", [])
+    key_excerpts = module_spec.get("key_excerpts", [])
+    errors: list[str] = []
+
+    # Build conversation messages
+    messages: list[dict] = []
+
+    def _add_user(content: str) -> None:
+        messages.append({"role": "user", "content": content})
+
+    def _add_assistant(content: str) -> None:
+        messages.append({"role": "assistant", "content": content})
+
+    # ── Turn 1: Generate the lesson (README) ─────────────────────────
+
+    objectives = "\n".join(
+        f"  - {obj}" for obj in module_spec.get("learning_objectives", [])
+    )
+    excerpts_text = "\n".join(
+        f"  [{i+1}] {exc}" for i, exc in enumerate(key_excerpts)
+    ) or "  (none provided)"
+
+    exercise_summaries = "\n".join(
+        f"  Exercise {i+1}: \"{ex.get('title', '')}\" ({ex.get('type', '')})\n"
+        f"    Student writes: {ex.get('what_student_writes', '')}\n"
+        f"    Milestone: {ex.get('milestone', '')}"
+        for i, ex in enumerate(exercises)
+    )
+
+    lesson_prompt = LESSON_TURN_TEMPLATE.format(
+        module_title=title,
+        module_description=module_spec.get("description", ""),
+        objectives=objectives,
+        key_excerpts=excerpts_text,
+        exercise_summaries=exercise_summaries,
+        student_level=student_level,
+        source_content=source_content,
+    )
+
+    _add_user(lesson_prompt)
+    _log(f"Module {idx}: writing lesson...", _C.BLUE)
+
+    result = await llm.complete(
+        messages=messages,
+        model=model,
+        system=MODULE_CONVERSATION_SYSTEM_PROMPT,
+        max_tokens=16384,
+    )
+    lesson_content = _strip_code_fences(result.content)
+    _add_assistant(lesson_content)
+
+    # Save README
+    (module_dir / "README.md").write_text(lesson_content, encoding="utf-8")
+    lesson_words = len(lesson_content.split())
+    _log(f"Module {idx}: lesson written ({lesson_words} words)", _C.DIM)
+
+    # ── Turns 2-N: Generate exercises (scaffold then solution) ───────
+
+    prev_execution_output: str | None = None
+
+    for ex_i, ex in enumerate(exercises):
+        ex_num = ex_i + 1
+        ex_title = ex.get("title", f"exercise_{ex_num}")
+        ex_slug = _slugify(ex_title)
+        filename = f"ex{ex_num:02d}_{ex_slug}.py"
+
+        # Build predecessor context
+        predecessor_context = ""
+        if prev_execution_output:
+            predecessor_context = (
+                f"\nPrevious exercise execution output:\n"
+                f"{prev_execution_output}\n"
+                f"Reference these actual results in this exercise's narrative."
+            )
+
+        # ── Scaffold turn ────────────────────────────────────────────
+
+        scaffold_prompt = SCAFFOLD_TURN_TEMPLATE.format(
+            ex_index=ex_num,
+            ex_title=ex_title,
+            ex_type=ex.get("type", "implement"),
+            what_is_provided=ex.get("what_is_provided", ""),
+            what_student_writes=ex.get("what_student_writes", ""),
+            key_insight=ex.get("key_insight", ""),
+            common_mistakes=ex.get("common_mistakes", ""),
+            milestone=ex.get("milestone", ""),
+            predecessor_context=predecessor_context,
+        )
+        _add_user(scaffold_prompt)
+
+        result = await llm.complete(
+            messages=messages,
+            model=model,
+            system=MODULE_CONVERSATION_SYSTEM_PROMPT,
+            max_tokens=8192,
+        )
+        scaffold_code = _strip_code_fences(result.content)
+        _add_assistant(scaffold_code)
+
+        # Save scaffold + validate
+        scaffold_path = module_dir / filename
+        scaffold_path.write_text(scaffold_code, encoding="utf-8")
+
+        err = _validate_syntax_str(scaffold_code, filename, "python")
+        if err:
+            errors.append(f"scaffold {err}")
+            _add_user(f"Syntax error in scaffold: {err}. Please fix and rewrite the complete file.")
+            fix_result = await llm.complete(
+                messages=messages,
+                model=model,
+                system=MODULE_CONVERSATION_SYSTEM_PROMPT,
+                max_tokens=8192,
+            )
+            scaffold_code = _strip_code_fences(fix_result.content)
+            _add_assistant(scaffold_code)
+            scaffold_path.write_text(scaffold_code, encoding="utf-8")
+
+        # ── Solution turn ────────────────────────────────────────────
+
+        solution_prompt = SOLUTION_TURN_TEMPLATE.format(
+            milestone=ex.get("milestone", ""),
+            expected_pattern=ex.get("expected_output_pattern", ""),
+        )
+        _add_user(solution_prompt)
+
+        result = await llm.complete(
+            messages=messages,
+            model=model,
+            system=MODULE_CONVERSATION_SYSTEM_PROMPT,
+            max_tokens=8192,
+        )
+        solution_code = _strip_code_fences(result.content)
+        _add_assistant(solution_code)
+
+        # Save solution + validate
+        solution_path = solutions_dir / filename
+        solution_path.write_text(solution_code, encoding="utf-8")
+
+        err = _validate_syntax_str(solution_code, filename, "python")
+        if err:
+            errors.append(f"solution {err}")
+            _add_user(f"Syntax error in solution: {err}. Please fix and rewrite the complete file.")
+            fix_result = await llm.complete(
+                messages=messages,
+                model=model,
+                system=MODULE_CONVERSATION_SYSTEM_PROMPT,
+                max_tokens=8192,
+            )
+            solution_code = _strip_code_fences(fix_result.content)
+            _add_assistant(solution_code)
+            solution_path.write_text(solution_code, encoding="utf-8")
+
+        # Execute solution and capture output for next exercise
+        exec_output = _execute_python(solution_path)
+        prev_execution_output = exec_output
+
+        # Feed execution result back into conversation
+        _add_user(
+            f"Exercise {ex_num} solution executed.\n"
+            f"Output:\n{exec_output}\n\n"
+            f"Acknowledged. Ready for next exercise."
+        )
+        _add_assistant("Understood. Ready for the next exercise.")
+
+        _log(
+            f"Module {idx}: ex{ex_num:02d} done ({len(scaffold_code.splitlines())} "
+            f"scaffold / {len(solution_code.splitlines())} solution lines)",
+            _C.DIM,
+        )
+
+    _log(f"Module {idx} ({title}) generated", _C.GREEN)
+    _emit({"type": "module_complete", "module_index": idx, "title": title})
+
+    return idx, {
+        "files_written": 1 + len(exercises) * 2,  # README + (scaffold + solution) per exercise
+        "lesson_words": lesson_words,
+        "errors": errors,
+    }
+
+
 def _write_module_files(
     module_output: ModuleOutput,
     module_dir: Path,
@@ -362,8 +606,11 @@ async def _phase_generate(
     student_level: str,
     model: str,
     course_dir: Path,
-) -> dict[int, ModuleOutput]:
-    """Generate all modules in parallel. Returns dict of module_index → output."""
+) -> dict[int, dict]:
+    """Generate all modules in parallel via multi-turn conversations.
+
+    Returns dict of module_index → summary dict.
+    """
     curriculum = design.curriculum
     modules = curriculum.modules
     _log_step(f"Phase 2: Generating {len(modules)} modules in parallel...")
@@ -381,46 +628,26 @@ async def _phase_generate(
         f"Key concepts:\n{concept_lines}"
     )
 
-    # Shared definitions for all modules
-    shared_defs = None
-    if hasattr(design, "shared_definitions") and design.shared_definitions:
-        shared_defs = design.shared_definitions.model_dump()
-
-    results: dict[int, tuple[ModuleOutput, Usage]] = {}
+    results: dict[int, dict] = {}
 
     async def _run(module_spec: dict) -> None:
         idx = module_spec["module_index"]
         title = module_spec["title"]
         try:
-            _, output, usage = await _generate_single_module(
+            _, summary = await _generate_module_conversational(
                 llm=llm,
                 module_spec=module_spec,
                 course_context=course_context,
-                source_excerpts=source_content,
+                source_content=source_content,
                 student_level=student_level,
                 model=model,
                 course_dir=course_dir,
-                shared_defs=shared_defs,
             )
-            results[idx] = (output, usage)
-
-            # Write files
-            module_slug = f"module_{idx:02d}_{_slugify(title)}"
-            module_dir = course_dir / module_slug
-            syntax_errors = _write_module_files(output, module_dir)
-
-            if syntax_errors:
-                _log(f"Module {idx} ({title}): {len(syntax_errors)} syntax errors", _C.YELLOW)
-                for err in syntax_errors:
-                    _log(f"  {err}", _C.YELLOW)
-            else:
-                _log(f"Module {idx} ({title}) generated", _C.GREEN)
-
-            _emit({"type": "module_complete", "module_index": idx, "title": title})
+            results[idx] = summary
 
         except QuotaExhaustedError:
             _log(f"Module {idx} ({title}): API quota exhausted — aborting", _C.RED)
-            raise  # Let it propagate to cancel the whole task group
+            raise
         except Exception as e:
             print(f"  Module {idx} error: {e}", file=sys.stderr)
             _log(f"Module {idx} ({title}) failed ({type(e).__name__})", _C.RED)
@@ -430,7 +657,6 @@ async def _phase_generate(
             for module in modules:
                 tg.start_soon(_run, module.model_dump())
     except BaseException as e:
-        # If quota exhausted, surface a clear message
         if any(isinstance(exc, QuotaExhaustedError) for exc in getattr(e, 'exceptions', [e])):
             _log("Generation aborted: API quota exhausted. Check your billing.", _C.RED)
 
@@ -443,7 +669,7 @@ async def _phase_generate(
     else:
         _log(f"No modules generated — all {total} failed", _C.RED)
 
-    return {idx: output for idx, (output, _) in results.items()}
+    return results
 
 
 # ── Phase 3a: Pre-flight validation ──────────────────────────────────────────
@@ -581,7 +807,7 @@ async def _phase_review(
     generate_model: str,
     review_model: str,
     course_dir: Path,
-    module_outputs: dict[int, ModuleOutput],
+    module_outputs: dict[int, dict],
     max_revision_cycles: int = 1,
 ) -> None:
     """Phase 3: pre-flight validation + LLM quality review + targeted re-generation."""
@@ -701,23 +927,16 @@ async def _phase_review(
                 )
 
             try:
-                _, output, _ = await _generate_single_module(
+                _, summary = await _generate_module_conversational(
                     llm=llm,
                     module_spec=mod.model_dump(),
                     course_context=course_context,
-                    source_excerpts=source_content,
+                    source_content=source_content,
                     student_level=student_level,
                     model=generate_model,
                     course_dir=course_dir,
-                    revision_feedback="\n".join(feedback_parts),
                 )
-
-                module_slug = f"module_{idx:02d}_{_slugify(mod.title)}"
-                module_dir = course_dir / module_slug
-                _write_module_files(output, module_dir)
-                module_outputs[idx] = output
-                _log(f"Module {idx} re-generated", _C.GREEN)
-                _emit({"type": "module_complete", "module_index": idx, "title": mod.title})
+                module_outputs[idx] = summary
             except Exception as e:
                 print(f"  Module {idx} re-generation error: {e}", file=sys.stderr)
                 _log(f"Module {idx} re-generation failed ({type(e).__name__})", _C.RED)
