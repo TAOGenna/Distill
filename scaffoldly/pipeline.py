@@ -170,7 +170,7 @@ async def _phase_design(
             f"Date: {today}\n\n"
             f"Analysis:\n{analysis_json}\n\n"
             f"Source material excerpts (for reference when writing the README):\n\n"
-            f"{source_content[:20000]}"  # First ~5K tokens of source for README context
+            f"{source_content}"
         ),
     }]
 
@@ -270,7 +270,8 @@ async def _generate_single_module(
         f"Course context:\n{course_context}"
         f"{shared_block}"
         f"{excerpts_block}\n\n"
-        f"Source material excerpts:\n{source_excerpts[:10000]}\n"
+        f"Source material (use this as ground truth for algorithms and formulas):\n"
+        f"{source_excerpts}\n"
     )
 
     if revision_feedback:
