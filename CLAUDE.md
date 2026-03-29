@@ -13,7 +13,6 @@ scaffoldly/
 ├── sources.py        # Source budget management — read + truncate/summarize
 ├── prompts.py        # System prompts + turn templates for conversational flow
 ├── schemas.py        # Pydantic models (Blueprint schemas + review schemas)
-├── tools.py          # Pure validation helpers (coverage check, etc.)
 └── web/              # Static frontend (no build step, no node_modules)
     ├── index.html    # Generation form + progress + course list + settings
     ├── style.css     # JetBrains Mono, monochrome aesthetic

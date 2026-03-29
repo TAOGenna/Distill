@@ -364,10 +364,3 @@ class ModuleReview(BaseModel):
     )
 
 
-class ReviewResult(BaseModel):
-    """Phase 3b output — review of all modules."""
-
-    modules: list[ModuleReview]
-    overall_verdict: Literal["pass", "revise"] = Field(
-        description="'pass' if all modules pass, 'revise' if any need changes."
-    )

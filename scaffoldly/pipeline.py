@@ -3,7 +3,7 @@
 Three-phase architecture using structured output:
   Phase 1a: Analyze source material → Analysis
   Phase 1b: Design curriculum → CurriculumDesign (curriculum + root files)
-  Phase 2:  Generate modules (parallel) → ModuleOutput per module
+  Phase 2:  Generate modules (parallel) → multi-turn conversations
   Phase 3:  Pre-flight validation + LLM quality review
 """
 
@@ -25,10 +25,8 @@ from .llm import LLMClient, QuotaExhaustedError
 from .prompts import (
     ANALYSIS_SYSTEM_PROMPT,
     CURRICULUM_DESIGN_SYSTEM_PROMPT,
-    FIX_TURN_TEMPLATE,
     LESSON_TURN_TEMPLATE,
     MODULE_CONVERSATION_SYSTEM_PROMPT,
-    MODULE_GENERATION_SYSTEM_PROMPT,
     REVIEW_SYSTEM_PROMPT,
     SCAFFOLD_TURN_TEMPLATE,
     SOLUTION_TURN_TEMPLATE,
@@ -38,7 +36,7 @@ from .schemas import (
     CurriculumDesign,
     ModuleReview,
 )
-from .sources import prepare_sources, prepare_sources_with_summary
+from .sources import prepare_sources_with_summary
 
 
 # ── ANSI colors ──────────────────────────────────────────────────────────────
@@ -213,89 +211,6 @@ async def _phase_design(
 
 
 # ── Phase 2: Generate Modules ────────────────────────────────────────────────
-
-
-def _validate_syntax(file: GeneratedFile) -> str | None:
-    """Validate syntax for a generated file. Returns error message or None."""
-    if file.language == "python":
-        try:
-            ast.parse(file.content)
-            return None
-        except SyntaxError as e:
-            return f"{file.relative_path}: SyntaxError at line {e.lineno}: {e.msg}"
-    # For other languages, we'd need their compilers — skip for now
-    return None
-
-
-async def _generate_single_module(
-    llm: LLMClient,
-    module_spec: dict,
-    course_context: str,
-    source_excerpts: str,
-    student_level: str,
-    model: str,
-    course_dir: Path,
-    shared_defs: dict | None = None,
-    revision_feedback: str | None = None,
-) -> tuple[int, ModuleOutput, Usage]:
-    """Generate all files for a single module via one API call."""
-    idx = module_spec["module_index"]
-    title = module_spec["title"]
-    spec_json = json.dumps(module_spec, indent=2, ensure_ascii=False)
-
-    # Build key excerpts section if available
-    key_excerpts = module_spec.get("key_excerpts", [])
-    excerpts_block = ""
-    if key_excerpts:
-        excerpts_block = (
-            "\n\nKEY EXCERPTS FROM SOURCE MATERIAL (use as ground truth):\n"
-            + "\n".join(f"  [{i+1}] {exc}" for i, exc in enumerate(key_excerpts))
-            + "\n\nTranslate these DIRECTLY to code. Do not invent algorithms."
-        )
-
-    # Build shared definitions section
-    shared_block = ""
-    if shared_defs:
-        lang = shared_defs.get("language", "python")
-        deps = shared_defs.get("dependencies", [])
-        shared_block = (
-            f"\n\nShared definitions:\n"
-            f"  Language: {lang}\n"
-            f"  Dependencies: {', '.join(deps) if deps else 'standard library only'}\n"
-        )
-
-    prompt = (
-        f"Generate all files for Module {idx}: \"{title}\"\n\n"
-        f"Student level: {student_level}\n\n"
-        f"Module Blueprint (follow scaffold_contract EXACTLY):\n{spec_json}\n\n"
-        f"Course context:\n{course_context}"
-        f"{shared_block}"
-        f"{excerpts_block}\n\n"
-        f"Source material (use this as ground truth for algorithms and formulas):\n"
-        f"{source_excerpts}\n"
-    )
-
-    if revision_feedback:
-        prompt += (
-            f"\n\nREVISION REQUIRED — fix these issues from the previous attempt:\n"
-            f"{revision_feedback}\n"
-        )
-
-    messages = [{"role": "user", "content": prompt}]
-
-    result = await llm.complete(
-        messages=messages,
-        model=model,
-        system=MODULE_GENERATION_SYSTEM_PROMPT,
-        response_model=ModuleOutput,
-        max_tokens=16384,
-        max_retries=3,
-    )
-
-    module_output = result.structured
-    assert isinstance(module_output, ModuleOutput)
-
-    return idx, module_output, result.usage
 
 
 def _validate_syntax_str(content: str, path: str, language: str) -> str | None:
@@ -550,52 +465,6 @@ async def _generate_module_conversational(
         "lesson_words": lesson_words,
         "errors": errors,
     }
-
-
-def _write_module_files(
-    module_output: ModuleOutput,
-    module_dir: Path,
-) -> list[str]:
-    """Write all generated files to disk. Returns list of syntax errors."""
-    module_dir.mkdir(parents=True, exist_ok=True)
-
-    # Write README
-    (module_dir / "README.md").write_text(module_output.readme, encoding="utf-8")
-
-    errors: list[str] = []
-
-    # Write exercise files (scaffold version for students, solution in _solutions/)
-    solutions_dir = module_dir / "_solutions"
-    solutions_dir.mkdir(parents=True, exist_ok=True)
-
-    for ex in module_output.exercises:
-        # Write scaffold (student-facing)
-        scaffold_path = module_dir / ex.relative_path
-        scaffold_path.parent.mkdir(parents=True, exist_ok=True)
-        scaffold_path.write_text(ex.scaffold_content, encoding="utf-8")
-
-        # Validate scaffold syntax
-        err = _validate_syntax_str(ex.scaffold_content, ex.relative_path, ex.language)
-        if err:
-            errors.append(f"scaffold {err}")
-
-        # Write solution (hidden)
-        solution_path = solutions_dir / ex.relative_path
-        solution_path.parent.mkdir(parents=True, exist_ok=True)
-        solution_path.write_text(ex.solution_content, encoding="utf-8")
-
-        # Validate solution syntax
-        err = _validate_syntax_str(ex.solution_content, ex.relative_path, ex.language)
-        if err:
-            errors.append(f"solution {err}")
-
-    # Write supporting files
-    for file in module_output.supporting_files:
-        file_path = module_dir / file.relative_path
-        file_path.parent.mkdir(parents=True, exist_ok=True)
-        file_path.write_text(file.content, encoding="utf-8")
-
-    return errors
 
 
 async def _phase_generate(
