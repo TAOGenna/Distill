@@ -1,124 +1,132 @@
 # Scaffoldly
 
-Turn technical blog posts, papers, and repos into progressive, hands-on coursework.
+Turn technical blog posts, papers, and repos into hands-on coursework you can actually learn from.
 
-Scaffoldly takes expert-level content — deep blog posts, GitHub repos, papers — and generates [CS231n](https://cs231n.stanford.edu/)-style projects with scaffolded exercises, observable milestones, and analytical questions. It adapts its pedagogy to the source material: systems engineering blogs get measurement-driven milestones, ML papers get atom-first exercises with visualization milestones, tutorials get enhanced scaffolding.
-
-The goal: make it possible for anyone to actually *learn from* the incredible content that senior engineers and researchers publish, instead of just reading and nodding along.
+Scaffoldly takes expert-level content — deep blog posts, arXiv papers, GitHub repos — and generates progressive courses with MIT-quality lesson documents, scaffolded exercises, and observable milestones. The student works through modules that build toward **reproducing the author's results as faithfully as possible**.
 
 ## Quick Start
 
 ```bash
-pip install scaffoldly
-# or: uv pip install scaffoldly
+uv pip install scaffoldly
 
-# Launch the web UI
 scaffoldly
 # → opens http://localhost:8420
-# → paste a URL, pick your level, hit generate
 ```
 
-That's it. A local web UI opens where you paste a URL, describe your level, and generate a full course. If you have [Claude Code](https://docs.anthropic.com/en/docs/claude-code) installed, auth is automatic — no API key needed.
+1. Pick a provider (OpenAI, Anthropic, Google, Ollama, OpenRouter) and add your API key
+2. Paste a URL, describe your background, hit generate
+3. A course appears in your output directory — lesson documents + exercise files
 
-## Usage
-
-### Web UI (recommended)
-
-```bash
-scaffoldly                    # launch at localhost:8420
-scaffoldly --port 3000        # custom port
-scaffoldly --no-open          # don't auto-open browser
-```
-
-**What you see:**
-
-1. Paste a source URL, add optional references, describe your level
-2. Hit generate — logs stream in real time in a scrollable box
-3. Once the curriculum is designed, a **DAG visualization** appears showing the module dependency graph (Brilliant-style flowing path with animated nodes)
-4. Modules generate in parallel — each node lights up as its code is ready
-5. The finished course appears in your output directory and in the course history
-
-**Auth:** Claude Code is auto-detected. Otherwise, add your `ANTHROPIC_API_KEY` in the settings section at the bottom of the page.
-
-### CLI
-
-```bash
-scaffoldly generate <url> \
-  --level "describe your current proficiency" \
-  [--ref <url>] \
-  [--series] \
-  [--model claude-opus-4-6] \
-  [--generate-model sonnet] \
-  [--effort high] \
-  [--output ./output] \
-  [--max-turns 50]
-```
-
-| Flag | Default | Description |
-|------|---------|-------------|
-| `--level` | *required* | Free-text description of the student's current level |
-| `--ref` | — | Additional reference URL (repeatable). Skimmed for supplementary concepts |
-| `--series` | `false` | Treat all URLs as an ordered series (e.g. Part 1 → Part 2 → Part 3) |
-| `--model` | `claude-opus-4-6` | Model for analysis and curriculum design |
-| `--generate-model` | `sonnet` | Model for module generation sub-agents |
-| `--effort` | `high` | Agent effort level: `low`, `medium`, `high`, `max` |
-| `--output` | `./output` | Output directory for generated course |
-| `--max-turns` | `30` | Maximum agent turns per phase |
-
-**Reference mode** (default with `--ref`): The primary URL drives the curriculum. Refs are skimmed with minimal effort for supplementary concepts only.
-
-**Series mode** (`--series`): All sources form an ordered progression. The curriculum spans the full arc.
-
-## What You Get
-
-A real, cloneable project that a student works through module by module:
+## What Gets Generated
 
 ```
-output/billion_page_crawler/
-├── README.md                        # Setup, learning path, what's next
+output/aliens_trick_from_exactk_dp_to_ioi_2016/
+├── README.md                          # Course overview + learning path
 ├── requirements.txt
-├── module_01_fetching/
-│   ├── README.md                    # Exercises + analytical questions
-│   ├── ex01_sync_fetcher.py
-│   ├── ex02_async_fetcher.py
-│   └── ex03_worker_scaling.py
-├── module_02_politeness/
+├── module_01_count_dimension/
+│   ├── README.md                      # 3,000-10,000 word lesson document
+│   ├── ex01_exact_k_baseline.py       # Scaffold (student works here)
+│   ├── ex02_penalty_sweep.py
+│   ├── ex03_binary_search.py
+│   └── _solutions/                    # Working solutions (hidden)
+│       ├── ex01_exact_k_baseline.py
+│       ├── ex02_penalty_sweep.py
+│       └── ex03_binary_search.py
+├── module_02_calc_lambda/
 │   └── ...
-└── module_03_frontier/
+└── module_03_ioi_2016/
     └── ...
 ```
 
-Each exercise is scaffolded code with TODO markers and an **observable milestone** — run it, see the numbers, discover the same insights the author discovered:
+### Lesson Documents (not README summaries)
+
+Each module's README is a **self-contained teaching document** — 3,000-10,000 words:
+
+- Learning objectives and table of contents
+- Running example that evolves through the lesson
+- Inline code showing concept → code translation
+- Embedded comprehension checks at points of friction
+- Formula translation: math → plain language → code
+- Analytical questions requiring tradeoff reasoning
+
+### Exercise Files
+
+Each exercise has a **scaffold** (student-facing) and a **solution**:
 
 ```python
+def exact_k_dp(arr, k):
+    """Compute maximum sum of exactly k disjoint subarrays.
+
+    Algorithm:
+    1. Track two states per position: 'inside' and 'outside' a subarray
+    2. Transition rules enforce exactly k non-overlapping segments
+
+    Parameters
+    ----------
+    arr : list[int], length n
+    k : int, number of subarrays
+
+    Returns
+    -------
+    max_sum : int
+    """
+    ###########################################################
+    # YOUR CODE HERE - 12-16 lines                            #
+    #                                                         #
+    # Hint: Use dp[i][j][state] where state is 0 (outside)   #
+    # or 1 (inside a subarray). Initialize impossible states  #
+    # to -infinity.                                           #
+    ###########################################################
+    raise NotImplementedError("YOUR CODE HERE")
+    ###########################################################
+
 if __name__ == "__main__":
-    results = asyncio.run(fetch_pages(SEED_URLS, max_workers=10))
-    throughput = len(ok) / elapsed
-    print(f"Throughput: {throughput:.1f} pages/sec")
-    print(f">> The blog needed 11,574 pages/sec to crawl 1B in 24hrs.")
-    print(f">> Next exercise: what happens at 100 workers?")
+    arr = [3, -1, 4, -1, 5, -9, 2, 6]
+    for k in range(1, 5):
+        result = exact_k_dp(arr, k)
+        brute = brute_force_exact_k(arr, k)
+        match = "OK" if result == brute else "MISMATCH"
+        print(f"  k={k}: dp={result}, brute={brute}  [{match}]")
 ```
 
-No test framework — the output *is* the feedback.
-
-Module READMEs include **analytical questions** that push beyond recall into tradeoff reasoning:
-
-- *"At 950 pages/sec with 250KB pages, what's your worst-case write bandwidth?"*
-- *"At what concurrency level does throughput stop increasing? What's the bottleneck?"*
-- *"The author chose a bloom filter over a hash set. At what scale does this pay off?"*
+The `__main__` block is always fully provided — run the file, see if your implementation works.
 
 ## How It Works
 
-1. **Preprocess** — URLs are fetched into local artifacts (arXiv → TeX source, blogs → markdown + images, GitHub → shallow clone). No LLM tokens spent here.
-2. **Analyze & Design** — An Opus agent identifies key concepts, triages them (essential/supporting/contextual), and designs a curriculum with module dependencies. The web UI shows the dependency DAG at this point.
-3. **Generate** — Module generators run in parallel (Sonnet by default). Each module gets scaffolded exercises, observable milestones, and analytical questions. Nodes in the DAG light up as each module finishes.
-4. **Review** — An adversarial reviewer checks 10 quality criteria. If issues are found, the agent fixes and re-reviews.
+### Phase 1: Blueprint (2 API calls, design model)
 
-## Requirements
+Reads the full source material and produces a **Blueprint** — a rich contract specifying:
+- Curriculum structure with module dependencies
+- Scaffold contracts per exercise (what's provided vs what student writes, with line counts)
+- Key excerpts: verbatim formulas and algorithms from the source
+- Validation criteria: what correct output looks like
 
-- Python 3.10+
-- [Claude Code](https://docs.anthropic.com/en/docs/claude-code) (provides the Agent SDK + automatic auth) or an `ANTHROPIC_API_KEY`
-- [uv](https://docs.astral.sh/uv/) (recommended) or pip
+### Phase 2: Generate (multi-turn conversation per module, parallel)
+
+Each module gets its own conversation with the full source material:
+
+1. **Write the lesson** — 3,000-10,000 word markdown document (free-form, not JSON)
+2. **Write exercises one at a time** — scaffold, then solution, one turn each
+3. **Execute solutions** — Python runs each solution, captures output
+4. **Feed results forward** — exercise 2's prompt includes exercise 1's actual output
+
+Modules generate in parallel. The lesson-first approach means the model deeply processes the source material before writing any code.
+
+### Phase 3: Review (pre-flight + LLM review)
+
+Python pre-flight checks (syntax, TODO markers, file length, output patterns) catch structural issues. LLM review checks pedagogical quality and contract compliance. Failed modules are re-generated.
+
+## Providers
+
+Works with any LLM provider via [LiteLLM](https://github.com/BerriAI/litellm):
+
+| Provider | Design model default | Generate model default |
+|---|---|---|
+| OpenAI | gpt-5.4 | gpt-5.4 |
+| Anthropic | claude-opus-4-6 | claude-sonnet-4-6 |
+| Google | gemini-2.5-pro | gemini-2.5-flash |
+| Ollama | llama3 | llama3 |
+| OpenRouter | claude-opus-4-6 | claude-sonnet-4-6 |
 
 ## Development
 
@@ -129,11 +137,6 @@ uv sync
 uv run scaffoldly
 ```
 
-Test the DAG visualization without running a generation:
-```
-http://localhost:8420/test_dag.html
-```
-
 ## Acknowledgments
 
-Inspired by [karpathify](https://github.com/nuwandavek/karpathify) and Stanford's [CS231n](https://cs231n.stanford.edu/) assignments.
+Inspired by [karpathify](https://github.com/nuwandavek/karpathify), Stanford's [CS231n](https://cs231n.stanford.edu/) assignments, and [MIT 6.102](https://web.mit.edu/6.102/www/sp26/) course readings.

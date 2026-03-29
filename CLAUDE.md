@@ -5,14 +5,14 @@
 ```
 scaffoldly/
 ├── __main__.py       # python -m scaffoldly
-├── cli.py            # Server launcher (web UI only, no CLI generation)
+├── cli.py            # Server launcher (web UI only)
 ├── server.py         # Local Starlette web server + SSE progress streaming
 ├── fetch.py          # Source preprocessing — URL → local artifacts (no LLM)
-├── pipeline.py       # Course generation pipeline — direct API calls
+├── pipeline.py       # Course generation pipeline — multi-turn conversations
 ├── llm.py            # LLM client (LiteLLM + Instructor) — provider abstraction
 ├── sources.py        # Source budget management — read + truncate/summarize
-├── prompts.py        # System prompts for each pipeline phase
-├── schemas.py        # Pydantic models for structured output
+├── prompts.py        # System prompts + turn templates for conversational flow
+├── schemas.py        # Pydantic models (Blueprint schemas + review schemas)
 ├── tools.py          # Pure validation helpers (coverage check, etc.)
 └── web/              # Static frontend (no build step, no node_modules)
     ├── index.html    # Generation form + progress + course list + settings
@@ -21,59 +21,88 @@ scaffoldly/
     └── test_dag.html # Standalone DAG test page with mock data presets
 ```
 
+## Goal
+
+Transform a technical blog post, paper, or repo into a hands-on course that walks the student through **reproducing the author's results as faithfully as possible**. Each module's progression builds toward that reproduction — the final module is the capstone by design.
+
+## Quality Standard
+
+The target is MIT 6.102-level course material, not README summaries. Each module produces:
+
+**Lesson document (README.md)** — 3,000-10,000 words:
+- Local table of contents + explicit learning objectives
+- Running example that evolves through the lesson
+- Inline code snippets showing concept → code translation
+- Embedded comprehension checks at points of friction
+- Formula translation: math → plain language → code (step by step)
+- Analytical questions at Level 3+ depth (analysis/synthesis, not recall)
+- Synthesis section reconnecting to the course goal
+
+**Exercise files (.py, .c, .rs)** — separate runnable files:
+- ~65% provided code (imports, classes, helpers, __main__ test harness)
+- ~35% TODO blocks with line count hints (`# YOUR CODE HERE - 8-12 lines`)
+- Numpy-style docstrings (purpose, parameters with types/shapes, returns)
+- `__main__` block: 20-50 lines, always fully provided, never scaffolded
+- Solution versions in `_solutions/` — must run and produce correct output
+- Real dependencies only (numpy, torch — never placeholder packages)
+- Baked-in realistic domain-appropriate data (not foo/bar/42)
+
 ## Architecture
 
-Agent-agnostic pipeline using direct LLM API calls via LiteLLM + Instructor. Supports multiple providers (Anthropic, OpenAI, Google, Ollama, OpenRouter). Web UI is the sole interface.
+Multi-provider pipeline via LiteLLM. Supports Anthropic, OpenAI, Google, Ollama, OpenRouter. Web UI is the sole interface.
 
 ```
 Browser → http://localhost:8420
         │
         ▼
 ┌──────────────────────────────────────┐
-│  Preprocessing (fetch.py, no LLM)    │
+│  Phase 0: Preprocessing              │
+│  (fetch.py, no LLM)                 │
 │                                      │
 │  URL → detect type → handler:        │
-│  arxiv  → TeX source tarball         │
-│  blog   → Jina markdown + images     │
-│  pdf    → download + Jina text       │
-│  github → git clone --depth 1        │
-│                                      │
+│  arxiv/blog/pdf/github               │
 │  Output: _sources/ + manifest.json   │
 └──────────────┬───────────────────────┘
                │
                ▼
 ┌──────────────────────────────────────┐
 │  Phase 1a: Analyze (1 API call)      │
-│  design model                        │
+│  design model, structured output     │
 │                                      │
-│  Input: system prompt + sources      │
-│         (token-budget managed)       │
+│  Input: full source material         │
 │  Output: Analysis (Pydantic)         │
-│  Python: validate → _analysis.json   │
+│  → concepts, prerequisites, type     │
 └──────────────┬───────────────────────┘
                │
                ▼
 ┌──────────────────────────────────────┐
-│  Phase 1b: Design (1 API call)       │
-│  design model                        │
+│  Phase 1b: Blueprint (1 API call)    │
+│  design model, structured output     │
 │                                      │
-│  Input: analysis + source excerpts   │
+│  Input: analysis + full source       │
 │  Output: CurriculumDesign (Pydantic) │
-│          curriculum + root README    │
+│  → scaffold contracts per exercise   │
+│  → key_excerpts (verbatim formulas)  │
+│  → root README + requirements        │
 │  Python: coverage check, write files │
-│          emit `curriculum` event     │
 └──────────────┬───────────────────────┘
                │
                ▼
 ┌──────────────────────────────────────┐
 │  Phase 2: Generate (N parallel)      │
-│  generate model                      │
+│  generate model, multi-turn convos   │
 │                                      │
-│  Per module: 1 API call              │
-│  Input: module spec + source excerpt │
-│  Output: ModuleOutput (all files)    │
-│  Python: write files, validate       │
-│          syntax, emit events         │
+│  Per module — conversational chain:  │
+│  Turn 1: Write lesson (raw markdown) │
+│  Turn 2: Write ex1 scaffold (code)   │
+│  Turn 3: Write ex1 solution (code)   │
+│     → Python executes, captures out  │
+│  Turn 4: Write ex2 scaffold          │
+│     → sees ex1's execution output    │
+│  ...repeat per exercise...           │
+│  Fix turn: syntax errors corrected   │
+│                                      │
+│  Modules parallel, turns sequential  │
 └──────────────┬───────────────────────┘
                │
                ▼
@@ -81,78 +110,93 @@ Browser → http://localhost:8420
 │  Phase 3: Review                     │
 │                                      │
 │  3a: Pre-flight (Python, no LLM)    │
-│      syntax, structure checks        │
+│      syntax, TODOs, file length,     │
+│      expected output patterns        │
 │  3b: Quality review (LLM per module)│
-│      pedagogical quality, realism    │
+│      contract compliance, realism    │
 │  Re-generate failed modules          │
 └──────────────────────────────────────┘
 ```
 
+### Why multi-turn conversations (not single-shot)
+
+Single-shot structured output produces 200-word README summaries and hollow exercise shells. The conversational approach restores the quality drivers that made the old agent architecture produce good content:
+
+| Capability | How it's restored |
+|---|---|
+| Full source access | Full source material in every turn (no truncation) |
+| One file at a time | Each conversation turn produces exactly one file |
+| Write→Run→Fix loop | Python executes solutions between turns, syntax errors trigger fix turns |
+| Iteration budget | ~11 turns per module (lesson + 2 per exercise + fixes) |
+| Lesson-first ordering | Model deeply processes source while writing 5,000+ word lesson, exercises flow from that understanding |
+| Cross-exercise references | Execution output from ex1 fed into ex2's prompt — real numbers, not imagined |
+
+### Why lesson-first matters
+
+The model writes a 3,000-10,000 word lesson BEFORE any exercise code. During that process, it:
+- Translates the source material's formulas step by step
+- Develops a running example
+- Articulates the key insights in prose
+
+By the time it writes exercises, it has deeply processed the material. This is the opposite of the old approach (README written last as an afterthought) and dramatically better than single-shot (no deep processing at all).
+
+## Blueprint Schema
+
+Phase 1b produces a rich contract that constrains Phase 2:
+
+| Field | Purpose |
+|---|---|
+| `what_is_provided` | What working code the student receives (~65%) |
+| `what_student_writes` | What the student implements (~35%) with line counts |
+| `key_insight` | The single most important thing the exercise teaches |
+| `common_mistakes` | What students typically get wrong |
+| `expected_output_pattern` | String that should appear in stdout when correct |
+| `key_excerpts` (per module) | Verbatim formulas/algorithms from the source |
+| `shared_definitions` | Language, dependencies, naming conventions |
+
 ## LLM Client (llm.py)
 
 `LLMClient` wraps LiteLLM + Instructor. Supports:
-- **Structured output**: pass `response_model=SomePydanticModel` to get validated objects back
-- **Retry with feedback**: Instructor automatically retries on Pydantic validation failure
-- **Provider routing**: maps `(provider, model)` to LiteLLM model strings
+- **Structured output** (Phase 1): Instructor with provider-specific modes (JSON_SCHEMA for OpenAI, TOOLS for Anthropic)
+- **Raw completions** (Phase 2): Free-form text for lessons and code — no JSON constraints
+- **Cumulative cost tracking**: input/output tokens and cost across all calls
+- **Quota detection**: `QuotaExhaustedError` aborts immediately (no wasted retries)
 
-Providers: anthropic, openai, google, ollama, openrouter. Model defaults per provider in `PROVIDER_DEFAULTS`.
-
-## Source Budget Management (sources.py)
-
-Reads fetch.py artifacts and manages token limits. Strategy:
-1. Sources fit budget → return as-is
-2. Moderate overflow → truncate by sections (LaTeX/markdown headers)
-3. Large overflow → summarize with cheap model, return summary + excerpts
-
-## Schemas (schemas.py)
-
-| Schema | Phase | Purpose |
-|--------|-------|---------|
-| `Analysis` | 1a | Concept extraction, triage, content type |
-| `CurriculumDesign` | 1b | Curriculum + root README + requirements |
-| `ModuleOutput` | 2 | All files for a module (README + exercises) |
-| `GeneratedFile` | 2 | Single file with path, content, language |
-| `ReviewResult` | 3b | Per-module pass/fail with issues |
+Providers: anthropic, openai, google, ollama, openrouter.
 
 ## Web UI
 
-### Launch Banner
-Orange-themed two-panel box with a pixel art cactus mascot. Detects WSL to skip browser auto-open.
-
-### DAG Visualization
-After Phase 1b completes, the curriculum structure is emitted as a `curriculum` event. The web UI renders a Brilliant-style DAG with topological layering, SVG bezier edges, and progressive node activation.
-
-### Settings
-Config persists to `~/.config/scaffoldly/config.json`. Settings include:
-- **Provider**: Anthropic, OpenAI, Google, Ollama, OpenRouter
-- **API key**: stored per-provider
-- **Design/generate model**: populated from provider defaults
-- **Output directory**
-- **Max revision cycles**: 0-3 (default 1)
+- **Settings panel** (top of page): provider, API key, output dir, review rounds
+- **Form**: URL, refs, series mode, background description, model selection
+- **Presets**: save/load full form configs, background profiles
+- **Progress**: persistent phase bar with percentage, scrollable log, DAG visualization
+- **DAG**: Brilliant-style topological layout, animated edge drawing, progressive node activation with checkmarks
+- Config persists to `~/.config/scaffoldly/config.json` (chmod 600)
 
 ## Key Design Decisions
 
 ### Source Preprocessing
-URLs are preprocessed into local artifacts before the pipeline starts (`fetch.py`). Jina Reader provides clean markdown; images are extracted and downloaded directly.
+URLs are preprocessed into local artifacts before the pipeline starts (`fetch.py`). Jina Reader provides clean markdown; images are extracted and downloaded directly. The full preprocessed content is passed to ALL phases — no truncation.
 
 ### Concept Triage
-Every concept gets a priority (essential/supporting/contextual) with a rationale. Coverage check verifies essential concepts have exercises.
-
-### Analytical Question Rubric
-Module READMEs require Level 3+ questions (analysis/synthesis, not recall).
-
-### Content-Type Pedagogy
-The `content_type` field drives milestone style, scaffolding strategy, and progression pattern. See `prompts.py` for details.
+Every concept gets a priority (essential/supporting/contextual) with a rationale. Coverage check verifies essential concepts have exercises before generation begins.
 
 ### No Test Frameworks
-Observable milestones replace tests. Each exercise ends with a `__main__` block that prints measurements, comparisons, or visualizations.
+Observable milestones replace tests. Each exercise ends with a `__main__` block that prints measurements, comparisons, or visualizations. The solution is executed between turns to validate it works.
+
+### Security
+- Config file: chmod 600 (owner-only)
+- API keys: never stored on LLMClient instance, only in os.environ
+- Error sanitization: raw exceptions never forwarded to browser
+- Host header validation: blocks DNS rebinding attacks
+- Key masking: only last 4 chars shown in UI
 
 ### Event Emission
-`pipeline.py` uses a `ContextVar`-based event sink so the web server can receive real-time progress. Event types: `log`, `phase`, `curriculum`, `module_complete`.
+`pipeline.py` uses a `ContextVar`-based event sink for real-time progress. Event types: `log`, `phase`, `curriculum`, `module_complete`.
 
 ## Quality Reference Courses
 
-When auditing generated course quality, compare against the reference courses at:
+When auditing generated course quality, compare against:
 
 ```
 /home/kenyi/kenyi/projects/ai-notebooks-implementations/courses/
@@ -162,11 +206,4 @@ When auditing generated course quality, compare against the reference courses at
 └── csc412-probabilistic-ml-UToronto    # Probabilistic ML (Julia/Python)
 ```
 
-These were generated by the old architecture (Opus+Sonnet agent loop) and represent the quality target. Key measurable patterns:
-- **40-200 lines** per exercise file
-- **~65% provided code**, ~35% TODO blocks
-- **3-5 TODO blocks** per exercise with line count hints (`YOUR CODE HERE - 8-12 lines`)
-- **100% docstring coverage** (numpy-style: purpose, parameters with shapes, returns)
-- **`__main__` block: 20-50 lines** with full test harness, always fully provided
-- **Real dependencies** (numpy, torch, gym — never placeholder packages)
-- **Baked-in realistic data** (domain-appropriate fixtures, not foo/bar/42)
+Also reference MIT 6.102 Software Construction (https://web.mit.edu/6.102/www/sp26/) for lesson document quality — readings are 4,500-15,000 words with inline exercises, running examples, and embedded comprehension checks.
