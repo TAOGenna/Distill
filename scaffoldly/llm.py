@@ -68,11 +68,16 @@ PROVIDER_ENV_VARS: dict[str, str] = {
 # Default models per provider (design / generate).
 PROVIDER_DEFAULTS: dict[str, dict[str, str]] = {
     "anthropic": {"design": "claude-opus-4-6", "generate": "claude-sonnet-4-6"},
-    "openai": {"design": "gpt-5.4-pro", "generate": "gpt-5.4"},
+    "openai": {"design": "gpt-5.4", "generate": "gpt-5.4"},
     "google": {"design": "gemini-2.5-pro", "generate": "gemini-2.5-flash"},
     "ollama": {"design": "llama3", "generate": "llama3"},
     "openrouter": {"design": "anthropic/claude-opus-4-6", "generate": "anthropic/claude-sonnet-4-6"},
 }
+
+
+class QuotaExhaustedError(Exception):
+    """Raised when the API returns a billing/quota error — no point retrying."""
+    pass
 
 
 def resolve_model(provider: str, model: str) -> str:
@@ -187,10 +192,31 @@ class LLMClient:
                     *messages,
                 ]
 
-        if response_model is not None:
-            return await self._structured_call(kwargs, response_model, max_retries)
-        else:
-            return await self._raw_call(kwargs)
+        try:
+            if response_model is not None:
+                return await self._structured_call(kwargs, response_model, max_retries)
+            else:
+                return await self._raw_call(kwargs)
+        except Exception as e:
+            self._check_quota_error(e)
+            raise
+
+    @staticmethod
+    def _check_quota_error(exc: Exception) -> None:
+        """Detect billing/quota errors and raise QuotaExhaustedError.
+
+        These should never be retried — the wallet is empty.
+        """
+        err_str = str(exc).lower()
+        if any(phrase in err_str for phrase in [
+            "exceeded your current quota",
+            "insufficient_quota",
+            "billing",
+            "payment required",
+        ]):
+            raise QuotaExhaustedError(
+                "API quota exhausted — check your billing at the provider's dashboard."
+            ) from exc
 
     async def _raw_call(self, kwargs: dict) -> CompletionResult:
         """Plain text completion."""
@@ -207,11 +233,15 @@ class LLMClient:
         max_retries: int,
     ) -> CompletionResult:
         """Structured output via Instructor — returns validated Pydantic model."""
-        result, raw_response = await self._instructor.create_with_completion(
-            response_model=response_model,
-            max_retries=max_retries,
-            **kwargs,
-        )
+        try:
+            result, raw_response = await self._instructor.create_with_completion(
+                response_model=response_model,
+                max_retries=max_retries,
+                **kwargs,
+            )
+        except Exception as e:
+            self._check_quota_error(e)
+            raise
         # Extract usage from the raw LiteLLM response
         usage = self._extract_usage(raw_response, kwargs.get("model", ""))
         self._track(usage)

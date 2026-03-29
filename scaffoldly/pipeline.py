@@ -21,7 +21,7 @@ from typing import Any
 
 import anyio
 
-from .llm import LLMClient
+from .llm import LLMClient, QuotaExhaustedError
 from .prompts import (
     ANALYSIS_SYSTEM_PROMPT,
     CURRICULUM_DESIGN_SYSTEM_PROMPT,
@@ -417,15 +417,31 @@ async def _phase_generate(
 
             _emit({"type": "module_complete", "module_index": idx, "title": title})
 
+        except QuotaExhaustedError:
+            _log(f"Module {idx} ({title}): API quota exhausted — aborting", _C.RED)
+            raise  # Let it propagate to cancel the whole task group
         except Exception as e:
             print(f"  Module {idx} error: {e}", file=sys.stderr)
             _log(f"Module {idx} ({title}) failed ({type(e).__name__})", _C.RED)
 
-    async with anyio.create_task_group() as tg:
-        for module in modules:
-            tg.start_soon(_run, module.model_dump())
+    try:
+        async with anyio.create_task_group() as tg:
+            for module in modules:
+                tg.start_soon(_run, module.model_dump())
+    except BaseException as e:
+        # If quota exhausted, surface a clear message
+        if any(isinstance(exc, QuotaExhaustedError) for exc in getattr(e, 'exceptions', [e])):
+            _log("Generation aborted: API quota exhausted. Check your billing.", _C.RED)
 
-    _log(f"All {len(modules)} modules generated", _C.GREEN)
+    generated = len(results)
+    total = len(modules)
+    if generated == total:
+        _log(f"All {total} modules generated", _C.GREEN)
+    elif generated > 0:
+        _log(f"{generated}/{total} modules generated ({total - generated} failed)", _C.YELLOW)
+    else:
+        _log(f"No modules generated — all {total} failed", _C.RED)
+
     return {idx: output for idx, (output, _) in results.items()}
 
 
@@ -847,19 +863,22 @@ async def run_pipeline(
         course_dir=course_dir,
     )
 
-    # ── Phase 3: Review ───────────────────────────────────────────────────
-    await _phase_review(
-        llm=llm,
-        design=design,
-        analysis=analysis,
-        source_content=source_content,
-        student_level=user_level,
-        generate_model=generate_model,
-        review_model=design_model,
-        course_dir=course_dir,
-        module_outputs=module_outputs,
-        max_revision_cycles=max_revision_cycles,
-    )
+    # ── Phase 3: Review (skip if no modules generated) ─────────────────
+    if not module_outputs:
+        _log("Skipping review — no modules were generated", _C.YELLOW)
+    else:
+        await _phase_review(
+            llm=llm,
+            design=design,
+            analysis=analysis,
+            source_content=source_content,
+            student_level=user_level,
+            generate_model=generate_model,
+            review_model=design_model,
+            course_dir=course_dir,
+            module_outputs=module_outputs,
+            max_revision_cycles=max_revision_cycles,
+        )
 
     # ── Done ──────────────────────────────────────────────────────────────
     _emit({"type": "phase", "phase": "done"})
