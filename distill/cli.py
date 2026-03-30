@@ -1,4 +1,4 @@
-"""CLI entry point for Scaffoldly — launches the web UI server."""
+"""CLI entry point for Distill — launches the web UI server."""
 
 from __future__ import annotations
 
@@ -7,7 +7,7 @@ import argparse
 
 def main():
     parser = argparse.ArgumentParser(
-        prog="scaffoldly",
+        prog="distill",
         description=(
             "Generate progressive, CS231n-style coursework from technical "
             "blogs, repos, or papers. Opens a web UI for course generation."

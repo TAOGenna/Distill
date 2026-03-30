@@ -1,15 +1,15 @@
-# Scaffoldly
+# Distill
 
 Turn technical blog posts, papers, and repos into hands-on coursework you can actually learn from.
 
-Scaffoldly takes expert-level content — deep blog posts, arXiv papers, GitHub repos — and generates progressive courses with MIT-quality lesson documents, scaffolded exercises, and observable milestones. The student works through modules that build toward **reproducing the author's results as faithfully as possible**.
+Distill takes expert-level content — deep blog posts, arXiv papers, GitHub repos — and generates progressive courses with MIT-quality lesson documents, scaffolded exercises, and observable milestones. The student works through modules that build toward **reproducing the author's results as faithfully as possible**.
 
 ## Quick Start
 
 ```bash
-uv pip install scaffoldly
+uv pip install distill
 
-scaffoldly
+distill
 # → opens http://localhost:8420
 ```
 
@@ -131,10 +131,10 @@ Works with any LLM provider via [LiteLLM](https://github.com/BerriAI/litellm):
 ## Development
 
 ```bash
-git clone https://github.com/TAOGenna/scaffoldly.git
-cd scaffoldly
+git clone https://github.com/TAOGenna/distill.git
+cd distill
 uv sync
-uv run scaffoldly
+uv run distill
 ```
 
 ## Acknowledgments

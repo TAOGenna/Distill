@@ -1,4 +1,4 @@
-/* scaffoldly web ui */
+/* distill web ui */
 
 const $ = (s) => document.querySelector(s);
 const form = $("#form");
@@ -808,7 +808,7 @@ function esc(s) {
 
 /* ── Form auto-save to localStorage ──────────────── */
 
-var FORM_KEY = "scaffoldly_form";
+var FORM_KEY = "distill_form";
 
 function getFormState() {
   return {

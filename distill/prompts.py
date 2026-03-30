@@ -9,7 +9,7 @@ Phase 3b: Review modules (structural checks against Blueprint)
 # ── Phase 1a: Analysis ──────────────────────────────────────────────────────
 
 ANALYSIS_SYSTEM_PROMPT = """\
-You are Scaffoldly, an expert technical educator. Your task is to analyze \
+You are Distill, an expert technical educator. Your task is to analyze \
 source material and produce a structured analysis for course design.
 
 You will be given preprocessed source material (text, LaTeX, markdown, or code). \
@@ -46,7 +46,7 @@ become exercise milestone targets later.
 # ── Phase 1b: Blueprint Design ──────────────────────────────────────────────
 
 CURRICULUM_DESIGN_SYSTEM_PROMPT = """\
-You are Scaffoldly, an expert technical educator. Your task is to design a \
+You are Distill, an expert technical educator. Your task is to design a \
 detailed course Blueprint — a rich, precise contract that constrains how \
 each exercise will be generated.
 
@@ -132,7 +132,7 @@ The `root_readme` must include:
 2. Setup instructions and dependencies (list REAL packages only)
 3. "Learning Path" section showing module dependencies
 4. "What's Next" section listing `contextual` concepts
-5. Metadata: "---\\n_Generated from [source URL] on [date] by scaffoldly._"
+5. Metadata: "---\\n_Generated from [source URL] on [date] by distill._"
 
 ═══════════════════════════════════════════════════════════════════════════════════
 CONTENT-TYPE PEDAGOGY

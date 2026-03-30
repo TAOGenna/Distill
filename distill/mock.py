@@ -169,7 +169,7 @@ _CURRICULUM_JSON = {
         "dependencies": ["numpy"],
         "naming_convention": "snake_case",
     },
-    "root_readme": "# Mock: Penalty Binary Search\n\nA course on the penalty binary search technique.\n\n## Learning Path\n\n1. Exact-K DP Baseline\n2. Penalty Binary Search\n\n---\n_Generated from mock source on 2026-03-29 by scaffoldly._\n",
+    "root_readme": "# Mock: Penalty Binary Search\n\nA course on the penalty binary search technique.\n\n## Learning Path\n\n1. Exact-K DP Baseline\n2. Penalty Binary Search\n\n---\n_Generated from mock source on 2026-03-29 by distill._\n",
     "requirements": "numpy>=1.20",
 }
 

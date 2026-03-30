@@ -3,7 +3,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "scaffoldly"
+name = "distill"
 version = "0.3.0"
 description = "Generate progressive, CS231n-style coursework from technical blogs, repos, and papers"
 requires-python = ">=3.10"
@@ -25,7 +25,7 @@ dev = [
 ]
 
 [project.scripts]
-scaffoldly = "scaffoldly.cli:main"
+distill = "distill.cli:main"
 
 [dependency-groups]
 dev = [
@@ -35,9 +35,9 @@ dev = [
 ]
 
 [tool.hatch.build.targets.wheel]
-packages = ["scaffoldly"]
+packages = ["distill"]
 
 [tool.hatch.build.targets.wheel.shared-data]
 
 [tool.hatch.build]
-include = ["scaffoldly/**"]
+include = ["distill/**"]

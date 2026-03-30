@@ -1460,7 +1460,7 @@ wheels = [
 ]
 
 [[package]]
-name = "scaffoldly"
+name = "distill"
 version = "0.2.0"
 source = { editable = "." }
 dependencies = [

@@ -3,8 +3,8 @@
 ## Project Structure
 
 ```
-scaffoldly/
-├── __main__.py       # python -m scaffoldly
+distill/
+├── __main__.py       # python -m distill
 ├── cli.py            # Server launcher (web UI only)
 ├── server.py         # Local Starlette web server + SSE progress streaming
 ├── fetch.py          # Source preprocessing — URL → local artifacts (no LLM)
@@ -170,7 +170,7 @@ Providers: anthropic, openai, google, ollama, openrouter.
 - **Presets**: save/load full form configs, background profiles
 - **Progress**: persistent phase bar with percentage, scrollable log, DAG visualization
 - **DAG**: Brilliant-style topological layout, animated edge drawing, progressive node activation with checkmarks
-- Config persists to `~/.config/scaffoldly/config.json` (chmod 600)
+- Config persists to `~/.config/distill/config.json` (chmod 600)
 
 ## Key Design Decisions
 

@@ -2,7 +2,7 @@
 
 ## Overview
 
-Scaffoldly transforms a URL (blog post, paper, repo) into a hands-on course through a 4-phase pipeline. Phase 1 uses structured output to produce a Blueprint. Phase 2 uses multi-turn conversations to produce lesson documents and exercises. Phase 3 validates and reviews.
+Distill transforms a URL (blog post, paper, repo) into a hands-on course through a 4-phase pipeline. Phase 1 uses structured output to produce a Blueprint. Phase 2 uses multi-turn conversations to produce lesson documents and exercises. Phase 3 validates and reviews.
 
 ```mermaid
 flowchart TB

@@ -1,4 +1,4 @@
-"""Local web server for Scaffoldly."""
+"""Local web server for Distill."""
 
 from __future__ import annotations
 
@@ -22,7 +22,7 @@ from starlette.routing import Mount, Route
 from starlette.staticfiles import StaticFiles
 
 WEB_DIR = Path(__file__).parent / "web"
-CONFIG_DIR = Path.home() / ".config" / "scaffoldly"
+CONFIG_DIR = Path.home() / ".config" / "distill"
 CONFIG_FILE = CONFIG_DIR / "config.json"
 
 # Single-user job storage
@@ -482,7 +482,7 @@ def serve(host: str = "127.0.0.1", port: int = 8420, open_browser: bool = True) 
     ]
 
     # ── Render ────────────────────────────────────────────────────
-    title = f" scaffoldly v{__version__} "
+    title = f" distill v{__version__} "
     print()
     print(f"  {o}╭──{ob}{title}{R}{o}{'─' * (TW - 2 - len(title))}╮{R}")
     row()
