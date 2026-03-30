@@ -54,6 +54,7 @@ PROVIDER_PREFIXES: dict[str, str] = {
     "google": "gemini/",
     "ollama": "ollama/",
     "openrouter": "openrouter/",
+    "mock": "",             # testing — no API calls
 }
 
 # Maps provider names to the env var that holds the API key.
@@ -72,6 +73,7 @@ PROVIDER_DEFAULTS: dict[str, dict[str, str]] = {
     "google": {"design": "gemini-2.5-pro", "generate": "gemini-2.5-flash"},
     "ollama": {"design": "llama3", "generate": "llama3"},
     "openrouter": {"design": "anthropic/claude-opus-4-6", "generate": "anthropic/claude-sonnet-4-6"},
+    "mock": {"design": "mock", "generate": "mock"},
 }
 
 

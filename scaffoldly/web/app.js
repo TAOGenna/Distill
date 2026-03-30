@@ -94,7 +94,7 @@ function updateFormState() {
     return;
   }
   var provider = $("#setup-provider") ? $("#setup-provider").value : "anthropic";
-  var hasAuth = apiKeySet || provider === "ollama";
+  var hasAuth = apiKeySet || provider === "ollama" || provider === "mock";
   var hasUrl = $("#url-input").value.trim().length > 0;
   var hasLevel = $("#level-input").value.trim().length > 0;
 

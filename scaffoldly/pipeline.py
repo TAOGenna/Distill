@@ -850,7 +850,11 @@ async def run_pipeline(
     design_model = design_model or defaults["design"]
     generate_model = generate_model or defaults["generate"]
 
-    llm = LLMClient(provider=provider, api_key=api_key)
+    if provider == "mock":
+        from .mock import MockLLMClient
+        llm = MockLLMClient()
+    else:
+        llm = LLMClient(provider=provider, api_key=api_key)
 
     global _start_time
     _start_time = time.time()

@@ -179,7 +179,7 @@ async def _generate_endpoint(request: Request) -> JSONResponse:
     has_key = bool(provider_key or (env_var and os.environ.get(env_var)))
 
     # Ollama doesn't need a key
-    if provider != "ollama" and not has_key:
+    if provider not in ("ollama", "mock") and not has_key:
         return JSONResponse(
             {"error": f"no API key configured for {provider} — set it in settings"},
             status_code=400,
