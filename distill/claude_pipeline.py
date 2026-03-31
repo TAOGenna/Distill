@@ -31,25 +31,33 @@ from claude_code_sdk import (
     query,
 )
 
-# ── Monkey-patch SDK to handle unknown message types ────────────────────────
-# The Claude API sends `rate_limit_event` messages that the SDK doesn't
-# know how to parse. This causes MessageParseError which kills the entire
-# agent message stream. Patch the parser to skip unknown types instead.
+# ── SDK compatibility: handle unknown message types ─────────────────────────
+#
+# The Claude API sends message types (e.g., rate_limit_event) that SDK
+# v0.0.25 doesn't recognize. The SDK raises MessageParseError which kills
+# the async message iterator — the agent dies mid-execution with 0 files.
+#
+# Fix: patch parse_message to return None for unknown types. The SDK's
+# internal query loop skips None values. When the SDK adds native support
+# for these message types, remove this patch.
+#
+# Tracked: https://github.com/anthropics/claude-code-sdk-python/issues/XXX
 try:
-    import claude_code_sdk._internal.message_parser as _mp
-    _original_parse_message = _mp.parse_message
+    from claude_code_sdk._internal import message_parser as _mp
 
-    def _lenient_parse_message(data):
+    _original_parse = _mp.parse_message
+
+    def _patched_parse(data):
         try:
-            return _original_parse_message(data)
+            return _original_parse(data)
         except Exception as e:
             if "Unknown message type" in str(e):
-                return None  # skip unknown message types
+                return None
             raise
 
-    _mp.parse_message = _lenient_parse_message
-except Exception:
-    pass  # if patching fails, fall back to original behavior
+    _mp.parse_message = _patched_parse
+except (ImportError, AttributeError):
+    pass  # SDK internals changed — skip patching, original behavior applies
 
 from .prompts import (
     ANALYSIS_SYSTEM_PROMPT,
@@ -196,7 +204,7 @@ async def _query_sdk(
     messages: list = []
     async for msg in query(prompt=prompt, options=options):
         if msg is None:
-            continue  # skipped unknown message type (e.g., rate_limit_event)
+            continue
         messages.append(msg)
 
         # Log tool use for progress tracking
