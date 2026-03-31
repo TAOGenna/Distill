@@ -31,6 +31,26 @@ from claude_code_sdk import (
     query,
 )
 
+# ── Monkey-patch SDK to handle unknown message types ────────────────────────
+# The Claude API sends `rate_limit_event` messages that the SDK doesn't
+# know how to parse. This causes MessageParseError which kills the entire
+# agent message stream. Patch the parser to skip unknown types instead.
+try:
+    import claude_code_sdk._internal.message_parser as _mp
+    _original_parse_message = _mp.parse_message
+
+    def _lenient_parse_message(data):
+        try:
+            return _original_parse_message(data)
+        except Exception as e:
+            if "Unknown message type" in str(e):
+                return None  # skip unknown message types
+            raise
+
+    _mp.parse_message = _lenient_parse_message
+except Exception:
+    pass  # if patching fails, fall back to original behavior
+
 from .prompts import (
     ANALYSIS_SYSTEM_PROMPT,
     CURRICULUM_DESIGN_SYSTEM_PROMPT,
@@ -174,27 +194,21 @@ async def _query_sdk(
     )
 
     messages: list = []
-    try:
-        async for msg in query(prompt=prompt, options=options):
-            messages.append(msg)
+    async for msg in query(prompt=prompt, options=options):
+        if msg is None:
+            continue  # skipped unknown message type (e.g., rate_limit_event)
+        messages.append(msg)
 
-            # Log tool use for progress tracking
-            if isinstance(msg, AssistantMessage):
-                for block in msg.content:
-                    if isinstance(block, TextBlock) and len(block.text) > 10:
-                        _log(block.text[:120], _C.DIM)
-                    elif isinstance(block, ToolUseBlock):
-                        tool_args = ", ".join(
-                            f"{k}={str(v)[:50]}" for k, v in (block.input or {}).items()
-                        )
-                        _log(f"{block.name}({tool_args})", _C.BLUE)
-    except Exception as e:
-        # Handle unknown message types (e.g., rate_limit_event) gracefully
-        err_name = type(e).__name__
-        if "MessageParseError" in err_name or "Unknown message type" in str(e):
-            _log(f"SDK message parse warning: {e}", _C.YELLOW)
-        else:
-            raise
+        # Log tool use for progress tracking
+        if isinstance(msg, AssistantMessage):
+            for block in msg.content:
+                if isinstance(block, TextBlock) and len(block.text) > 10:
+                    _log(block.text[:120], _C.DIM)
+                elif isinstance(block, ToolUseBlock):
+                    tool_args = ", ".join(
+                        f"{k}={str(v)[:50]}" for k, v in (block.input or {}).items()
+                    )
+                    _log(f"{block.name}({tool_args})", _C.BLUE)
 
     result = _extract_result(messages)
     return messages, result
