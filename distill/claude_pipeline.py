@@ -411,11 +411,23 @@ EXERCISE CONTRACTS (follow these EXACTLY)
 {exercise_block}
 
 ═══════════════════════════════════════════════════════════════════════════
-SCAFFOLD PATTERN
+SCAFFOLD PATTERN — students must write substantial code
 ═══════════════════════════════════════════════════════════════════════════
 
-~65% provided code (imports, classes, helpers, __main__ harness)
-~35% TODO blocks with line count hints
+Each exercise MUST have 3-5 TODO blocks. Each TODO block should require
+8-15 lines of student code. The student should write 30-60 lines TOTAL
+per exercise — not 5-10 lines. If the student barely writes anything,
+the exercise is too easy and they learn nothing.
+
+GOOD scaffold (~65% provided, ~35% student writes):
+- Imports, class __init__, helper utilities: PROVIDED
+- Core algorithm functions (2-3 functions): TODO blocks of 8-15 lines each
+- __main__ test harness: PROVIDED (20-50 lines)
+- Total student writes: 30-60 lines across 3-5 TODO blocks
+
+BAD scaffold (~95% provided, ~5% student writes):
+- Everything provided except one 3-line function body
+- Student writes 5 lines total — too easy, learns nothing
 
 ```python
 def function_name(param):
@@ -457,6 +469,7 @@ async def _generate_module_claude(
     """Generate a module via Claude Code agent."""
     idx = module_spec["module_index"]
     title = module_spec["title"]
+    _emit({"type": "module_start", "module_index": idx, "title": title})
     module_slug = f"module_{idx:02d}_{_slugify(title)}"
     module_dir = course_dir / module_slug
     module_dir.mkdir(parents=True, exist_ok=True)
@@ -478,7 +491,7 @@ async def _generate_module_claude(
         system=MODULE_CONVERSATION_SYSTEM_PROMPT,
         model=model,
         effort=effort,
-        max_turns=30,
+        max_turns=50,  # 30 was cutting modules short — agents need room for write→run→fix loops
         cwd=module_dir,
         allowed_tools=["Bash", "Read", "Write", "Edit"],
         add_dirs=[sources_dir] if sources_dir else [],
