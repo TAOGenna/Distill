@@ -397,6 +397,7 @@ _bind("#add-ref", "click", () => {
   row.className = "ref-row";
   row.innerHTML =
     '<input type="url" name="ref" placeholder="https://...">' +
+    '<input type="text" name="ref_annotation" class="ref-annotation" placeholder="role — e.g. peer reviews, reference impl...">' +
     '<button type="button" class="ref-remove" aria-label="remove reference">&times;</button>';
   row.querySelector(".ref-remove").addEventListener("click", () => row.remove());
   $("#refs").appendChild(row);
@@ -541,10 +542,18 @@ if (form) form.addEventListener("submit", async (e) => {
     design_model: fd.get("design_model"),
     generate_model: fd.get("generate_model"),
     series: $("#series").checked,
-    refs: [...document.querySelectorAll('input[name="ref"]')]
-      .map((el) => el.value.trim())
-      .filter(Boolean),
+    refs: [],
+    ref_annotations: [],
   };
+  // Collect refs + annotations together so filtering keeps them aligned
+  document.querySelectorAll('.ref-row').forEach((row) => {
+    const url = (row.querySelector('input[name="ref"]') || {}).value || "";
+    const ann = (row.querySelector('input[name="ref_annotation"]') || {}).value || "";
+    if (url.trim()) {
+      params.refs.push(url.trim());
+      params.ref_annotations.push(ann.trim());
+    }
+  });
 
   generating = true;
   goBtn.disabled = true;
@@ -1043,6 +1052,8 @@ function getFormState() {
     generate_model: $("#generate-model").value,
     refs: [...document.querySelectorAll('input[name="ref"]')]
       .map(function (el) { return el.value; }),
+    ref_annotations: [...document.querySelectorAll('input[name="ref_annotation"]')]
+      .map(function (el) { return el.value; }),
   };
 }
 
@@ -1072,18 +1083,22 @@ function restoreFormState(state) {
     gs.value = state.generate_model;
   }
   if (state.refs && state.refs.length) {
-    state.refs.forEach(function (url) {
+    state.refs.forEach(function (url, i) {
       if (!url) return;
+      var ann = (state.ref_annotations && state.ref_annotations[i]) || "";
       var row = document.createElement("div");
       row.className = "ref-row";
       row.innerHTML =
         '<input type="url" name="ref" placeholder="https://..." value="' + esc(url) + '">' +
+        '<input type="text" name="ref_annotation" class="ref-annotation" placeholder="role — e.g. peer reviews, reference impl..." value="' + esc(ann) + '">' +
         '<button type="button" class="ref-remove" aria-label="remove reference">&times;</button>';
       row.querySelector(".ref-remove").addEventListener("click", function () {
         row.remove();
         saveFormState();
       });
-      row.querySelector("input").addEventListener("input", saveFormState);
+      row.querySelectorAll("input").forEach(function (inp) {
+        inp.addEventListener("input", saveFormState);
+      });
       $("#refs").appendChild(row);
     });
   }
@@ -1132,12 +1147,13 @@ _bind("#form-clear", "click", clearForm);
 // Also save when refs change — patch the add-ref handler
 _bind("#add-ref", "click", function () {
   // The ref row was just added by the original handler.
-  // Attach auto-save to the new row's input and remove button.
+  // Attach auto-save to the new row's inputs and remove button.
   var rows = document.querySelectorAll(".ref-row");
   var lastRow = rows[rows.length - 1];
   if (lastRow) {
-    var input = lastRow.querySelector("input");
-    if (input) input.addEventListener("input", saveFormState);
+    lastRow.querySelectorAll("input").forEach(function (inp) {
+      inp.addEventListener("input", saveFormState);
+    });
     var removeBtn = lastRow.querySelector(".ref-remove");
     if (removeBtn) removeBtn.addEventListener("click", function () { saveFormState(); });
   }
@@ -1242,6 +1258,7 @@ _bind("#preset-select", "change", function () {
     design_model: p.design_model || "",
     generate_model: p.generate_model || "",
     refs: p.refs || [],
+    ref_annotations: p.ref_annotations || [],
   });
   saveFormState();
 });
@@ -1257,6 +1274,7 @@ _bind("#preset-save", "click", function () {
     name: name,
     url: state.url,
     refs: state.refs.filter(Boolean),
+    ref_annotations: state.ref_annotations || [],
     series: state.series,
     level: state.level,
     design_model: state.design_model,

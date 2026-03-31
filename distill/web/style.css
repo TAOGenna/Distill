@@ -445,8 +445,13 @@ button {
     margin-bottom: 0.5rem;
 }
 
-.ref-row input {
+.ref-row input[name="ref"] {
+    flex: 2;
+}
+
+.ref-annotation {
     flex: 1;
+    font-size: 0.85em;
 }
 
 .ref-remove {

@@ -46,7 +46,10 @@ def _read_source_entry(entry: dict, sources_dir: Path) -> str:
     url = entry.get("url", "")
     parts: list[str] = []
 
+    annotation = entry.get("annotation", "")
     parts.append(f"--- Source: {url} (type: {source_type}) ---\n")
+    if annotation:
+        parts.append(f"[Role: {annotation}]\n")
 
     if source_type == "arxiv":
         # Read main TeX file first, then any additional tex files

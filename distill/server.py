@@ -211,6 +211,7 @@ async def _run_generation(
     config = _load_config()
     url = params["url"]
     refs = [r for r in params.get("refs", []) if r.strip()]
+    ref_annotations = params.get("ref_annotations", [])
     series = params.get("series", False)
     level = params["level"]
     provider = params.get("provider") or config.get("provider", "anthropic")
@@ -242,6 +243,7 @@ async def _run_generation(
                 series=series,
                 output_dir=output_dir,
                 log=preprocess_log,
+                ref_annotations=ref_annotations,
             )
         )
         emit({"type": "log", "message": "sources ready", "level": "ok"})

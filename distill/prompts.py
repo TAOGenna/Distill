@@ -37,9 +37,20 @@ architecture without this concept?" If yes, it is not essential.
 4. For each concept, record its `source` — "focus" for concepts from the \
 primary URL, or the ref URL/title for reference sources.
 
-5. Identify the overall difficulty level and learning goals.
+5. REFERENCE ANNOTATIONS: Some reference sources include a [Role: ...] tag \
+describing their relationship to the main source (e.g., "Peer reviews and \
+author rebuttals", "Reference implementation"). Use these to understand how \
+each reference complements the focus material:
+   - Peer reviews / rebuttals → anticipate student confusion, inform \
+`common_mistakes`, strengthen explanations against known objections.
+   - Reference implementations → validate exercise design, extract real \
+code patterns and naming conventions.
+   - Follow-up papers → identify extensions for advanced modules.
+   - Tutorials / walkthroughs → borrow pedagogical sequencing ideas.
 
-6. Note quantitative claims (numbers, benchmarks, measurements) — these \
+6. Identify the overall difficulty level and learning goals.
+
+7. Note quantitative claims (numbers, benchmarks, measurements) — these \
 become exercise milestone targets later.
 """
 

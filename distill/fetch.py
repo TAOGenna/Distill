@@ -326,6 +326,7 @@ def preprocess_sources(
     series: bool = False,
     output_dir: str = "./output",
     log: Callable | None = None,
+    ref_annotations: list[str] | None = None,
 ) -> Path:
     """Preprocess source URLs into local artifacts.
 
@@ -364,6 +365,10 @@ def preprocess_sources(
                 ref_dest.mkdir(parents=True, exist_ok=True)
                 ref_meta = _fetch_source(ref_url, ref_dest, log)
                 entry = _manifest_entry(ref_url, dir_name, ref_meta)
+
+            # Attach user-provided annotation if present
+            if ref_annotations and i < len(ref_annotations) and ref_annotations[i].strip():
+                entry["annotation"] = ref_annotations[i].strip()
 
             if series:
                 manifest["series"].append(entry)
