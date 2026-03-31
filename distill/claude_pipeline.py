@@ -174,19 +174,27 @@ async def _query_sdk(
     )
 
     messages: list = []
-    async for msg in query(prompt=prompt, options=options):
-        messages.append(msg)
+    try:
+        async for msg in query(prompt=prompt, options=options):
+            messages.append(msg)
 
-        # Log tool use for progress tracking
-        if isinstance(msg, AssistantMessage):
-            for block in msg.content:
-                if isinstance(block, TextBlock) and len(block.text) > 10:
-                    _log(block.text[:120], _C.DIM)
-                elif isinstance(block, ToolUseBlock):
-                    tool_args = ", ".join(
-                        f"{k}={str(v)[:50]}" for k, v in (block.input or {}).items()
-                    )
-                    _log(f"{block.name}({tool_args})", _C.BLUE)
+            # Log tool use for progress tracking
+            if isinstance(msg, AssistantMessage):
+                for block in msg.content:
+                    if isinstance(block, TextBlock) and len(block.text) > 10:
+                        _log(block.text[:120], _C.DIM)
+                    elif isinstance(block, ToolUseBlock):
+                        tool_args = ", ".join(
+                            f"{k}={str(v)[:50]}" for k, v in (block.input or {}).items()
+                        )
+                        _log(f"{block.name}({tool_args})", _C.BLUE)
+    except Exception as e:
+        # Handle unknown message types (e.g., rate_limit_event) gracefully
+        err_name = type(e).__name__
+        if "MessageParseError" in err_name or "Unknown message type" in str(e):
+            _log(f"SDK message parse warning: {e}", _C.YELLOW)
+        else:
+            raise
 
     result = _extract_result(messages)
     return messages, result
