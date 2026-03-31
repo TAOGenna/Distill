@@ -121,6 +121,7 @@ async def _config_endpoint(request: Request) -> JSONResponse:
             "design_model": config.get("design_model", ""),
             "generate_model": config.get("generate_model", ""),
             "max_revision_cycles": config.get("max_revision_cycles", 1),
+            "effort": config.get("effort", "high"),
             "profiles": config.get("profiles", []),
             "presets": config.get("presets", []),
         }
@@ -150,6 +151,8 @@ async def _config_endpoint(request: Request) -> JSONResponse:
         config["generate_model"] = body["generate_model"]
     if "max_revision_cycles" in body:
         config["max_revision_cycles"] = body["max_revision_cycles"]
+    if "effort" in body:
+        config["effort"] = body["effort"]
     if "profiles" in body:
         config["profiles"] = body["profiles"]
     if "presets" in body:
@@ -215,6 +218,7 @@ async def _run_generation(
     generate_model = params.get("generate_model") or config.get("generate_model") or None
     output_dir = params.get("output_dir") or _get_output_dir()
     max_revision_cycles = config.get("max_revision_cycles", 1)
+    effort = config.get("effort", "high")
 
     # Resolve API key for the provider
     from .llm import PROVIDER_ENV_VARS
@@ -253,6 +257,7 @@ async def _run_generation(
                 output_dir=output_dir,
                 design_model=design_model or "opus",
                 generate_model=generate_model or "sonnet",
+                effort=effort,
                 max_revision_cycles=max_revision_cycles,
                 sources_dir=str(sources_dir),
                 on_event=emit,

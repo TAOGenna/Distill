@@ -86,6 +86,8 @@ function populateModelDropdowns(provider) {
 function updateSetupKeyVisibility(provider) {
   var row = $("#setup-key-row");
   if (row) row.style.display = (provider === "ollama" || provider === "claude_code" || provider === "mock") ? "none" : "";
+  var effortRow = $("#effort-row");
+  if (effortRow) effortRow.style.display = provider === "claude_code" ? "" : "none";
 }
 
 function updateFormState() {
@@ -119,6 +121,9 @@ fetch("/api/config")
     }
     if (cfg.api_key_masked && $("#setup-key")) {
       $("#setup-key").placeholder = cfg.api_key_masked;
+    }
+    if (cfg.effort && $("#cfg-effort")) {
+      $("#cfg-effort").value = cfg.effort;
     }
     if (cfg.max_revision_cycles !== undefined) {
       $("#cfg-revision-cycles").value = cfg.max_revision_cycles;
@@ -263,6 +268,14 @@ $("#cfg-revision-cycles").addEventListener("change", async () => {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ max_revision_cycles: parseInt($("#cfg-revision-cycles").value) }),
+  });
+});
+
+$("#cfg-effort").addEventListener("change", async () => {
+  await fetch("/api/config", {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ effort: $("#cfg-effort").value }),
   });
 });
 
