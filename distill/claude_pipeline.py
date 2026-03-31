@@ -22,42 +22,14 @@ from pathlib import Path
 from typing import Any
 
 import anyio
-from claude_code_sdk import (
+from claude_agent_sdk import (
     AssistantMessage,
-    ClaudeCodeOptions,
+    ClaudeAgentOptions,
     ResultMessage,
     TextBlock,
     ToolUseBlock,
     query,
 )
-
-# ── SDK compatibility: handle unknown message types ─────────────────────────
-#
-# The Claude API sends message types (e.g., rate_limit_event) that SDK
-# v0.0.25 doesn't recognize. The SDK raises MessageParseError which kills
-# the async message iterator — the agent dies mid-execution with 0 files.
-#
-# Fix: patch parse_message to return None for unknown types. The SDK's
-# internal query loop skips None values. When the SDK adds native support
-# for these message types, remove this patch.
-#
-# Tracked: https://github.com/anthropics/claude-code-sdk-python/issues/XXX
-try:
-    from claude_code_sdk._internal import message_parser as _mp
-
-    _original_parse = _mp.parse_message
-
-    def _patched_parse(data):
-        try:
-            return _original_parse(data)
-        except Exception as e:
-            if "Unknown message type" in str(e):
-                return None
-            raise
-
-    _mp.parse_message = _patched_parse
-except (ImportError, AttributeError):
-    pass  # SDK internals changed — skip patching, original behavior applies
 
 from .prompts import (
     ANALYSIS_SYSTEM_PROMPT,
@@ -185,26 +157,20 @@ async def _query_sdk(
     allowed_tools: list[str] | None = None,
     add_dirs: list[str | Path] | None = None,
 ) -> tuple[list, ResultMessage | None]:
-    """Run a Claude Code query and collect all messages."""
-    extra: dict[str, str | None] = {}
-    if effort:
-        extra["effort"] = effort
-
-    options = ClaudeCodeOptions(
+    """Run a Claude Agent SDK query and collect all messages."""
+    options = ClaudeAgentOptions(
         system_prompt=system,
         model=model,
+        effort=effort,
         max_turns=max_turns,
         permission_mode="bypassPermissions",
         cwd=str(cwd) if cwd else None,
         allowed_tools=allowed_tools or ["Bash", "Read", "Write", "Edit"],
         add_dirs=[str(d) for d in add_dirs] if add_dirs else [],
-        extra_args=extra,
     )
 
     messages: list = []
     async for msg in query(prompt=prompt, options=options):
-        if msg is None:
-            continue
         messages.append(msg)
 
         # Log tool use for progress tracking
