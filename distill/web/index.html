@@ -11,12 +11,17 @@
 </head>
 <body>
     <div class="container">
-        <h1>distill</h1>
+        <div class="header-row">
+            <h1>distill</h1>
+            <button type="button" class="theme-toggle" id="theme-toggle" title="toggle theme" aria-label="toggle theme"></button>
+        </div>
         <p class="tagline">turn technical blogs, papers, and repos into hands-on coursework</p>
 
-        <!-- Configuration panel — always visible -->
-        <div id="setup-panel" class="setup-panel">
-            <h3>settings</h3>
+        <!-- Configuration panel — collapsible -->
+        <div id="setup-panel" class="setup-panel collapsed">
+            <h3 class="setup-toggle" id="setup-toggle">
+                <span class="setup-arrow"></span> settings
+            </h3>
             <div class="setup-row">
                 <label for="setup-provider">provider</label>
                 <select id="setup-provider">
@@ -76,7 +81,7 @@
                 <button type="button" class="link-btn" id="form-clear">clear form</button>
             </div>
 
-            <div class="field">
+            <div class="field field-primary">
                 <label for="url-input">source url</label>
                 <input type="url" id="url-input" name="url" placeholder="https://blog.example.com/deep-dive" required>
             </div>
@@ -102,7 +107,7 @@
                 <div class="field-hint">what languages/tools do you know? what's new to you?</div>
             </div>
 
-            <div class="field-row">
+            <div class="field-row field-secondary">
                 <div class="field">
                     <label for="design-model">design model <span class="hint">(analysis + curriculum)</span></label>
                     <select name="design_model" id="design-model"></select>
@@ -113,19 +118,32 @@
                 </div>
             </div>
 
-            <button type="submit" class="btn" id="go" disabled>generate</button>
+            <div class="sticky-btn-wrapper">
+                <button type="submit" class="btn" id="go" disabled>generate</button>
+            </div>
         </form>
 
         <div id="progress">
             <hr class="separator">
             <div class="phase-bar" id="phase-bar">
-                <span class="phase-bar-label" id="phase-label">starting...</span>
+                <div class="phase-bar-top">
+                    <span class="phase-bar-label" id="phase-label">starting...</span>
+                    <span class="phase-bar-stats">
+                        <span id="phase-elapsed"></span>
+                        <span id="phase-cost"></span>
+                    </span>
+                    <span class="phase-bar-detail" id="phase-detail"></span>
+                </div>
                 <div class="phase-bar-track">
                     <div class="phase-bar-fill" id="phase-fill"></div>
                 </div>
-                <span class="phase-bar-detail" id="phase-detail"></span>
             </div>
-            <div id="log" aria-live="polite"></div>
+            <div id="log-section">
+                <button type="button" class="log-toggle" id="log-toggle">
+                    <span class="setup-arrow"></span> log
+                </button>
+                <div id="log" class="log-collapsed" aria-live="polite"></div>
+            </div>
         </div>
 
         <div id="courses-section">
