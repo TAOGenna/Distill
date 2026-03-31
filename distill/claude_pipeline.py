@@ -523,10 +523,16 @@ async def _phase_generate(
     course_dir: Path,
     sources_dir: str | None,
 ) -> dict[int, dict]:
-    """Generate all modules in parallel via Claude Code agents."""
+    """Generate modules sequentially to avoid rate limits.
+
+    Claude Code sessions are heavy — each spawns a CLI subprocess that makes
+    multiple API calls. Running 5+ in parallel triggers rate limiting, causing
+    agents to die with 0 turns and 0 files. Sequential execution is slower
+    but reliable.
+    """
     curriculum = design.curriculum
     modules = curriculum.modules
-    _log_step(f"Phase 2: Generating {len(modules)} modules in parallel...")
+    _log_step(f"Phase 2: Generating {len(modules)} modules sequentially...")
     _emit({"type": "phase", "phase": "generate"})
 
     concept_lines = "\n".join(
@@ -542,7 +548,8 @@ async def _phase_generate(
 
     results: dict[int, dict] = {}
 
-    async def _run(module_spec: dict) -> None:
+    for module in modules:
+        module_spec = module.model_dump()
         idx = module_spec["module_index"]
         title = module_spec["title"]
         try:
@@ -556,14 +563,25 @@ async def _phase_generate(
                 course_dir=course_dir,
                 sources_dir=sources_dir,
             )
+
+            # Check if the agent actually produced files
+            if summary.get("files_written", 0) == 0:
+                _log(f"Module {idx} ({title}): 0 files — retrying...", _C.YELLOW)
+                _, summary = await _generate_module_claude(
+                    module_spec=module_spec,
+                    course_context=course_context,
+                    source_content=source_content,
+                    student_level=student_level,
+                    model=model,
+                    effort=effort,
+                    course_dir=course_dir,
+                    sources_dir=sources_dir,
+                )
+
             results[idx] = summary
         except Exception as e:
             print(f"  Module {idx} error: {e}", file=sys.stderr)
             _log(f"Module {idx} ({title}) failed ({type(e).__name__})", _C.RED)
-
-    async with anyio.create_task_group() as tg:
-        for module in modules:
-            tg.start_soon(_run, module.model_dump())
 
     generated = len(results)
     total = len(modules)
@@ -665,26 +683,26 @@ async def _phase_review(
             )
             return
 
-        # Fix with Claude Code agents
+        # Fix with Claude Code agents (sequential to avoid rate limits)
         module_map = {m.module_index: m for m in curriculum.modules}
 
-        async def _fix(idx: int, issues: list[str]) -> None:
+        for idx, issues in modules_with_issues.items():
             mod = module_map.get(idx)
             if not mod:
-                return
+                continue
             module_slug = f"module_{idx:02d}_{_slugify(mod.title)}"
-            module_dir = course_dir / module_slug
-            await _fix_module_claude(
-                module_dir=module_dir,
-                module_spec=mod.model_dump(),
-                issues=issues,
-                sources_dir=sources_dir,
-                model=model,
-            )
-
-        async with anyio.create_task_group() as tg:
-            for idx, issues in modules_with_issues.items():
-                tg.start_soon(_fix, idx, issues)
+            module_dir_path = course_dir / module_slug
+            try:
+                await _fix_module_claude(
+                    module_dir=module_dir_path,
+                    module_spec=mod.model_dump(),
+                    issues=issues,
+                    sources_dir=sources_dir,
+                    model=model,
+                )
+            except Exception as e:
+                print(f"  Module {idx} fix error: {e}", file=sys.stderr)
+                _log(f"Module {idx}: fix failed ({type(e).__name__})", _C.RED)
 
 
 # ── Main pipeline ────────────────────────────────────────────────────────────
