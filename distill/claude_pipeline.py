@@ -31,6 +31,43 @@ from claude_agent_sdk import (
     query,
 )
 
+
+# ── Cost tracking ───────────────────────────────────────────────────────────
+
+# Pricing per million tokens (USD)
+_PRICING: dict[str, dict[str, float]] = {
+    "opus": {"input": 15.0, "output": 75.0, "cache_creation": 18.75, "cache_read": 1.5},
+    "sonnet": {"input": 3.0, "output": 15.0, "cache_creation": 3.75, "cache_read": 0.3},
+    "haiku": {"input": 0.25, "output": 1.25, "cache_creation": 0.3, "cache_read": 0.03},
+}
+
+
+def _get_pricing(model: str) -> dict[str, float]:
+    """Get pricing tier for a model name."""
+    m = model.lower()
+    if "opus" in m:
+        return _PRICING["opus"]
+    if "haiku" in m:
+        return _PRICING["haiku"]
+    return _PRICING["sonnet"]
+
+
+def _cost_from_usage(usage: dict, model: str) -> float:
+    """Calculate cost in USD from a usage dict and model name."""
+    if not usage:
+        return 0.0
+    p = _get_pricing(model)
+    inp = usage.get("input_tokens", 0)
+    out = usage.get("output_tokens", 0)
+    cw = usage.get("cache_creation_input_tokens", 0)
+    cr = usage.get("cache_read_input_tokens", 0)
+    return (
+        (inp / 1e6) * p["input"]
+        + (out / 1e6) * p["output"]
+        + (cw / 1e6) * p["cache_creation"]
+        + (cr / 1e6) * p["cache_read"]
+    )
+
 from .prompts import (
     ANALYSIS_SYSTEM_PROMPT,
     CURRICULUM_DESIGN_SYSTEM_PROMPT,
@@ -156,8 +193,13 @@ async def _query_sdk(
     cwd: str | Path | None = None,
     allowed_tools: list[str] | None = None,
     add_dirs: list[str | Path] | None = None,
-) -> tuple[list, ResultMessage | None]:
-    """Run a Claude Agent SDK query and collect all messages."""
+) -> tuple[list, ResultMessage | None, dict]:
+    """Run a Claude Agent SDK query and collect all messages.
+
+    Returns (messages, result, usage) where usage is an aggregated dict with
+    input_tokens, output_tokens, cache_creation_input_tokens,
+    cache_read_input_tokens, cost_usd.
+    """
     options = ClaudeAgentOptions(
         system_prompt=system,
         model=model,
@@ -170,11 +212,21 @@ async def _query_sdk(
     )
 
     messages: list = []
+    agg = {"input_tokens": 0, "output_tokens": 0,
+           "cache_creation_input_tokens": 0, "cache_read_input_tokens": 0}
+
     async for msg in query(prompt=prompt, options=options):
         messages.append(msg)
 
-        # Log tool use for progress tracking
         if isinstance(msg, AssistantMessage):
+            # Accumulate tokens from each assistant turn
+            if msg.usage:
+                agg["input_tokens"] += msg.usage.get("input_tokens", 0)
+                agg["output_tokens"] += msg.usage.get("output_tokens", 0)
+                agg["cache_creation_input_tokens"] += msg.usage.get("cache_creation_input_tokens", 0)
+                agg["cache_read_input_tokens"] += msg.usage.get("cache_read_input_tokens", 0)
+
+            # Log tool use for progress tracking
             for block in msg.content:
                 if isinstance(block, TextBlock) and len(block.text) > 10:
                     _log(block.text[:120], _C.DIM)
@@ -185,7 +237,16 @@ async def _query_sdk(
                     _log(f"{block.name}({tool_args})", _C.BLUE)
 
     result = _extract_result(messages)
-    return messages, result
+    model_name = model or "sonnet"
+
+    # SDK has exact pricing (incl. ephemeral cache tiers) — prefer it
+    if result and result.total_cost_usd:
+        agg["cost_usd"] = result.total_cost_usd
+    else:
+        # Fallback: calculate from tokens (approximate, overestimates cache costs)
+        agg["cost_usd"] = _cost_from_usage(agg, model_name)
+
+    return messages, result, agg
 
 
 # ── Phase 1a: Analyze ────────────────────────────────────────────────────────
@@ -195,7 +256,7 @@ async def _phase_analyze(
     source_content: str,
     url: str,
     model: str,
-) -> Analysis:
+) -> tuple[Analysis, dict]:
     """Analyze source material via Claude Code → structured Analysis."""
     _log_step("Phase 1a: Analyzing source material...")
     _emit({"type": "phase", "phase": "analyze"})
@@ -209,7 +270,7 @@ async def _phase_analyze(
         f"Source content:\n\n{source_content}"
     )
 
-    messages, result = await _query_sdk(
+    messages, result, usage = await _query_sdk(
         prompt=prompt,
         system=ANALYSIS_SYSTEM_PROMPT,
         model=model,
@@ -232,11 +293,12 @@ async def _phase_analyze(
     _log(
         f"Analysis: {len(analysis.key_concepts)} concepts "
         f"({len(essential)} essential, {len(supporting)} supporting, "
-        f"{len(contextual)} contextual), type={analysis.content_type}",
+        f"{len(contextual)} contextual), type={analysis.content_type} "
+        f"(${usage['cost_usd']:.4f})",
         _C.GREEN,
     )
 
-    return analysis
+    return analysis, usage
 
 
 # ── Phase 1b: Blueprint Design ───────────────────────────────────────────────
@@ -248,7 +310,7 @@ async def _phase_design(
     url: str,
     student_level: str,
     model: str,
-) -> CurriculumDesign:
+) -> tuple[CurriculumDesign, dict]:
     """Design Blueprint via Claude Code → structured CurriculumDesign."""
     _log_step("Phase 1b: Designing Blueprint...")
     _emit({"type": "phase", "phase": "design"})
@@ -267,7 +329,7 @@ async def _phase_design(
         f"Source material:\n\n{source_content}"
     )
 
-    messages, result = await _query_sdk(
+    messages, result, usage = await _query_sdk(
         prompt=prompt,
         system=CURRICULUM_DESIGN_SYSTEM_PROMPT,
         model=model,
@@ -297,11 +359,11 @@ async def _phase_design(
 
     _log(
         f"Blueprint: {len(curriculum.modules)} modules, "
-        f"'{curriculum.course_title}'",
+        f"'{curriculum.course_title}' (${usage['cost_usd']:.4f})",
         _C.GREEN,
     )
 
-    return design
+    return design, usage
 
 
 # ── Phase 2: Module Generation ───────────────────────────────────────────────
@@ -486,7 +548,7 @@ async def _generate_module_claude(
 
     _log(f"Module {idx}: launching Claude Code agent...", _C.BLUE)
 
-    messages, result = await _query_sdk(
+    messages, result, usage = await _query_sdk(
         prompt=prompt,
         system=MODULE_CONVERSATION_SYSTEM_PROMPT,
         model=model,
@@ -497,20 +559,25 @@ async def _generate_module_claude(
         add_dirs=[sources_dir] if sources_dir else [],
     )
 
-    cost = result.total_cost_usd if result else 0.0
+    cost = usage["cost_usd"]
     turns = result.num_turns if result else 0
 
     # Count generated files
     files = list(module_dir.rglob("*"))
     file_count = sum(1 for f in files if f.is_file() and not f.name.startswith("_"))
 
-    _log(f"Module {idx} ({title}) generated ({file_count} files, {turns} turns)", _C.GREEN)
+    _log(
+        f"Module {idx} ({title}) generated "
+        f"({file_count} files, {turns} turns, ${cost:.4f})",
+        _C.GREEN,
+    )
     _emit({"type": "module_complete", "module_index": idx, "title": title})
 
     return idx, {
         "files_written": file_count,
         "turns": turns,
         "cost": cost,
+        "usage": usage,
     }
 
 
@@ -628,7 +695,7 @@ Instructions:
 
     _log(f"Module {idx}: fixing {len(issues)} issues...", _C.CYAN)
 
-    messages, result = await _query_sdk(
+    messages, result, usage = await _query_sdk(
         prompt=prompt,
         model=model,
         max_turns=20,
@@ -638,7 +705,8 @@ Instructions:
     )
 
     turns = result.num_turns if result else 0
-    _log(f"Module {idx}: fixes applied ({turns} turns)", _C.GREEN)
+    _log(f"Module {idx}: fixes applied ({turns} turns, ${usage['cost_usd']:.4f})", _C.GREEN)
+    return usage
 
 
 async def _phase_review(
@@ -647,13 +715,15 @@ async def _phase_review(
     sources_dir: str | None,
     model: str,
     max_revision_cycles: int = 1,
-) -> None:
+) -> float:
     """Phase 3: pre-flight validation + Claude Code fix agent."""
     from .pipeline import _preflight_module
 
     curriculum = design.curriculum
     _log_step("Phase 3: Reviewing generated modules...")
     _emit({"type": "phase", "phase": "review"})
+
+    review_cost = 0.0
 
     for cycle in range(max_revision_cycles + 1):
         if cycle > 0:
@@ -675,14 +745,14 @@ async def _phase_review(
 
         if not modules_with_issues:
             _log("All modules passed pre-flight", _C.GREEN)
-            return
+            return review_cost
 
         if cycle >= max_revision_cycles:
             _log(
                 f"{len(modules_with_issues)} modules still have issues (max cycles reached)",
                 _C.YELLOW,
             )
-            return
+            return review_cost
 
         # Fix with Claude Code agents (sequential to avoid rate limits)
         module_map = {m.module_index: m for m in curriculum.modules}
@@ -694,16 +764,20 @@ async def _phase_review(
             module_slug = f"module_{idx:02d}_{_slugify(mod.title)}"
             module_dir_path = course_dir / module_slug
             try:
-                await _fix_module_claude(
+                fix_usage = await _fix_module_claude(
                     module_dir=module_dir_path,
                     module_spec=mod.model_dump(),
                     issues=issues,
                     sources_dir=sources_dir,
                     model=model,
                 )
+                if fix_usage:
+                    review_cost += fix_usage.get("cost_usd", 0.0)
             except Exception as e:
                 print(f"  Module {idx} fix error: {e}", file=sys.stderr)
                 _log(f"Module {idx}: fix failed ({type(e).__name__})", _C.RED)
+
+    return review_cost
 
 
 # ── Main pipeline ────────────────────────────────────────────────────────────
@@ -741,12 +815,22 @@ async def run_claude_pipeline(
         source_content = f"[No preprocessed sources — original URL: {url}]"
     _log(f"Source content: ~{len(source_content) // 4} tokens", _C.DIM)
 
+    # Aggregate usage across all phases
+    total_usage = {"input_tokens": 0, "output_tokens": 0,
+                   "cache_creation_input_tokens": 0, "cache_read_input_tokens": 0}
+
+    def _accum(u: dict) -> None:
+        for k in total_usage:
+            total_usage[k] += u.get(k, 0)
+
     # ── Phase 1a: Analyze ─────────────────────────────────────────────────
-    analysis = await _phase_analyze(
+    analysis, analyze_usage = await _phase_analyze(
         source_content=source_content,
         url=url,
         model=design_model,
     )
+    total_cost += analyze_usage["cost_usd"]
+    _accum(analyze_usage)
 
     abs_output_dir = Path(output_dir).resolve()
     abs_output_dir.mkdir(parents=True, exist_ok=True)
@@ -755,13 +839,15 @@ async def run_claude_pipeline(
     )
 
     # ── Phase 1b: Blueprint Design ────────────────────────────────────────
-    design = await _phase_design(
+    design, design_usage = await _phase_design(
         analysis=analysis,
         source_content=source_content,
         url=url,
         student_level=user_level,
         model=design_model,
     )
+    total_cost += design_usage["cost_usd"]
+    _accum(design_usage)
 
     curriculum = design.curriculum
     course_slug = _slugify(curriculum.course_title)
@@ -814,18 +900,21 @@ async def run_claude_pipeline(
     # Accumulate costs from module generation
     for summary in module_outputs.values():
         total_cost += summary.get("cost", 0.0)
+        if "usage" in summary and summary["usage"]:
+            _accum(summary["usage"])
 
     # ── Phase 3: Review + Fix ─────────────────────────────────────────────
     if not module_outputs:
         _log("Skipping review — no modules were generated", _C.YELLOW)
     else:
-        await _phase_review(
+        review_cost = await _phase_review(
             design=design,
             course_dir=course_dir,
             sources_dir=sources_dir,
-            model=generate_model,  # use cheaper model for fixes
+            model=generate_model,
             max_revision_cycles=max_revision_cycles,
         )
+        total_cost += review_cost
 
     # ── Done ──────────────────────────────────────────────────────────────
     _emit({"type": "phase", "phase": "done"})
@@ -853,5 +942,10 @@ async def run_claude_pipeline(
     return {
         "course_dir": str(course_dir),
         "total_cost_usd": total_cost,
-        "usage": None,
+        "usage": {
+            "input_tokens": total_usage["input_tokens"],
+            "output_tokens": total_usage["output_tokens"],
+            "cache_creation_input_tokens": total_usage["cache_creation_input_tokens"],
+            "cache_read_input_tokens": total_usage["cache_read_input_tokens"],
+        },
     }
