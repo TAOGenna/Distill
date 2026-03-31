@@ -136,7 +136,7 @@ Two pipeline paths: **LiteLLM** (multi-provider, requires API key) and **Claude 
 ## Development
 
 ```bash
-git clone https://github.com/TAOGenna/distill.git
+git clone https://github.com/TAOGenna/Distill.git
 cd distill
 uv sync
 uv run python -m distill            # default port 8420
