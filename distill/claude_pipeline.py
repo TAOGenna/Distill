@@ -260,65 +260,21 @@ async def _phase_design(
     url: str,
     student_level: str,
     model: str,
-    output_dir: Path,
 ) -> CurriculumDesign:
-    """Design Blueprint via Claude Code → writes JSON file → Python validates."""
+    """Design Blueprint via Claude Code → structured CurriculumDesign."""
     _log_step("Phase 1b: Designing Blueprint...")
     _emit({"type": "phase", "phase": "design"})
 
     analysis_json = analysis.model_dump_json(indent=2)
     today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-    blueprint_path = output_dir / "_blueprint.json"
-
-    # Give a concrete example of the structure instead of the full JSON schema
-    example_exercise = {
-        "title": "Example Exercise Title",
-        "type": "implement",
-        "description": "What the exercise does",
-        "scaffolding_level": "heavy",
-        "what_is_provided": "imports, class structure, __main__ harness (~65% of file)",
-        "what_student_writes": "function_name() — the core algorithm (~10-15 lines)",
-        "milestone": "Prints a comparison table showing correct vs student output",
-        "key_insight": "The single most important thing this exercise teaches",
-        "common_mistakes": "mistake 1; mistake 2",
-        "expected_output_pattern": "a string that should appear in stdout",
-    }
-    example_module = {
-        "module_index": 1,
-        "title": "Module Title as a Claim",
-        "description": "What this module covers",
-        "learning_objectives": ["objective 1", "objective 2"],
-        "concepts_covered": ["concept1", "concept2"],
-        "depends_on": [],
-        "exercises": [example_exercise],
-        "inline_questions": [{"question": "Level 3+ question", "context": "context"}],
-        "visible_outcome": "What the student produces",
-        "key_excerpts": ["verbatim passage from source with formulas/algorithms"],
-    }
 
     prompt = (
-        f"Design a progressive course Blueprint. Write the result as a JSON file "
-        f"to: {blueprint_path}\n\n"
-        f"The JSON must have this structure:\n"
-        f'{{"curriculum": {{"course_title": "...", "course_description": "...", '
-        f'"modules": [<module objects>]}}, '
-        f'"shared_definitions": {{"language": "python", "dependencies": [...], '
-        f'"naming_convention": "snake_case"}}, '
-        f'"root_readme": "<full README.md content>", '
-        f'"requirements": "<requirements.txt content>"}}\n\n'
-        f"Each module must look like:\n{json.dumps(example_module, indent=2)}\n\n"
-        f"Exercise types: implement, fill_blank, debug, analyze, extend, "
-        f"contrastive, comparative, explore\n"
-        f"Scaffolding levels: heavy, medium, light, none\n\n"
-        f"RULES:\n"
-        f"- Design 3-6 modules with 3-5 exercises each\n"
-        f"- key_excerpts: VERBATIM passages from the source (formulas, algorithms, numbers)\n"
-        f"- what_is_provided: ~65% of each exercise file\n"
-        f"- what_student_writes: ~35%, with line count estimates\n"
-        f"- root_readme: full course README with learning path and What's Next section\n"
-        f"- Metadata line in readme: '---\\n_Generated from {url} on {today} by distill._'\n\n"
+        f"Design a progressive course Blueprint and respond with a JSON object "
+        f"matching this exact schema. Output ONLY valid JSON.\n\n"
+        f"Schema:\n{json.dumps(CurriculumDesign.model_json_schema(), indent=2)}\n\n"
         f"Source URL: {url}\n"
-        f"Student level: {student_level}\n\n"
+        f"Student level: {student_level}\n"
+        f"Date: {today}\n\n"
         f"Analysis:\n{analysis_json}\n\n"
         f"Source material:\n\n{source_content}"
     )
@@ -327,27 +283,15 @@ async def _phase_design(
         prompt=prompt,
         system=CURRICULUM_DESIGN_SYSTEM_PROMPT,
         model=model,
-        effort="high",
-        max_turns=10,
-        cwd=output_dir,
-        allowed_tools=["Write", "Read"],  # let it write the JSON file
+        effort="high",  # Blueprint design needs deep thinking
+        max_turns=5,
+        allowed_tools=[],
     )
 
-    # Read the file the agent wrote
-    data = None
-    if blueprint_path.exists():
-        try:
-            data = json.loads(blueprint_path.read_text())
-        except json.JSONDecodeError:
-            pass
-
-    # Fallback: try to extract JSON from the conversation text
+    text = _extract_text(messages)
+    data = _extract_json(text)
     if data is None:
-        text = _extract_text(messages)
-        data = _extract_json(text)
-
-    if data is None:
-        raise ValueError("Phase 1b: Claude Code did not produce valid Blueprint JSON")
+        raise ValueError("Phase 1b: Claude Code did not return valid JSON for CurriculumDesign")
 
     design = CurriculumDesign(**data)
     curriculum = design.curriculum
@@ -798,7 +742,6 @@ async def run_claude_pipeline(
         url=url,
         student_level=user_level,
         model=design_model,
-        output_dir=abs_output_dir,
     )
 
     curriculum = design.curriculum
