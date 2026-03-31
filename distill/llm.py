@@ -74,6 +74,7 @@ PROVIDER_DEFAULTS: dict[str, dict[str, str]] = {
     "ollama": {"design": "llama3", "generate": "llama3"},
     "openrouter": {"design": "anthropic/claude-opus-4-6", "generate": "anthropic/claude-sonnet-4-6"},
     "mock": {"design": "mock", "generate": "mock"},
+    "claude_code": {"design": "opus", "generate": "sonnet"},
 }
 
 

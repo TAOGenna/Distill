@@ -179,7 +179,7 @@ async def _generate_endpoint(request: Request) -> JSONResponse:
     has_key = bool(provider_key or (env_var and os.environ.get(env_var)))
 
     # Ollama doesn't need a key
-    if provider not in ("ollama", "mock") and not has_key:
+    if provider not in ("ollama", "mock", "claude_code") and not has_key:
         return JSONResponse(
             {"error": f"no API key configured for {provider} — set it in settings"},
             status_code=400,
@@ -243,20 +243,35 @@ async def _run_generation(
         emit({"type": "log", "message": "sources ready", "level": "ok"})
 
         # ── Pipeline ──────────────────────────────────────────────────
-        result = await run_pipeline(
-            url=url,
-            user_level=level,
-            refs=refs,
-            series=series,
-            output_dir=output_dir,
-            provider=provider,
-            api_key=api_key,
-            design_model=design_model,
-            generate_model=generate_model,
-            max_revision_cycles=max_revision_cycles,
-            sources_dir=str(sources_dir),
-            on_event=emit,
-        )
+        if provider == "claude_code":
+            from .claude_pipeline import run_claude_pipeline
+            result = await run_claude_pipeline(
+                url=url,
+                user_level=level,
+                refs=refs,
+                series=series,
+                output_dir=output_dir,
+                design_model=design_model or "opus",
+                generate_model=generate_model or "sonnet",
+                max_revision_cycles=max_revision_cycles,
+                sources_dir=str(sources_dir),
+                on_event=emit,
+            )
+        else:
+            result = await run_pipeline(
+                url=url,
+                user_level=level,
+                refs=refs,
+                series=series,
+                output_dir=output_dir,
+                provider=provider,
+                api_key=api_key,
+                design_model=design_model,
+                generate_model=generate_model,
+                max_revision_cycles=max_revision_cycles,
+                sources_dir=str(sources_dir),
+                on_event=emit,
+            )
 
         # Cleanup preprocessed sources
         shutil.rmtree(sources_dir, ignore_errors=True)
