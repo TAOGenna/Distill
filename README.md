@@ -13,9 +13,10 @@ distill
 # → opens http://localhost:8420
 ```
 
-1. Pick a provider (OpenAI, Anthropic, Google, Ollama, OpenRouter) and add your API key
+1. Pick a provider (Anthropic, OpenAI, Google, Ollama, OpenRouter, Claude Code) and add your API key
 2. Paste a URL, describe your background, hit generate
-3. A course appears in your output directory — lesson documents + exercise files
+3. Watch the DAG visualization as modules build in real-time
+4. A course appears in your output directory — lesson documents + exercise files
 
 ## What Gets Generated
 
@@ -118,15 +119,19 @@ Python pre-flight checks (syntax, TODO markers, file length, output patterns) ca
 
 ## Providers
 
-Works with any LLM provider via [LiteLLM](https://github.com/BerriAI/litellm):
+Two pipeline paths: **LiteLLM** (multi-provider, requires API key) and **Claude Code** (standalone, uses your Claude Code CLI auth).
 
-| Provider | Design model default | Generate model default |
-|---|---|---|
-| OpenAI | gpt-5.4 | gpt-5.4 |
-| Anthropic | claude-opus-4-6 | claude-sonnet-4-6 |
-| Google | gemini-2.5-pro | gemini-2.5-flash |
-| Ollama | llama3 | llama3 |
-| OpenRouter | claude-opus-4-6 | claude-sonnet-4-6 |
+| Provider | Pipeline | Design model default | Generate model default |
+|---|---|---|---|
+| Anthropic | LiteLLM | claude-opus-4-6 | claude-sonnet-4-6 |
+| OpenAI | LiteLLM | gpt-5.4 | gpt-5.4 |
+| Google | LiteLLM | gemini-2.5-pro | gemini-2.5-flash |
+| Ollama | LiteLLM | llama3 | llama3 |
+| OpenRouter | LiteLLM | claude-opus-4-6 | claude-sonnet-4-6 |
+| Claude Code | Agent SDK | claude-opus-4-6 | claude-sonnet-4-6 |
+| Mock | -- | -- | -- |
+
+**Mock** runs the full pipeline with canned responses for zero-cost end-to-end testing.
 
 ## Development
 
@@ -134,8 +139,11 @@ Works with any LLM provider via [LiteLLM](https://github.com/BerriAI/litellm):
 git clone https://github.com/TAOGenna/distill.git
 cd distill
 uv sync
-uv run distill
+uv run python -m distill            # default port 8420
+uv run python -m distill --port 8421 # run on a different port
 ```
+
+The web UI supports dark mode (follows OS setting or use the toggle in the header).
 
 ## Acknowledgments
 

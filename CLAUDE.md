@@ -4,20 +4,23 @@
 
 ```
 distill/
-├── __main__.py       # python -m distill
-├── cli.py            # Server launcher (web UI only)
-├── server.py         # Local Starlette web server + SSE progress streaming
-├── fetch.py          # Source preprocessing — URL → local artifacts (no LLM)
-├── pipeline.py       # Course generation pipeline — multi-turn conversations
-├── llm.py            # LLM client (LiteLLM + Instructor) — provider abstraction
-├── sources.py        # Source budget management — read + truncate/summarize
-├── prompts.py        # System prompts + turn templates for conversational flow
-├── schemas.py        # Pydantic models (Blueprint schemas + review schemas)
-└── web/              # Static frontend (no build step, no node_modules)
-    ├── index.html    # Generation form + progress + course list + settings
-    ├── style.css     # JetBrains Mono, monochrome aesthetic
-    ├── app.js        # Vanilla JS — SSE, form handling, DAG visualization
-    └── test_dag.html # Standalone DAG test page with mock data presets
+├── __main__.py           # python -m distill
+├── cli.py                # Server launcher (web UI only)
+├── server.py             # Local Starlette web server + SSE progress streaming
+├── fetch.py              # Source preprocessing — URL → local artifacts (no LLM)
+├── pipeline.py           # Course generation pipeline — multi-turn conversations (LiteLLM)
+├── claude_pipeline.py    # Course generation pipeline — Claude Agent SDK (standalone)
+├── llm.py                # LLM client (LiteLLM + Instructor) — provider abstraction
+├── mock.py               # Mock LLM client for zero-cost end-to-end testing
+├── sources.py            # Source budget management — read + truncate/summarize
+├── prompts.py            # System prompts + turn templates for conversational flow
+├── schemas.py            # Pydantic models (Blueprint schemas + review schemas)
+└── web/                  # Static frontend (no build step, no node_modules)
+    ├── index.html        # Generation form + progress + course list + settings
+    ├── style.css         # JetBrains Mono, monochrome, CSS custom properties + dark theme
+    ├── app.js            # Vanilla JS — SSE, form handling, DAG visualization
+    ├── test_dag.html     # Standalone DAG test page with mock data presets
+    └── test_iso.html     # Isometric icon tuning page
 ```
 
 ## Goal
@@ -48,7 +51,12 @@ The target is MIT 6.102-level course material, not README summaries. Each module
 
 ## Architecture
 
-Multi-provider pipeline via LiteLLM. Supports Anthropic, OpenAI, Google, Ollama, OpenRouter. Web UI is the sole interface.
+Two pipeline implementations share the same phases, schemas, and prompts:
+
+- **LiteLLM pipeline** (`pipeline.py`): Multi-provider via LiteLLM + Instructor. Supports Anthropic, OpenAI, Google, Ollama, OpenRouter. Full cost tracking via `litellm.completion_cost()`.
+- **Claude Code pipeline** (`claude_pipeline.py`): Standalone mode using Claude Agent SDK. No external API keys — uses Claude Code CLI for auth. Cost tracking via `AssistantMessage.usage` token accumulation with `ResultMessage.total_cost_usd` as primary source (fallback to token-based calculation when SDK returns None).
+
+Web UI is the sole interface.
 
 ```
 Browser → http://localhost:8420
@@ -165,11 +173,13 @@ Providers: anthropic, openai, google, ollama, openrouter.
 
 ## Web UI
 
-- **Settings panel** (top of page): provider, API key, output dir, review rounds
-- **Form**: URL, refs, series mode, background description, model selection
+- **Settings panel**: collapsible (auto-collapses when API key is set), provider, API key, output dir, review rounds
+- **Form**: URL input (visually prominent), refs, series mode, background profiles, model selection, sticky generate button
 - **Presets**: save/load full form configs, background profiles
-- **Progress**: persistent phase bar with percentage, scrollable log, DAG visualization
-- **DAG**: Brilliant-style topological layout, animated edge drawing, progressive node activation with checkmarks
+- **Progress**: phase bar (8px, striped animation, elapsed timer, live cost), collapsible log (auto-hides during generation)
+- **DAG**: Brilliant-style topological layout, 76px isometric icons, sequenced edge animation per-layer, three node states (pending/active/generated), edges darken on completion
+- **Theme**: dark/light via `prefers-color-scheme` + manual toggle, all colors as CSS custom properties
+- **Events**: `log`, `phase`, `curriculum`, `module_start`, `module_complete`, `cost`
 - Config persists to `~/.config/distill/config.json` (chmod 600)
 
 ## Key Design Decisions
@@ -191,7 +201,11 @@ Observable milestones replace tests. Each exercise ends with a `__main__` block 
 - Key masking: only last 4 chars shown in UI
 
 ### Event Emission
-`pipeline.py` uses a `ContextVar`-based event sink for real-time progress. Event types: `log`, `phase`, `curriculum`, `module_complete`.
+Both pipelines use a `ContextVar`-based event sink for real-time progress. Event types: `log`, `phase`, `curriculum`, `module_start`, `module_complete`, `cost`.
+
+### Cost Tracking
+- **LiteLLM path**: `litellm.completion_cost()` per call, accumulated across all phases.
+- **Claude Code path**: Token accumulation from `AssistantMessage.usage` on every SDK message. Primary cost from `ResultMessage.total_cost_usd` (SDK has exact ephemeral cache tier pricing); fallback to token-based calculation with hardcoded rates when SDK returns None. Pricing table covers opus/sonnet/haiku with input, output, cache_creation, cache_read rates per million tokens.
 
 ## Quality Reference Courses
 
