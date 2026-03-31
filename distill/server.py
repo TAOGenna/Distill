@@ -317,15 +317,23 @@ async def _events_endpoint(request: Request) -> StreamingResponse | JSONResponse
     event_queue: queue.Queue = job["queue"]
 
     async def stream():
+        heartbeat_interval = 15  # seconds
+        last_event_time = time.time()
         while True:
             try:
                 event = event_queue.get_nowait()
             except queue.Empty:
+                # Send heartbeat to keep SSE connection alive during long generations
+                now = time.time()
+                if now - last_event_time > heartbeat_interval:
+                    yield f"data: {json.dumps({'type': 'heartbeat'})}\n\n"
+                    last_event_time = now
                 await asyncio.sleep(0.15)
                 continue
             if event is None:
                 break
             yield f"data: {json.dumps(event)}\n\n"
+            last_event_time = time.time()
 
     return StreamingResponse(
         stream(),

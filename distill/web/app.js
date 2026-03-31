@@ -9,14 +9,49 @@ const goBtn = $("#go");
 
 let genStart = null;
 let flowNodes = {};   // module_index → DOM node
+let flowEdges = {};   // "fromIdx-toIdx" → SVG path element
+let flowEdgeMeta = []; // [{pathEl, fromIdx, toIdx}] — null fromIdx = root dot
 let flowActive = false;
 let generating = false;
 let totalModules = 0;
 let completedModuleSet = new Set();
+let activeModuleSet = new Set();
+let elapsedTimer = null;
+let liveCostUsd = 0;
+let liveTokensIn = 0;
+let liveTokensOut = 0;
+
+/* ── Theme toggle ────────────────────────────────── */
+
+function getEffectiveTheme() {
+  var stored = localStorage.getItem("distill_theme");
+  if (stored === "dark" || stored === "light") return stored;
+  return window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+}
+
+function applyTheme(theme) {
+  document.documentElement.setAttribute("data-theme", theme);
+  ISO_PALETTES = theme === "dark" ? ISO_PALETTES_DARK : ISO_PALETTES_LIGHT;
+}
+
+// Apply saved theme immediately
+(function () {
+  var stored = localStorage.getItem("distill_theme");
+  if (stored) document.documentElement.setAttribute("data-theme", stored);
+})();
+
+if ($("#theme-toggle")) {
+  $("#theme-toggle").addEventListener("click", function () {
+    var current = getEffectiveTheme();
+    var next = current === "dark" ? "light" : "dark";
+    localStorage.setItem("distill_theme", next);
+    applyTheme(next);
+  });
+}
 
 /* ── Isometric icon builder ───────────────────────── */
 
-var ISO_PALETTES = {
+var ISO_PALETTES_LIGHT = {
   generated: {
     bottom: { left: "#2e2e2e", right: "#444444", top: "#5a5a5a" },
     top:    { left: "#a5a5a5", right: "#666666", top: "#888888" },
@@ -26,6 +61,32 @@ var ISO_PALETTES = {
     top:    { left: "#bebebe", right: "#bebebe", top: "#f0f0f0" },
   },
 };
+
+var ISO_PALETTES_DARK = {
+  generated: {
+    bottom: { left: "#888888", right: "#aaaaaa", top: "#cccccc" },
+    top:    { left: "#cccccc", right: "#999999", top: "#e0e0e0" },
+  },
+  pending: {
+    bottom: { left: "#444444", right: "#444444", top: "#555555" },
+    top:    { left: "#444444", right: "#444444", top: "#555555" },
+  },
+};
+
+function isDarkMode() {
+  return getEffectiveTheme() === "dark";
+}
+
+var ISO_PALETTES = isDarkMode() ? ISO_PALETTES_DARK : ISO_PALETTES_LIGHT;
+
+// Update palette when OS theme changes (only if no manual override)
+if (window.matchMedia) {
+  window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", function () {
+    if (!localStorage.getItem("distill_theme")) {
+      ISO_PALETTES = getEffectiveTheme() === "dark" ? ISO_PALETTES_DARK : ISO_PALETTES_LIGHT;
+    }
+  });
+}
 
 function isoIcon(size, palette) {
   var S = 13 * (size / 60);
@@ -105,7 +166,35 @@ function updateFormState() {
 
 function markConfigured() {
   apiKeySet = true;
+  // Auto-collapse settings when configured
+  var panel = $("#setup-panel");
+  if (panel) panel.classList.add("collapsed");
   updateFormState();
+}
+
+/* ── Settings toggle ────────────────────────────── */
+
+if ($("#setup-toggle")) {
+  $("#setup-toggle").addEventListener("click", function () {
+    var panel = $("#setup-panel");
+    panel.classList.toggle("collapsed");
+  });
+}
+
+/* ── Log toggle ─────────────────────────────────── */
+
+if ($("#log-toggle")) {
+  $("#log-toggle").addEventListener("click", function () {
+    var section = $("#log-section");
+    section.classList.toggle("collapsed");
+    var log = $("#log");
+    if (section.classList.contains("collapsed")) {
+      log.classList.add("log-collapsed");
+    } else {
+      log.classList.remove("log-collapsed");
+      log.scrollTop = log.scrollHeight;
+    }
+  });
 }
 
 // Load config
@@ -207,7 +296,14 @@ if ($("#setup-provider")) {
   });
 }
 
-$("#browse-output").addEventListener("click", async () => {
+/* ── Form-dependent listeners (guarded for test pages) ── */
+
+function _bind(sel, evt, fn) {
+  var el = $(sel);
+  if (el) el.addEventListener(evt, fn);
+}
+
+_bind("#browse-output", "click", async () => {
   var btn = $("#browse-output");
   btn.disabled = true;
   try {
@@ -225,7 +321,7 @@ $("#browse-output").addEventListener("click", async () => {
   btn.disabled = false;
 });
 
-$("#save-output").addEventListener("click", async () => {
+_bind("#save-output", "click", async () => {
   const dir = $("#cfg-output").value.trim();
   if (!dir) return;
   await fetch("/api/config", {
@@ -235,8 +331,7 @@ $("#save-output").addEventListener("click", async () => {
   });
 });
 
-// Auto-save output dir on blur too (not just the save button)
-$("#cfg-output").addEventListener("blur", async () => {
+_bind("#cfg-output", "blur", async () => {
   const dir = $("#cfg-output").value.trim();
   if (!dir) return;
   await fetch("/api/config", {
@@ -246,8 +341,7 @@ $("#cfg-output").addEventListener("blur", async () => {
   });
 });
 
-// Persist model selections on change
-$("#design-model").addEventListener("change", async () => {
+_bind("#design-model", "change", async () => {
   await fetch("/api/config", {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
@@ -255,7 +349,7 @@ $("#design-model").addEventListener("change", async () => {
   });
 });
 
-$("#generate-model").addEventListener("change", async () => {
+_bind("#generate-model", "change", async () => {
   await fetch("/api/config", {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
@@ -263,7 +357,7 @@ $("#generate-model").addEventListener("change", async () => {
   });
 });
 
-$("#cfg-revision-cycles").addEventListener("change", async () => {
+_bind("#cfg-revision-cycles", "change", async () => {
   await fetch("/api/config", {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
@@ -271,7 +365,7 @@ $("#cfg-revision-cycles").addEventListener("change", async () => {
   });
 });
 
-$("#cfg-effort").addEventListener("change", async () => {
+_bind("#cfg-effort", "change", async () => {
   await fetch("/api/config", {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
@@ -281,9 +375,8 @@ $("#cfg-effort").addEventListener("change", async () => {
 
 /* ── Auto-grow textarea + live form validation ────── */
 
-$("#url-input").addEventListener("input", updateFormState);
-$("#level-input").addEventListener("input", () => {
-  // Auto-grow
+_bind("#url-input", "input", updateFormState);
+_bind("#level-input", "input", () => {
   var el = $("#level-input");
   el.style.height = "auto";
   el.style.height = el.scrollHeight + "px";
@@ -299,7 +392,7 @@ document.querySelectorAll("textarea:not(#level-input)").forEach((el) => {
 
 /* ── Refs ─────────────────────────────────────────── */
 
-$("#add-ref").addEventListener("click", () => {
+_bind("#add-ref", "click", () => {
   const row = document.createElement("div");
   row.className = "ref-row";
   row.innerHTML =
@@ -374,6 +467,14 @@ function updateProgressBar(phase, detail) {
   fill.style.width = w.start + "%";
   label.textContent = phaseLabels[phase] || phase;
   det.textContent = detail || "";
+
+  // Stripe animation when actively working
+  if (phase === "done") {
+    fill.classList.remove("active");
+    stopElapsedTimer();
+  } else {
+    fill.classList.add("active");
+  }
 }
 
 function updateModuleProgress() {
@@ -384,6 +485,39 @@ function updateModuleProgress() {
   var pct = w.start + ((w.end - w.start) * Math.min(completed, totalModules) / Math.max(totalModules, 1));
   fill.style.width = pct + "%";
   det.textContent = Math.min(completed, totalModules) + "/" + totalModules;
+}
+
+function startElapsedTimer() {
+  stopElapsedTimer();
+  var el = $("#phase-elapsed");
+  if (!el) return;
+  function tick() {
+    if (!genStart) return;
+    var secs = Math.floor((Date.now() - genStart) / 1000);
+    var mm = String(Math.floor(secs / 60)).padStart(2, "0");
+    var ss = String(secs % 60).padStart(2, "0");
+    el.textContent = mm + ":" + ss;
+  }
+  tick();
+  elapsedTimer = setInterval(tick, 1000);
+}
+
+function stopElapsedTimer() {
+  if (elapsedTimer) {
+    clearInterval(elapsedTimer);
+    elapsedTimer = null;
+  }
+}
+
+function updateLiveCost(costData) {
+  if (!costData) return;
+  if (costData.total_cost_usd != null) liveCostUsd = costData.total_cost_usd;
+  if (costData.input_tokens != null) liveTokensIn = costData.input_tokens;
+  if (costData.output_tokens != null) liveTokensOut = costData.output_tokens;
+  var el = $("#phase-cost");
+  if (el && liveCostUsd > 0) {
+    el.textContent = "$" + liveCostUsd.toFixed(4);
+  }
 }
 
 /* ── beforeunload guard ──────────────────────────── */
@@ -397,7 +531,7 @@ window.addEventListener("beforeunload", function (e) {
 
 /* ── Generate ─────────────────────────────────────── */
 
-form.addEventListener("submit", async (e) => {
+if (form) form.addEventListener("submit", async (e) => {
   e.preventDefault();
 
   const fd = new FormData(form);
@@ -418,11 +552,25 @@ form.addEventListener("submit", async (e) => {
   goBtn.classList.add("generating");
   logEl.innerHTML = "";
   progressEl.classList.add("active");
+  // Expand log by default at start of generation
+  var logSection = $("#log-section");
+  if (logSection) logSection.classList.remove("collapsed");
+  var logBox = $("#log");
+  if (logBox) logBox.classList.remove("log-collapsed");
   genStart = Date.now();
   flowNodes = {};
+  flowEdges = {};
+  flowEdgeMeta = [];
   flowActive = false;
   totalModules = 0;
   completedModuleSet = new Set();
+  activeModuleSet = new Set();
+  liveCostUsd = 0;
+  liveTokensIn = 0;
+  liveTokensOut = 0;
+  if ($("#phase-elapsed")) $("#phase-elapsed").textContent = "";
+  if ($("#phase-cost")) $("#phase-cost").textContent = "";
+  startElapsedTimer();
   updateProgressBar("preprocess", "");
 
   try {
@@ -453,22 +601,45 @@ function connectSSE(jobId) {
   src.onmessage = (e) => {
     const ev = JSON.parse(e.data);
 
-    if (ev.type === "phase") {
+    if (ev.type === "heartbeat") {
+      return; // keep-alive, ignore
+    } else if (ev.type === "phase") {
       updateProgressBar(ev.phase, "");
       appendPhase(ev.phase);
+      // When entering generate phase, collapse log to foreground the DAG
+      if (ev.phase === "generate") {
+        var ls = $("#log-section");
+        if (ls) ls.classList.add("collapsed");
+        var lb = $("#log");
+        if (lb) lb.classList.add("log-collapsed");
+      }
     } else if (ev.type === "log") {
       appendLog(ev.message, ev.level || "");
+      // Update live cost if present
+      if (ev.cost) updateLiveCost(ev.cost);
     } else if (ev.type === "curriculum") {
       totalModules = ev.data.modules ? ev.data.modules.length : 0;
       renderCurriculumFlow(ev.data);
+    } else if (ev.type === "module_start") {
+      // Mark module as actively generating
+      activeModuleSet.add(ev.module_index);
+      markFlowNodeActive(ev.module_index);
+      appendLog(
+        "module " + ev.module_index + " (" + (ev.title || "") + ") started",
+        "dim"
+      );
     } else if (ev.type === "module_complete") {
+      activeModuleSet.delete(ev.module_index);
       completedModuleSet.add(ev.module_index);
       updateModuleProgress();
       activateFlowNode(ev.module_index);
+      updateEdgeStates();
       appendLog(
         "module " + ev.module_index + " (" + ev.title + ") generated",
         "ok"
       );
+    } else if (ev.type === "cost") {
+      updateLiveCost(ev);
     } else if (ev.type === "complete") {
       updateProgressBar("done", "");
       showResult(ev.result);
@@ -541,6 +712,10 @@ function showResult(result) {
     }
   }
 
+  // Remove previous banner if any
+  var oldBanner = progressEl.querySelector(".result-banner");
+  if (oldBanner) oldBanner.remove();
+
   // Show success banner
   var banner = document.createElement("div");
   banner.className = "result-banner";
@@ -558,8 +733,16 @@ function showResult(result) {
 
 /* ── Course flow visualization (Brilliant-style) ── */
 
+var ICON_SIZE = 76;
+
 function renderCurriculumFlow(data) {
+  // Remove previous DAG if any
+  var old = document.getElementById("course-result");
+  if (old) old.remove();
+
   flowNodes = {};
+  flowEdges = {};
+  flowEdgeMeta = [];
   flowActive = true;
 
   var modules = data.modules;
@@ -618,7 +801,7 @@ function renderCurriculumFlow(data) {
       if (d > maxLayer) maxLayer = d;
     });
 
-    var layerSpacing = 120;
+    var layerSpacing = 140;
     var startY = 24;
     var startX = W * 0.5;
     var totalH = startY + (maxLayer + 2) * layerSpacing;
@@ -634,7 +817,7 @@ function renderCurriculumFlow(data) {
         if (count === 1) {
           x = layer % 2 === 0 ? W * 0.35 : W * 0.65;
         } else {
-          var margin = W * 0.2;
+          var margin = W * 0.15;
           var usable = W - 2 * margin;
           x = margin + (usable * (i + 0.5)) / count;
         }
@@ -649,88 +832,92 @@ function renderCurriculumFlow(data) {
     svg.style.cssText =
       "position:absolute;top:0;left:0;pointer-events:none;";
 
-    var edges = [];
+    // Build edge list with module index references for state tracking
+    var edgeList = [];
     var edgeSeen = {};
-    function addEdge(from, to, fromDot) {
+    function addEdge(from, to, fromDot, fromIdx, toIdx, targetLayer) {
       var key = Math.round(from.x) + "," + Math.round(from.y) +
                 "-" + Math.round(to.x) + "," + Math.round(to.y);
       if (edgeSeen[key]) return;
       edgeSeen[key] = true;
-      edges.push({ from: from, to: to, fromDot: fromDot });
+      edgeList.push({ from: from, to: to, fromDot: fromDot, fromIdx: fromIdx, toIdx: toIdx, layer: targetLayer });
     }
     modules.forEach(function (m) {
       if (!m.depends_on || m.depends_on.length === 0) {
-        addEdge({ x: startX, y: startY }, positions[m.index], true);
+        addEdge({ x: startX, y: startY }, positions[m.index], true, null, m.index, depth[m.index]);
       }
     });
     modules.forEach(function (m) {
       if (m.depends_on) {
         m.depends_on.forEach(function (parentIdx) {
           if (positions[parentIdx]) {
-            addEdge(positions[parentIdx], positions[m.index], false);
+            addEdge(positions[parentIdx], positions[m.index], false, parentIdx, m.index, depth[m.index]);
           }
         });
       }
     });
 
-    function bowDir(edge) {
-      var ox = 0, n = 0;
-      edges.forEach(function (e) {
-        if (e === edge) return;
-        if (Math.abs(e.from.x - edge.from.x) < 5 && Math.abs(e.from.y - edge.from.y) < 5) {
-          ox += e.to.x - edge.from.x; n++;
-        }
-        if (Math.abs(e.to.x - edge.to.x) < 5 && Math.abs(e.to.y - edge.to.y) < 5) {
-          ox += e.from.x - edge.to.x; n++;
-        }
-      });
-      return (n > 0 && ox > 0) ? -45 : 45;
-    }
-
-    edges.forEach(function (edge) {
-      var fy = edge.fromDot ? edge.from.y + 10 : edge.from.y + 5;
-      var ty = edge.to.y - 38;
+    // Draw edges with consistent S-curves
+    edgeList.forEach(function (edge) {
+      var fy = edge.fromDot ? edge.from.y + 10 : edge.from.y + 15;
+      var ty = edge.to.y - (ICON_SIZE / 2 + 8);
       var fx = edge.from.x;
       var tx = edge.to.x;
-      var midY = (fy + ty) / 2;
 
-      var d;
-      if (Math.abs(tx - fx) < 20) {
-        var bow = bowDir(edge);
-        d = "M " + fx + " " + fy +
-          " C " + (fx + bow) + " " + midY +
-          ", " + (tx + bow) + " " + midY +
-          ", " + tx + " " + ty;
-      } else {
-        d = "M " + fx + " " + fy +
-          " C " + fx + " " + midY +
-          ", " + tx + " " + midY +
-          ", " + tx + " " + ty;
-      }
+      // Vertical exit from parent, then curve to child entry
+      var ctrlLen = Math.abs(ty - fy) * 0.45;
+      var d = "M " + fx + " " + fy +
+        " C " + fx + " " + (fy + ctrlLen) +
+        ", " + tx + " " + (ty - ctrlLen) +
+        ", " + tx + " " + ty;
 
       var pathEl = document.createElementNS(NS, "path");
       pathEl.setAttribute("d", d);
-      pathEl.setAttribute("stroke", "#ddd");
+      pathEl.setAttribute("stroke", isDarkMode() ? "#444" : "#ddd");
       pathEl.setAttribute("stroke-width", "2.5");
       pathEl.setAttribute("fill", "none");
       pathEl.setAttribute("stroke-linecap", "round");
+      pathEl.classList.add("flow-edge");
       svg.appendChild(pathEl);
+
+      // Store for state tracking
+      var edgeKey = (edge.fromIdx != null ? edge.fromIdx : "root") + "-" + edge.toIdx;
+      flowEdges[edgeKey] = pathEl;
+      flowEdgeMeta.push({ pathEl: pathEl, fromIdx: edge.fromIdx, toIdx: edge.toIdx, layer: edge.layer });
     });
     flow.appendChild(svg);
 
-    var paths = svg.querySelectorAll("path");
-    paths.forEach(function (p) {
+    // Sequenced edge animation: draw layer by layer
+    var allPaths = svg.querySelectorAll("path");
+    allPaths.forEach(function (p) {
       var len = p.getTotalLength();
       p.style.strokeDasharray = len;
       p.style.strokeDashoffset = len;
     });
-    setTimeout(function () {
-      paths.forEach(function (p) {
-        p.style.transition = "stroke-dashoffset 1.2s ease-out";
-        p.style.strokeDashoffset = "0";
-      });
-    }, 100);
 
+    // Group edges by target layer for sequenced animation
+    var edgesByLayer = {};
+    flowEdgeMeta.forEach(function (em) {
+      if (!edgesByLayer[em.layer]) edgesByLayer[em.layer] = [];
+      edgesByLayer[em.layer].push(em.pathEl);
+    });
+
+    var baseDelay = 100;
+    var layerAnimDur = 800; // ms per layer
+    for (var lyr = 0; lyr <= maxLayer; lyr++) {
+      (function (layer) {
+        var paths = edgesByLayer[layer] || [];
+        var delay = baseDelay + layer * layerAnimDur;
+        setTimeout(function () {
+          paths.forEach(function (p) {
+            p.style.transition = "stroke-dashoffset " + (layerAnimDur / 1000) + "s ease-out";
+            p.style.strokeDashoffset = "0";
+          });
+        }, delay);
+      })(lyr);
+    }
+
+    // Root dot
     var dot = document.createElement("div");
     dot.className = "flow-node";
     dot.style.left = startX + "px";
@@ -739,15 +926,16 @@ function renderCurriculumFlow(data) {
     flow.appendChild(dot);
     setTimeout(function () { dot.classList.add("visible"); }, 150);
 
-    var animDur = 1.2;
+    // Render module nodes, timed to appear after their layer's edges draw
     for (var ly = 0; ly <= maxLayer; ly++) {
       (function (layer) {
         var group = layers[layer] || [];
+        var nodeDelay = baseDelay + layer * layerAnimDur + layerAnimDur * 0.6;
         group.forEach(function (m) {
           var pos = positions[m.index];
           var node = document.createElement("div");
           node.className = "flow-node pending";
-          node.setAttribute("role", "img");
+          node.setAttribute("role", "group");
           node.setAttribute("aria-label", m.title + " \u2014 pending");
           node.style.left = pos.x + "px";
           node.style.top = pos.y + "px";
@@ -762,29 +950,40 @@ function renderCurriculumFlow(data) {
           }
 
           node.innerHTML =
-            '<div class="flow-icon">' + isoIcon(56, ISO_PALETTES.pending) + "</div>" +
+            '<div class="flow-icon">' + isoIcon(ICON_SIZE, ISO_PALETTES.pending) + "</div>" +
             '<div class="flow-label">' + esc(m.title) + "</div>" +
             '<div class="flow-sub">' + m.exercise_count + " exercises</div>" +
             (tipHtml ? '<div class="flow-tooltip">' + tipHtml + "</div>" : "");
           flow.appendChild(node);
           flowNodes[m.index] = node;
 
-          var delay = (animDur * (layer + 1)) / (maxLayer + 2);
-          setTimeout(function () { node.classList.add("visible"); }, delay * 1000 + 100);
+          setTimeout(function () { node.classList.add("visible"); }, nodeDelay);
         });
       })(ly);
     }
   });
 }
 
+function markFlowNodeActive(moduleIndex) {
+  var node = flowNodes[moduleIndex];
+  if (node && node.classList.contains("pending")) {
+    node.classList.remove("pending");
+    node.classList.add("active");
+    node.setAttribute("aria-label", node.getAttribute("aria-label").replace("pending", "generating"));
+    var icon = node.querySelector(".flow-icon");
+    if (icon) icon.innerHTML = isoIcon(ICON_SIZE, ISO_PALETTES.generated);
+  }
+}
+
 function activateFlowNode(moduleIndex) {
   var node = flowNodes[moduleIndex];
   if (node) {
-    node.classList.remove("pending");
+    node.classList.remove("pending", "active");
     node.classList.add("generated");
-    node.setAttribute("aria-label", node.getAttribute("aria-label").replace("pending", "generated"));
+    node.setAttribute("aria-label",
+      node.getAttribute("aria-label").replace(/pending|generating/, "generated"));
     var icon = node.querySelector(".flow-icon");
-    if (icon) icon.innerHTML = isoIcon(56, ISO_PALETTES.generated);
+    if (icon) icon.innerHTML = isoIcon(ICON_SIZE, ISO_PALETTES.generated);
     // Add checkmark
     var sub = node.querySelector(".flow-sub");
     if (sub && !node.querySelector(".flow-check")) {
@@ -794,6 +993,17 @@ function activateFlowNode(moduleIndex) {
       sub.after(check);
     }
   }
+}
+
+function updateEdgeStates() {
+  flowEdgeMeta.forEach(function (em) {
+    // An edge is "completed" when both its source and target are generated
+    var fromDone = em.fromIdx == null || completedModuleSet.has(em.fromIdx); // root is always done
+    var toDone = completedModuleSet.has(em.toIdx);
+    if (fromDone && toDone) {
+      em.pathEl.classList.add("completed");
+    }
+  });
 }
 
 function finalizeFlow(result) {
@@ -810,6 +1020,7 @@ function resetBtn() {
   goBtn.disabled = false;
   goBtn.textContent = "generate";
   goBtn.classList.remove("generating");
+  stopElapsedTimer();
   updateFormState();
 }
 
@@ -909,31 +1120,28 @@ setTimeout(function () {
 }, 200);
 
 // Auto-save on all form inputs
-$("#url-input").addEventListener("input", saveFormState);
-$("#level-input").addEventListener("input", saveFormState);
-$("#series").addEventListener("change", saveFormState);
-$("#design-model").addEventListener("change", saveFormState);
-$("#generate-model").addEventListener("change", saveFormState);
+_bind("#url-input", "input", saveFormState);
+_bind("#level-input", "input", saveFormState);
+_bind("#series", "change", saveFormState);
+_bind("#design-model", "change", saveFormState);
+_bind("#generate-model", "change", saveFormState);
 
 // Clear button
-$("#form-clear").addEventListener("click", clearForm);
+_bind("#form-clear", "click", clearForm);
 
 // Also save when refs change — patch the add-ref handler
-(function () {
-  var origAddRef = $("#add-ref");
-  origAddRef.addEventListener("click", function () {
-    // The ref row was just added by the original handler.
-    // Attach auto-save to the new row's input and remove button.
-    var rows = document.querySelectorAll(".ref-row");
-    var lastRow = rows[rows.length - 1];
-    if (lastRow) {
-      var input = lastRow.querySelector("input");
-      if (input) input.addEventListener("input", saveFormState);
-      var removeBtn = lastRow.querySelector(".ref-remove");
-      if (removeBtn) removeBtn.addEventListener("click", function () { saveFormState(); });
-    }
-  });
-})();
+_bind("#add-ref", "click", function () {
+  // The ref row was just added by the original handler.
+  // Attach auto-save to the new row's input and remove button.
+  var rows = document.querySelectorAll(".ref-row");
+  var lastRow = rows[rows.length - 1];
+  if (lastRow) {
+    var input = lastRow.querySelector("input");
+    if (input) input.addEventListener("input", saveFormState);
+    var removeBtn = lastRow.querySelector(".ref-remove");
+    if (removeBtn) removeBtn.addEventListener("click", function () { saveFormState(); });
+  }
+});
 
 /* ── Background Profiles ─────────────────────────── */
 
@@ -948,6 +1156,7 @@ function loadProfiles() {
 
 function renderProfileDropdown() {
   var sel = $("#profile-select");
+  if (!sel) return;
   sel.innerHTML = '<option value="">profiles...</option>';
   profiles.forEach(function (p, i) {
     sel.innerHTML += '<option value="' + i + '">' + esc(p.label) + '</option>';
@@ -962,11 +1171,10 @@ function saveProfiles() {
   });
 }
 
-$("#profile-select").addEventListener("change", function () {
+_bind("#profile-select", "change", function () {
   var idx = parseInt(this.value);
   if (isNaN(idx) || !profiles[idx]) return;
   $("#level-input").value = profiles[idx].description;
-  // Auto-grow
   var el = $("#level-input");
   el.style.height = "auto";
   el.style.height = el.scrollHeight + "px";
@@ -974,13 +1182,12 @@ $("#profile-select").addEventListener("change", function () {
   updateFormState();
 });
 
-$("#profile-save").addEventListener("click", function () {
+_bind("#profile-save", "click", function () {
   var desc = $("#level-input").value.trim();
   if (!desc) return;
   var label = prompt("profile name (short label):");
   if (!label || !label.trim()) return;
   label = label.trim();
-  // Update existing or add new
   var existing = profiles.findIndex(function (p) { return p.label === label; });
   if (existing >= 0) {
     profiles[existing].description = desc;
@@ -1005,12 +1212,13 @@ function loadPresets() {
 
 function renderPresetDropdown() {
   var sel = $("#preset-select");
+  if (!sel) return;
   sel.innerHTML = '<option value="">load preset...</option>';
   presets.forEach(function (p, i) {
     sel.innerHTML += '<option value="' + i + '">' + esc(p.name) + '</option>';
   });
-  // Show/hide delete button
-  $("#preset-delete").style.display = presets.length ? "" : "none";
+  var del = $("#preset-delete");
+  if (del) del.style.display = presets.length ? "" : "none";
 }
 
 function savePresets() {
@@ -1021,12 +1229,12 @@ function savePresets() {
   });
 }
 
-$("#preset-select").addEventListener("change", function () {
+_bind("#preset-select", "change", function () {
   var idx = parseInt(this.value);
   if (isNaN(idx) || !presets[idx]) return;
   var p = presets[idx];
-  // Clear refs first
-  $("#refs").innerHTML = "";
+  var refs = $("#refs");
+  if (refs) refs.innerHTML = "";
   restoreFormState({
     url: p.url || "",
     level: p.level || "",
@@ -1038,7 +1246,7 @@ $("#preset-select").addEventListener("change", function () {
   saveFormState();
 });
 
-$("#preset-save").addEventListener("click", function () {
+_bind("#preset-save", "click", function () {
   var state = getFormState();
   if (!state.url) { alert("fill in at least the source url first"); return; }
   var name = prompt("preset name:");
@@ -1061,19 +1269,23 @@ $("#preset-save").addEventListener("click", function () {
   }
   savePresets().then(function () {
     renderPresetDropdown();
-    $("#preset-select").value = "" + (existing >= 0 ? existing : presets.length - 1);
+    var sel = $("#preset-select");
+    if (sel) sel.value = "" + (existing >= 0 ? existing : presets.length - 1);
   });
 });
 
-$("#preset-delete").addEventListener("click", function () {
-  var idx = parseInt($("#preset-select").value);
+_bind("#preset-delete", "click", function () {
+  var sel = $("#preset-select");
+  if (!sel) return;
+  var idx = parseInt(sel.value);
   if (isNaN(idx) || !presets[idx]) return;
   var name = presets[idx].name;
   if (!confirm('delete preset "' + name + '"?')) return;
   presets.splice(idx, 1);
   savePresets().then(function () {
     renderPresetDropdown();
-    $("#preset-select").value = "";
+    var s = $("#preset-select");
+    if (s) s.value = "";
   });
 });
 

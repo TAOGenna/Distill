@@ -281,6 +281,7 @@ async def _generate_module_conversational(
     """
     idx = module_spec["module_index"]
     title = module_spec["title"]
+    _emit({"type": "module_start", "module_index": idx, "title": title})
     module_slug = f"module_{idx:02d}_{_slugify(title)}"
     module_dir = course_dir / module_slug
     module_dir.mkdir(parents=True, exist_ok=True)
