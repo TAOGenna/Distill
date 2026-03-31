@@ -212,7 +212,6 @@ async def _run_generation(
     url = params["url"]
     refs = [r for r in params.get("refs", []) if r.strip()]
     ref_annotations = params.get("ref_annotations", [])
-    series = params.get("series", False)
     level = params["level"]
     provider = params.get("provider") or config.get("provider", "anthropic")
     design_model = params.get("design_model") or config.get("design_model") or None
@@ -240,7 +239,6 @@ async def _run_generation(
             lambda: preprocess_sources(
                 focus_url=url,
                 refs=refs,
-                series=series,
                 output_dir=output_dir,
                 log=preprocess_log,
                 ref_annotations=ref_annotations,
@@ -255,7 +253,6 @@ async def _run_generation(
                 url=url,
                 user_level=level,
                 refs=refs,
-                series=series,
                 output_dir=output_dir,
                 design_model=design_model or "opus",
                 generate_model=generate_model or "sonnet",
@@ -269,7 +266,6 @@ async def _run_generation(
                 url=url,
                 user_level=level,
                 refs=refs,
-                series=series,
                 output_dir=output_dir,
                 provider=provider,
                 api_key=api_key,

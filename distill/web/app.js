@@ -13,6 +13,17 @@ let flowEdges = {};   // "fromIdx-toIdx" → SVG path element
 let flowEdgeMeta = []; // [{pathEl, fromIdx, toIdx}] — null fromIdx = root dot
 let flowActive = false;
 let generating = false;
+
+/* ── GitHub star count ───────────────────────────── */
+fetch("https://api.github.com/repos/TAOGenna/Distill")
+  .then(function (r) { return r.json(); })
+  .then(function (data) {
+    var el = $("#star-count");
+    if (el && typeof data.stargazers_count === "number") {
+      el.textContent = data.stargazers_count;
+    }
+  })
+  .catch(function () {});
 let totalModules = 0;
 let completedModuleSet = new Set();
 let activeModuleSet = new Set();
@@ -541,7 +552,6 @@ if (form) form.addEventListener("submit", async (e) => {
     level: fd.get("level"),
     design_model: fd.get("design_model"),
     generate_model: fd.get("generate_model"),
-    series: $("#series").checked,
     refs: [],
     ref_annotations: [],
   };
@@ -1047,7 +1057,6 @@ function getFormState() {
   return {
     url: $("#url-input").value,
     level: $("#level-input").value,
-    series: $("#series").checked,
     design_model: $("#design-model").value,
     generate_model: $("#generate-model").value,
     refs: [...document.querySelectorAll('input[name="ref"]')]
@@ -1067,7 +1076,6 @@ function restoreFormState(state) {
     el.style.height = "auto";
     el.style.height = el.scrollHeight + "px";
   }
-  if (state.series) $("#series").checked = state.series;
   if (state.design_model && $("#design-model")) {
     var ds = $("#design-model");
     if (!ds.querySelector('option[value="' + state.design_model + '"]')) {
@@ -1115,7 +1123,6 @@ function clearForm() {
   $("#url-input").value = "";
   $("#level-input").value = "";
   $("#level-input").style.height = "auto";
-  $("#series").checked = false;
   $("#refs").innerHTML = "";
   // Reset models to defaults
   var provider = $("#setup-provider") ? $("#setup-provider").value : "anthropic";
@@ -1137,7 +1144,6 @@ setTimeout(function () {
 // Auto-save on all form inputs
 _bind("#url-input", "input", saveFormState);
 _bind("#level-input", "input", saveFormState);
-_bind("#series", "change", saveFormState);
 _bind("#design-model", "change", saveFormState);
 _bind("#generate-model", "change", saveFormState);
 
@@ -1217,7 +1223,7 @@ loadProfiles();
 
 /* ── Run Presets ─────────────────────────────────── */
 
-var presets = []; // [{name, url, refs, series, level, design_model, generate_model}]
+var presets = []; // [{name, url, refs, ref_annotations, level, design_model, generate_model}]
 
 function loadPresets() {
   fetch("/api/config").then(function (r) { return r.json(); }).then(function (cfg) {
@@ -1254,7 +1260,6 @@ _bind("#preset-select", "change", function () {
   restoreFormState({
     url: p.url || "",
     level: p.level || "",
-    series: p.series || false,
     design_model: p.design_model || "",
     generate_model: p.generate_model || "",
     refs: p.refs || [],
@@ -1275,7 +1280,6 @@ _bind("#preset-save", "click", function () {
     url: state.url,
     refs: state.refs.filter(Boolean),
     ref_annotations: state.ref_annotations || [],
-    series: state.series,
     level: state.level,
     design_model: state.design_model,
     generate_model: state.generate_model,

@@ -219,11 +219,8 @@ def prepare_sources(
     if focus_entry:
         focus_content = _read_source_entry(focus_entry, sources_dir)
 
-    # Read additional sources (series or refs)
+    # Read additional sources
     ref_contents: list[tuple[str, str]] = []
-    for entry in manifest.get("series", []):
-        content = _read_source_entry(entry, sources_dir)
-        ref_contents.append((entry.get("url", ""), content))
     for entry in manifest.get("refs", []):
         content = _read_source_entry(entry, sources_dir)
         ref_contents.append((entry.get("url", ""), content))

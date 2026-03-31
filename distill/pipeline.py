@@ -828,7 +828,6 @@ async def run_pipeline(
     url: str,
     user_level: str,
     refs: list[str] | None = None,
-    series: bool = False,
     output_dir: str = "./output",
     provider: str = "anthropic",
     api_key: str | None = None,

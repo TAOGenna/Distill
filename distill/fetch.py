@@ -323,7 +323,6 @@ def _fetch_github(repo: str, dest: Path, log: Callable) -> dict[str, Any]:
 def preprocess_sources(
     focus_url: str,
     refs: list[str] | None = None,
-    series: bool = False,
     output_dir: str = "./output",
     log: Callable | None = None,
     ref_annotations: list[str] | None = None,
@@ -338,7 +337,7 @@ def preprocess_sources(
     sources_dir = Path(output_dir) / "_sources"
     sources_dir.mkdir(parents=True, exist_ok=True)
 
-    manifest: dict[str, Any] = {"focus": None, "series": [], "refs": []}
+    manifest: dict[str, Any] = {"focus": None, "refs": []}
 
     # Focus URL
     focus_dest = sources_dir / "focus"
@@ -354,7 +353,7 @@ def preprocess_sources(
     # Additional sources
     if refs:
         for i, ref_url in enumerate(refs):
-            dir_name = f"series_{i + 2:02d}" if series else f"ref_{i + 1:02d}"
+            dir_name = f"ref_{i + 1:02d}"
             ref_dest = sources_dir / dir_name
 
             if _is_cached(ref_dest, ref_url):
@@ -370,10 +369,7 @@ def preprocess_sources(
             if ref_annotations and i < len(ref_annotations) and ref_annotations[i].strip():
                 entry["annotation"] = ref_annotations[i].strip()
 
-            if series:
-                manifest["series"].append(entry)
-            else:
-                manifest["refs"].append(entry)
+            manifest["refs"].append(entry)
 
     (sources_dir / "manifest.json").write_text(json.dumps(manifest, indent=2))
     return sources_dir
