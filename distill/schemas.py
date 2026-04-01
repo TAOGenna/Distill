@@ -8,6 +8,14 @@ from __future__ import annotations
 
 from typing import Literal
 
+
+def slugify(title: str) -> str:
+    """Convert a title to a filesystem-safe slug."""
+    slug = title.lower()
+    slug = "".join(c if c.isalnum() or c == " " else "" for c in slug)
+    slug = slug.strip().replace(" ", "_")
+    return slug[:50].rstrip("_")
+
 from pydantic import BaseModel, Field, field_validator
 
 
@@ -89,17 +97,44 @@ class Exercise(BaseModel):
     ]
     description: str
     scaffolding_level: Literal["heavy", "medium", "light", "none"]
+    format: Literal["single_file", "project"] = Field(
+        default="single_file",
+        description="Exercise structure. 'single_file': standalone script with "
+        "__main__ test harness (default, good for algorithms/ML/math). "
+        "'project': multi-file directory with infrastructure, stubs, and a "
+        "test/build command (use for distributed systems, OS, compilers, web "
+        "services, anything needing multiple processes, build steps, or "
+        "non-trivial infrastructure)."
+    )
     what_is_provided: str = Field(
-        description="What working code the student receives (~65% of file). "
-        "Be specific: 'class with __init__, import block, __main__ test harness'."
+        description="What working code the student receives (~65%). "
+        "For single_file: 'class with __init__, import block, __main__ test harness'. "
+        "For project: 'Makefile, test suite, networking library, docker-compose.yml'."
     )
     what_student_writes: str = Field(
         description="What the student implements (~35%). Each TODO block with "
-        "line counts: 'backward() ~8-12 lines, compute_loss() ~5-8 lines'."
+        "line counts: 'backward() ~8-12 lines, compute_loss() ~5-8 lines'. "
+        "For project: which files the student modifies and what they implement "
+        "in each: 'coordinator.go — task scheduling + fault detection (~80 lines); "
+        "worker.go — RPC task loop + intermediate file handling (~60 lines)'."
     )
     milestone: str = Field(
         description="What the student sees when they run the exercise. "
         "Be specific: 'prints gradient table, all errors < 1e-5'."
+    )
+    validate_command: str = Field(
+        default="",
+        description="Command to validate the exercise. For single_file: leave empty "
+        "(defaults to running the script). For project: the build+test command, "
+        "e.g., 'make test', 'pytest tests/', 'cargo test', "
+        "'docker compose up --abort-on-container-exit'. Must exit 0 on success."
+    )
+    provided_files: list[str] = Field(
+        default_factory=list,
+        description="For project-style: infrastructure files the student receives "
+        "but should NOT modify. E.g., ['Makefile', 'tests/test_harness.py', "
+        "'docker-compose.yml']. The generation agent creates these alongside stubs. "
+        "Empty for single_file exercises."
     )
     key_insight: str = Field(
         default="",

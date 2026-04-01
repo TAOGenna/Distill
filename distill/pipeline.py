@@ -547,13 +547,25 @@ async def _phase_generate(
 
 def _preflight_module(module_dir: Path, module_spec: dict | None = None) -> list[str]:
     """Run deterministic + contract-aware checks. Returns list of errors."""
+    import shutil
+    import subprocess
+    import tempfile
+
+    from .schemas import slugify
+
     errors: list[str] = []
+    exercises = (module_spec or {}).get("exercises", [])
 
-    # Check README exists
-    if not (module_dir / "README.md").exists():
+    # Check README exists and length
+    readme_path = module_dir / "README.md"
+    if not readme_path.exists():
         errors.append("Missing README.md")
+    else:
+        word_count = len(readme_path.read_text(errors="replace").split())
+        if word_count < 4000:
+            errors.append(f"README.md: only ~{word_count} words (expected 5,000+)")
 
-    # Check exercise files
+    # ── Single-file exercise checks ──────────────────────────────────────
     for py_file in module_dir.glob("*.py"):
         content = py_file.read_text(errors="replace")
 
@@ -593,24 +605,118 @@ def _preflight_module(module_dir: Path, module_spec: dict | None = None) -> list
         if len(lines) < 15:
             errors.append(f"{py_file.name}: only {len(lines)} non-comment lines (expected 40+)")
 
-    # Contract-aware: check solution files against expected output patterns
-    if module_spec:
-        exercises = module_spec.get("exercises", [])
-        for ex in exercises:
-            expected_pattern = ex.get("expected_output_pattern", "")
-            if not expected_pattern:
-                continue
-            solutions_dir = module_dir / "_solutions"
-            if solutions_dir.exists():
-                for sol_file in solutions_dir.glob("*.py"):
-                    sol_content = sol_file.read_text(errors="replace")
-                    if expected_pattern.lower() not in sol_content.lower():
-                        errors.append(
-                            f"_solutions/{sol_file.name}: expected pattern "
-                            f"'{expected_pattern}' not found in solution"
-                        )
+    # ── Solution verification for single-file exercises ──────────────────
+    solutions_dir = module_dir / "_solutions"
+    if solutions_dir.exists():
+        for sol_file in sorted(solutions_dir.glob("*.py")):
+            sol_content = sol_file.read_text(errors="replace")
 
-    # Check for C/Rust files
+            # Dry-run import check: skip if deps are unavailable
+            try:
+                sol_tree = ast.parse(sol_content)
+            except SyntaxError:
+                continue
+            skip = False
+            for node in ast.walk(sol_tree):
+                mod_name = None
+                if isinstance(node, ast.Import):
+                    for alias in node.names:
+                        mod_name = alias.name.split(".")[0]
+                elif isinstance(node, ast.ImportFrom) and node.module:
+                    mod_name = node.module.split(".")[0]
+                if mod_name and mod_name not in sys.stdlib_module_names:
+                    try:
+                        __import__(mod_name)
+                    except ImportError:
+                        skip = True
+                        break
+            if skip:
+                continue
+
+            try:
+                result = subprocess.run(
+                    [sys.executable, str(sol_file)],
+                    capture_output=True, text=True, timeout=60,
+                    cwd=str(module_dir),
+                )
+                if result.returncode != 0:
+                    stderr_snippet = result.stderr.strip().splitlines()[-3:]
+                    errors.append(
+                        f"_solutions/{sol_file.name}: execution failed — "
+                        + "; ".join(stderr_snippet)
+                    )
+            except subprocess.TimeoutExpired:
+                errors.append(
+                    f"_solutions/{sol_file.name}: execution timed out (>60s)"
+                )
+            except Exception as e:
+                errors.append(
+                    f"_solutions/{sol_file.name}: could not run ({type(e).__name__})"
+                )
+
+    # ── Project exercise checks ──────────────────────────────────────────
+    for i, ex in enumerate(exercises):
+        if ex.get("format") != "project":
+            continue
+        idx = i + 1
+        ex_slug = slugify(ex.get("title", ""))
+        ex_dir = module_dir / f"ex{idx:02d}_{ex_slug}"
+
+        if not ex_dir.exists():
+            errors.append(f"ex{idx:02d}_{ex_slug}/: project directory missing")
+            continue
+
+        # Check solution files exist
+        sol_dir = ex_dir / "_solutions"
+        if not sol_dir.exists() or not any(sol_dir.iterdir()):
+            errors.append(f"ex{idx:02d}_{ex_slug}/_solutions/: missing or empty")
+
+        # Check stub files have TODO markers
+        for stub in ex_dir.iterdir():
+            if stub.is_file() and stub.suffix in (".py", ".go", ".rs", ".c", ".java", ".js", ".ts"):
+                if stub.name.startswith("_"):
+                    continue
+                content = stub.read_text(errors="replace")
+                if "YOUR CODE HERE" not in content and "TODO" not in content:
+                    errors.append(f"{ex_dir.name}/{stub.name}: no TODO markers found")
+
+        # Validate with validate_command — swap in solutions first
+        validate_cmd = ex.get("validate_command", "")
+        if validate_cmd and sol_dir.exists():
+            # Copy project to temp dir, overlay solutions, run validation there
+            tmp_dir = None
+            try:
+                tmp_dir = Path(tempfile.mkdtemp(prefix="distill_validate_"))
+                shutil.copytree(ex_dir, tmp_dir / "project", dirs_exist_ok=True)
+                tmp_project = tmp_dir / "project"
+                # Overlay solution files onto stubs
+                for sol_file in sol_dir.iterdir():
+                    if sol_file.is_file():
+                        shutil.copy2(sol_file, tmp_project / sol_file.name)
+                result = subprocess.run(
+                    validate_cmd, shell=True,
+                    capture_output=True, text=True, timeout=120,
+                    cwd=str(tmp_project),
+                )
+                if result.returncode != 0:
+                    stderr_snippet = result.stderr.strip().splitlines()[-3:]
+                    errors.append(
+                        f"ex{idx:02d}_{ex_slug}/: validate_command failed — "
+                        + "; ".join(stderr_snippet)
+                    )
+            except subprocess.TimeoutExpired:
+                errors.append(
+                    f"ex{idx:02d}_{ex_slug}/: validate_command timed out (>120s)"
+                )
+            except Exception as e:
+                errors.append(
+                    f"ex{idx:02d}_{ex_slug}/: validate_command error ({type(e).__name__})"
+                )
+            finally:
+                if tmp_dir and tmp_dir.exists():
+                    shutil.rmtree(tmp_dir, ignore_errors=True)
+
+    # ── Language-specific checks ─────────────────────────────────────────
     for c_file in list(module_dir.glob("*.c")) + list(module_dir.glob("*.rs")):
         content = c_file.read_text(errors="replace")
         if "main(" not in content and "fn main" not in content:

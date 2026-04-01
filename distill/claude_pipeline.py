@@ -75,7 +75,7 @@ from .prompts import (
     LESSON_TURN_TEMPLATE,
     REVIEW_SYSTEM_PROMPT,
 )
-from .schemas import Analysis, CurriculumDesign, ModuleReview
+from .schemas import Analysis, CurriculumDesign, ModuleReview, slugify
 
 
 # ── ANSI colors ──────────────────────────────────────────────────────────────
@@ -123,11 +123,7 @@ def _log_step(msg: str) -> None:
     _log(f"{_C.BOLD}{msg}", _C.CYAN)
 
 
-def _slugify(title: str) -> str:
-    slug = title.lower()
-    slug = "".join(c if c.isalnum() or c == " " else "" for c in slug)
-    slug = slug.strip().replace(" ", "_")
-    return slug[:50].rstrip("_")
+_slugify = slugify  # local alias used throughout this file
 
 
 # ── SDK helpers ──────────────────────────────────────────────────────────────
@@ -408,22 +404,38 @@ def _build_module_prompt(
     key_excerpts = module_spec.get("key_excerpts", [])
 
     # Build file manifest — explicit ordering
-    file_list = [f"1. README.md — lesson document (3,000-10,000 words)"]
+    file_list = [f"1. README.md — lesson document (5,000-10,000 words)"]
     file_num = 2
     for i, ex in enumerate(exercises):
         ex_title = ex.get("title", f"exercise_{i+1}")
         ex_slug = _slugify(ex_title)
-        filename = f"ex{i+1:02d}_{ex_slug}.py"
-        file_list.append(
-            f"{file_num}. {filename} — scaffold (student version with TODOs)"
-        )
-        file_num += 1
-        file_list.append(
-            f"{file_num}. _solutions/{filename} — solution (complete, runnable)\n"
-            f"   After writing, run: python _solutions/{filename}\n"
-            f"   Verify output contains: \"{ex.get('expected_output_pattern', '')}\""
-        )
-        file_num += 1
+        ex_format = ex.get("format", "single_file")
+        validate_cmd = ex.get("validate_command", "")
+
+        if ex_format == "project":
+            dirname = f"ex{i+1:02d}_{ex_slug}"
+            file_list.append(
+                f"{file_num}. {dirname}/ — project directory\n"
+                f"   Create infrastructure files + stub files with TODOs\n"
+                f"   {dirname}/_solutions/ — completed stub files only"
+            )
+            file_num += 1
+            if validate_cmd:
+                file_list.append(
+                    f"   Validate: cd {dirname} && {validate_cmd}"
+                )
+        else:
+            filename = f"ex{i+1:02d}_{ex_slug}.py"
+            file_list.append(
+                f"{file_num}. {filename} — scaffold (student version with TODOs)"
+            )
+            file_num += 1
+            file_list.append(
+                f"{file_num}. _solutions/{filename} — solution (complete, runnable)\n"
+                f"   After writing, run: python _solutions/{filename}\n"
+                f"   Verify output contains: \"{ex.get('expected_output_pattern', '')}\""
+            )
+            file_num += 1
 
     file_manifest = "\n".join(file_list)
 
@@ -432,18 +444,38 @@ def _build_module_prompt(
     for i, ex in enumerate(exercises):
         ex_title = ex.get("title", f"exercise_{i+1}")
         ex_slug = _slugify(ex_title)
-        filename = f"ex{i+1:02d}_{ex_slug}.py"
-        exercise_specs.append(
-            f"Exercise {i+1}: \"{ex_title}\" → {filename}\n"
-            f"  Type: {ex.get('type', 'implement')}\n"
-            f"  Scaffolding: {ex.get('scaffolding_level', 'heavy')}\n"
-            f"  What is provided (~65%): {ex.get('what_is_provided', '')}\n"
-            f"  What student writes (~35%): {ex.get('what_student_writes', '')}\n"
-            f"  Key insight: {ex.get('key_insight', '')}\n"
-            f"  Common mistakes: {ex.get('common_mistakes', '')}\n"
-            f"  Milestone: {ex.get('milestone', '')}\n"
-            f"  Expected output pattern: {ex.get('expected_output_pattern', '')}"
-        )
+        ex_format = ex.get("format", "single_file")
+        validate_cmd = ex.get("validate_command", "")
+        provided_files = ex.get("provided_files", [])
+
+        if ex_format == "project":
+            dirname = f"ex{i+1:02d}_{ex_slug}"
+            provided_str = ", ".join(provided_files) if provided_files else "(none specified)"
+            exercise_specs.append(
+                f"Exercise {i+1}: \"{ex_title}\" → {dirname}/ [PROJECT]\n"
+                f"  Type: {ex.get('type', 'implement')}\n"
+                f"  Format: project (multi-file directory)\n"
+                f"  Infrastructure (provided, student does NOT modify): {provided_str}\n"
+                f"  What student writes: {ex.get('what_student_writes', '')}\n"
+                f"  Validate command: {validate_cmd}\n"
+                f"  Key insight: {ex.get('key_insight', '')}\n"
+                f"  Common mistakes: {ex.get('common_mistakes', '')}\n"
+                f"  Milestone: {ex.get('milestone', '')}\n"
+                f"  Expected output pattern: {ex.get('expected_output_pattern', '')}"
+            )
+        else:
+            filename = f"ex{i+1:02d}_{ex_slug}.py"
+            exercise_specs.append(
+                f"Exercise {i+1}: \"{ex_title}\" → {filename}\n"
+                f"  Type: {ex.get('type', 'implement')}\n"
+                f"  Scaffolding: {ex.get('scaffolding_level', 'heavy')}\n"
+                f"  What is provided (~65%): {ex.get('what_is_provided', '')}\n"
+                f"  What student writes (~35%): {ex.get('what_student_writes', '')}\n"
+                f"  Key insight: {ex.get('key_insight', '')}\n"
+                f"  Common mistakes: {ex.get('common_mistakes', '')}\n"
+                f"  Milestone: {ex.get('milestone', '')}\n"
+                f"  Expected output pattern: {ex.get('expected_output_pattern', '')}"
+            )
     exercise_block = "\n\n".join(exercise_specs)
 
     # Key excerpts
@@ -481,7 +513,7 @@ FILES TO CREATE (in this EXACT order — lesson FIRST)
 LESSON DOCUMENT (README.md) — write this FIRST
 ═══════════════════════════════════════════════════════════════════════════
 
-This is the primary teaching content. 3,000-10,000 words. NOT a summary.
+This is the primary teaching content. 5,000-10,000 words. NOT a summary.
 - Table of contents + learning objectives
 - Running example that evolves through the lesson
 - Inline code snippets showing concept → code translation
@@ -500,16 +532,16 @@ EXERCISE CONTRACTS (follow these EXACTLY)
 SCAFFOLD PATTERN — students must write substantial code
 ═══════════════════════════════════════════════════════════════════════════
 
-Each exercise MUST have 3-5 TODO blocks. Each TODO block should require
-8-15 lines of student code. The student should write 30-60 lines TOTAL
-per exercise — not 5-10 lines. If the student barely writes anything,
-the exercise is too easy and they learn nothing.
+FOR SINGLE-FILE EXERCISES:
+
+Each exercise MUST have 3-5 TODO blocks. Each TODO block must require
+MINIMUM 5 lines, target 8-15 lines. No 2-3 line warm-up blocks — those
+teach nothing. The student should write 30-60 lines TOTAL per exercise.
 
 GOOD scaffold (~65% provided, ~35% student writes):
 - Imports, class __init__, helper utilities: PROVIDED
 - Core algorithm functions (2-3 functions): TODO blocks of 8-15 lines each
 - __main__ test harness: PROVIDED (20-50 lines)
-- Total student writes: 30-60 lines across 3-5 TODO blocks
 
 BAD scaffold (~95% provided, ~5% student writes):
 - Everything provided except one 3-line function body
@@ -517,7 +549,7 @@ BAD scaffold (~95% provided, ~5% student writes):
 
 ```python
 def function_name(param):
-    \"\"\"Numpy-style docstring with Parameters, Returns, types.\"\"\"
+    \"\"\"Docstring with Parameters, Returns, types.\"\"\"
     ###########################################################
     # YOUR CODE HERE - 8-12 lines                             #
     #                                                         #
@@ -527,18 +559,37 @@ def function_name(param):
     ###########################################################
 ```
 
-The __main__ block must be 20-50 lines, ALWAYS fully provided (never scaffolded).
-It is the test harness that validates the student's work.
+FOR PROJECT EXERCISES:
+
+Create directory ex{{NN}}_{{slug}}/ containing:
+- Infrastructure files (from provided_files): complete, working, untouched by student
+- Stub files: the files the student modifies, with TODO markers
+- _solutions/: completed versions of ONLY the stub files
+- A brief README.md explaining what to implement and how to validate
+
+The infrastructure must actually work — build system, test harness, supporting
+libraries. When solution files replace stubs, validate_command must exit 0.
 
 ═══════════════════════════════════════════════════════════════════════════
 {excerpts_block}
 ═══════════════════════════════════════════════════════════════════════════
 {source_access}
-AFTER writing each solution file, run it with Bash to verify it works.
-If it fails, fix it before moving to the next exercise.
+═══════════════════════════════════════════════════════════════════════════
+MANDATORY: VALIDATE EVERY EXERCISE — NO EXCEPTIONS
+═══════════════════════════════════════════════════════════════════════════
 
-When writing exercise N+1, reference the actual output from exercise N
-in the docstrings and comments ("In exercise 1 you saw accuracy of 31.2%...")
+For EACH exercise, after writing the solution you MUST validate it:
+
+  single_file: Run the solution script directly.
+  project: Copy solution files over stubs, run validate_command.
+
+Steps:
+1. Run/validate the exercise
+2. If it errors, fix and re-run until it succeeds
+3. Copy the actual output — you need it for the next exercise
+
+DO NOT skip validation for any exercise. DO NOT move to the next exercise
+until the current one passes. The output feeds into subsequent exercises.
 """
 
 
@@ -631,10 +682,16 @@ async def _phase_generate(
         f"  - {c.name} ({c.priority}): {c.description}"
         for c in analysis.key_concepts
     )
+    module_map_lines = "\n".join(
+        f"  Module {m.module_index}: {m.title}"
+        for m in modules
+    )
     course_context = (
         f"Course: {curriculum.course_title}\n"
         f"Description: {curriculum.course_description}\n"
         f"Content type: {analysis.content_type}\n\n"
+        f"Course modules (use ONLY these indices for cross-references):\n"
+        f"{module_map_lines}\n\n"
         f"Key concepts:\n{concept_lines}"
     )
 

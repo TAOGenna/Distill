@@ -80,18 +80,43 @@ BLUEPRINT DESIGN RULES
 5. Difficulty increases WITHIN each module AND across modules.
 
 ═══════════════════════════════════════════════════════════════════════════════════
+EXERCISE FORMAT — single_file vs project
+═══════════════════════════════════════════════════════════════════════════════════
+
+Each exercise has a `format` field. Choose based on what the concept requires:
+
+  `single_file` (default): One self-contained script with a __main__ test harness.
+    Good for: algorithms, math derivations, training loops, data pipelines — \
+anything where the concept fits in one runnable file.
+
+  `project`: A directory with multiple files — infrastructure, stubs, tests, \
+and a build/run command. The student modifies specific files within a working system.
+    Good for: distributed systems, OS kernels, compilers, web services, anything \
+needing multiple processes, build steps, IPC, or non-trivial infrastructure.
+    Reference: MIT 6.5840 MapReduce lab — student gets Makefile, RPC library, \
+test harness, plugin system. Modifies 3 files within a 15-file project.
+
+For project-style exercises, also fill in:
+  `validate_command`: How to test. E.g., "make test", "pytest tests/", "cargo test"
+  `provided_files`: Infrastructure files the student should NOT modify. \
+E.g., ["Makefile", "tests/test_harness.py", "docker-compose.yml"]
+
+The choice is per-exercise, not per-course. A course can mix both formats.
+
+═══════════════════════════════════════════════════════════════════════════════════
 EXERCISE DETAIL FIELDS — the key to quality
 ═══════════════════════════════════════════════════════════════════════════════════
 
 For EVERY exercise, fill in these fields carefully:
 
-  `what_is_provided`: What working code the student receives (~65% of file).
-    Be specific: "class Node with __init__ and __repr__, import block with numpy, \
-    __main__ block with test harness printing comparison table"
+  `what_is_provided`: What working code the student receives (~65%).
+    single_file: "class Node with __init__ and __repr__, __main__ test harness"
+    project: "Makefile, tests/, config files, RPC/networking library, test data"
 
-  `what_student_writes`: What the student implements (~35%). Include line counts:
-    "Node.backward() — reverse topological gradient walk (~8-12 lines); \
-    compute_loss() — cross-entropy with softmax (~5-8 lines)"
+  `what_student_writes`: What the student implements (~35%). Include line counts.
+    single_file: "backward() — gradient walk (~8-12 lines); loss() (~5-8 lines)"
+    project: "coordinator — task scheduling + fault detection (~80 lines); \
+worker — task loop + intermediate file handling (~60 lines)"
 
   `key_insight`: The single most important thing this exercise teaches.
     "backward() must accumulate gradients at fan-out nodes, not overwrite"
@@ -100,7 +125,7 @@ For EVERY exercise, fill in these fields carefully:
     "forgetting to zero gradients between batches; transposing the weight matrix"
 
   `expected_output_pattern`: A string that should appear in stdout when correct.
-    "relative error" or "pages/sec" or "loss:"
+    "relative error" or "pages/sec" or "PASSED" or "ok"
 
 ═══════════════════════════════════════════════════════════════════════════════════
 KEY EXCERPTS — grounding in the source material
@@ -170,12 +195,23 @@ QUALITY TARGET — reference course characteristics
 ═══════════════════════════════════════════════════════════════════════════════════
 
 Your Blueprint should produce courses matching these metrics:
+
+  single_file exercises:
   • 40-200 lines per exercise file
   • ~65% provided code, ~35% TODO blocks
   • 3-5 TODO blocks per exercise with line count hints
-  • 100% docstring coverage (numpy-style: purpose, parameters with shapes, returns)
+  • Docstrings on all public functions (purpose, parameters, returns)
   • __main__ block: 20-50 lines with full test harness
-  • Real dependencies only (numpy, torch, etc. — never placeholder packages)
+
+  project exercises:
+  • Complete infrastructure that builds and runs out of the box
+  • Student modifies 1-4 files within the project
+  • Separate test suite (not __main__) validated by validate_command
+  • Clear README or comments marking which files are student-editable
+  • Infrastructure files must be realistic — not toy stubs
+
+  Both formats:
+  • Real dependencies only — whatever the source material uses
   • Baked-in data must be domain-realistic (not foo/bar/42)
 """
 
@@ -260,7 +296,7 @@ TEACHING DOCUMENT that a student spends 30-90 minutes reading. It must:
 8. Close with a synthesis section reconnecting to the course's overall goal
 9. Reference specific numbers, benchmarks, or measurements from the source
 
-Target length: 3,000-10,000 words depending on module complexity. Write like \
+Target length: 5,000-10,000 words depending on module complexity. Write like \
 a Codeforces grandmaster editorial or an MIT course reading — elaborate, \
 thorough, with every step justified.
 
@@ -268,18 +304,37 @@ thorough, with every step justified.
 EXERCISE FILE STANDARDS
 ═══════════════════════════════════════════════════════════════════════════════════
 
-SCAFFOLD files (~65% provided, ~35% TODO):
-- Complete imports, class structures, data fixtures, helper functions
-- Thorough numpy-style docstrings (purpose, parameters with types/shapes, returns)
-- TODO blocks: "# YOUR CODE HERE - 8-12 lines" with hints
-- NotImplementedError("YOUR CODE HERE") in TODO zones
-- __main__ block: 20-50 lines, ALWAYS fully provided, never scaffolded
-- Must parse without errors as-is
+SINGLE-FILE exercises (format: single_file):
 
-SOLUTION files (identical structure, TODOs filled in):
-- Same imports, same __main__ block, same structure
-- TODO zones replaced with correct implementation
-- Must run and produce educational output matching the milestone
+  SCAFFOLD (~65% provided, ~35% TODO):
+  - Complete imports, class structures, data fixtures, helper functions
+  - Docstrings on public functions (purpose, parameters with types, returns)
+  - TODO blocks: "# YOUR CODE HERE - 8-12 lines" with hints
+  - NotImplementedError("YOUR CODE HERE") in TODO zones
+  - __main__ block: 20-50 lines, ALWAYS fully provided, never scaffolded
+  - Must parse without errors as-is
+
+  SOLUTION (identical structure, TODOs filled in):
+  - Same imports, same __main__ block, same structure
+  - TODO zones replaced with correct implementation
+  - Must run and produce educational output matching the milestone
+
+PROJECT exercises (format: project):
+
+  Create a directory: ex{NN}_{slug}/
+  Inside it:
+  - Infrastructure files (provided_files from Blueprint): Makefile, test suite, \
+RPC library, config, docker-compose — whatever the exercise needs. These are \
+complete and working. The student does NOT modify them.
+  - Stub files: the files the student edits. Same TODO pattern as single_file \
+but within a larger project context.
+  - _solutions/ directory: completed versions of ONLY the stub files. \
+Infrastructure files are NOT duplicated here.
+  - README.md: brief exercise-level instructions — what to implement, how to \
+test, what passing looks like.
+
+  The test/validation command (validate_command from Blueprint) must pass when \
+the solution files replace the stubs.
 
 When writing exercise 2+, you will see execution output from previous exercises. \
 Reference those actual numbers in the narrative: "In exercise 1 you saw the naive \
