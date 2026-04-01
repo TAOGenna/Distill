@@ -1,0 +1,419 @@
+{
+  "course_title": "TurboQuant: Near-Optimal Vector Quantization from Theory to Practice",
+  "course_description": "Reproduce the core algorithms and theoretical results of TurboQuant, a data-oblivious vector quantization method that achieves near-optimal distortion rates. Starting from the quantization problem definition, you will implement random rotation preprocessing, derive the Beta distribution of hypersphere coordinates, build Lloyd-Max optimal codebooks, construct the full TurboQuant_mse pipeline, implement QJL for unbiased inner product estimation, compose the two-stage TurboQuant_prod algorithm, verify information-theoretic lower bounds, and apply the quantizer to nearest neighbor search and simplified KV cache compression. Each module builds one atom of the algorithm, culminating in a capstone that reproduces the paper's empirical distortion curves within the predicted theoretical bounds.",
+  "modules": [
+    {
+      "module_index": 0,
+      "title": "The Vector Quantization Problem",
+      "description": "Build intuition for what vector quantization is and why it matters before touching any math. You will implement a naive uniform scalar quantizer, measure MSE and inner product distortion on real-valued vectors, and discover empirically that uniform quantization wastes bits on unlikely values — motivating the need for distribution-aware codebooks.",
+      "learning_objectives": [
+        "Define the quantization map Q and inverse map Q^{-1} for d-dimensional vectors at bit-width b",
+        "Compute MSE distortion and inner product distortion from quantized vectors",
+        "Explain why data-oblivious (online) quantization is essential for KV cache compression during LLM inference",
+        "Demonstrate empirically that uniform quantization is suboptimal for non-uniform data distributions"
+      ],
+      "concepts_covered": [
+        "Vector Quantization Problem Formulation",
+        "Online vs Offline Quantization Paradigm"
+      ],
+      "depends_on": [],
+      "exercises": [
+        {
+          "title": "Uniform Scalar Quantizer",
+          "type": "implement",
+          "description": "Implement a uniform b-bit scalar quantizer that partitions the interval [-1, 1] into 2^b equally-spaced buckets. The quantizer maps each coordinate to the nearest bucket centroid. Apply it coordinate-wise to d-dimensional unit-norm vectors and measure reconstruction error.",
+          "scaffolding_level": "heavy",
+          "what_is_provided": "Import block (numpy), normalize_vector() helper that projects vectors to unit norm, a generate_test_vectors(n, d) function producing random unit vectors, a print_results_table() function that formats bit-width vs distortion, and a full __main__ block that tests quantization at b=1,2,3,4 bits and prints MSE distortion for each.",
+          "what_student_writes": "uniform_quantize(x, b) — partition [-1,1] into 2^b uniform buckets and return indices (~5-7 lines); uniform_dequantize(indices, b) — map indices back to bucket centroids (~3-5 lines); measure_mse(x, x_hat) — compute mean squared error between original and reconstructed vectors (~2-3 lines)",
+          "milestone": "Prints a table of bit-width vs MSE distortion for random unit vectors in d=256. Expected MSE values: b=1 ~0.33, b=2 ~0.083, b=3 ~0.021, b=4 ~0.005. These are the uniform quantizer baselines that TurboQuant will later beat.",
+          "key_insight": "A uniform quantizer spaces buckets evenly regardless of where the data actually concentrates — this wastes resolution on regions with low probability density.",
+          "common_mistakes": "Off-by-one in bucket boundaries (forgetting to handle endpoints -1 and 1); computing centroids at bucket edges instead of bucket centers; not normalizing vectors to unit norm before quantization",
+          "expected_output_pattern": "MSE"
+        },
+        {
+          "title": "Inner Product Distortion Measurement",
+          "type": "fill_blank",
+          "description": "Extend the uniform quantizer to measure inner product distortion: given quantized database vectors and unquantized query vectors, compute the error in estimated inner products. Discover that MSE and inner product error are related but distinct metrics.",
+          "scaffolding_level": "heavy",
+          "what_is_provided": "Full uniform_quantize/dequantize from exercise 1 (provided as working code), generate_database_and_queries(n_db, n_query, d) that creates test data, a compute_true_inner_products(queries, database) reference function, a print_distortion_summary() that shows mean/std of errors, and a full __main__ block that runs the comparison at multiple bit-widths.",
+          "what_student_writes": "compute_estimated_inner_products(queries, quantized_database) — compute inner products using dequantized database vectors (~4-6 lines); compute_inner_product_distortion(true_ip, estimated_ip) — compute E[|<y,x> - <y,x_hat>|^2] averaging over all query-database pairs (~3-5 lines); check_bias(true_ip, estimated_ip) — compute mean(estimated - true) to detect systematic bias (~2-3 lines)",
+          "milestone": "Prints inner product distortion and bias at b=1,2,3,4. Shows that uniform quantization introduces both variance AND bias in inner product estimates. Bias decreases with higher bit-width but does not vanish.",
+          "key_insight": "Inner product distortion D_prod depends on both the reconstruction error AND the query vector norm. Minimizing MSE does not automatically minimize inner product error, and quantizers can introduce systematic bias in inner product estimates.",
+          "common_mistakes": "Confusing inner product distortion (squared error) with absolute error; averaging over wrong axis when computing per-query distortion; forgetting that D_prod scales with ||y||^2",
+          "expected_output_pattern": "bias"
+        },
+        {
+          "title": "Uniform vs. Distribution-Aware Quantization",
+          "type": "contrastive",
+          "description": "First apply uniform quantization to Gaussian-distributed coordinates and observe poor MSE. Then implement a simple distribution-aware quantizer where bucket boundaries are chosen to equalize probability mass (equiprobable quantizer). Compare the two approaches to build motivation for Lloyd-Max optimization.",
+          "scaffolding_level": "heavy",
+          "what_is_provided": "Import block (numpy, scipy.stats, scipy.special), generate_gaussian_data(n, d, sigma) producing N(0, sigma^2) samples, uniform_quantize/dequantize from exercise 1, a compute_mse helper, print_comparison_table() showing side-by-side MSE, and a full __main__ block that generates Gaussian data at various sigma values, runs both quantizers, and prints the comparison.",
+          "what_student_writes": "equiprobable_boundaries(b, sigma) — compute 2^b bucket boundaries using scipy.stats.norm.ppf so each bucket captures equal probability mass (~5-8 lines); equiprobable_centroids(boundaries, sigma) — compute the conditional mean within each bucket using truncated normal expectations (~6-10 lines); equiprobable_quantize(x, boundaries, centroids) — assign each value to nearest centroid (~3-5 lines)",
+          "milestone": "Prints side-by-side MSE comparison showing the equiprobable quantizer beats uniform by 10-30% for Gaussian data. The gap widens at low bit-widths (b=1,2) where bucket placement matters most. This motivates the Lloyd-Max approach which further optimizes centroid positions.",
+          "key_insight": "Matching the quantizer to the data distribution reduces distortion significantly. The key insight of TurboQuant is that random rotation CREATES a known distribution (Beta/Gaussian), enabling precomputed optimal codebooks.",
+          "common_mistakes": "Using ppf with wrong sigma (forgetting to scale); computing centroids as bucket midpoints instead of conditional means; not handling the boundary cases at -inf and +inf correctly for the outermost buckets",
+          "expected_output_pattern": "improvement"
+        }
+      ],
+      "inline_questions": [
+        {
+          "question": "Why does TurboQuant require unit-norm vectors? What would happen if you quantized vectors of varying norms without storing the norm separately?",
+          "context": "The paper states: 'the unit norm assumption is standard and not restrictive. For datasets that do not satisfy this assumption we can compute and store the L2 norms in floating-point precision and rescale the dequantized points using these stored norms.'"
+        },
+        {
+          "question": "If you have a 1-bit quantizer (b=1, so 2 buckets), where should you place the two centroids to minimize MSE for data drawn from N(0,1)? How does this differ from uniform placement at -0.5 and +0.5?",
+          "context": "At b=1 the optimal centroids for N(0,1) are at ±sqrt(2/pi) ≈ ±0.798, much further from zero than uniform centroids at ±0.5. This captures the spread of the Gaussian better."
+        },
+        {
+          "question": "The paper defines D_prod with an expectation over the randomness of Q. Why is it important that the quantizer is randomized rather than deterministic?",
+          "context": "A deterministic quantizer has fixed worst-case inputs that achieve maximum distortion. A randomized quantizer averages over its internal randomness, and by Yao's minimax principle, the expected distortion of the best randomized algorithm on worst-case inputs equals the expected distortion of the best deterministic algorithm on a random input distribution."
+        }
+      ],
+      "visible_outcome": "A printed table comparing uniform and distribution-aware quantization at b=1,2,3,4 bits for d=256 dimensional Gaussian vectors, showing 10-30% MSE improvement from matching the quantizer to the distribution.",
+      "key_excerpts": [
+        "our goal is to design a quantization map, denoted as Q: R^d → {0,1}^B, that transforms d-dimensional vectors to a binary string of B bits. If we set B = b·d for some b ≥ 0, this quantizer will have a bit-width of b, representing the average number of bits used to encode each real-valued coordinate of R^d. Crucially, we require an inverse map, Q^{-1}: {0,1}^B → R^d that performs dequantization",
+        "D_mse := E_Q[ ||x - Q^{-1}(Q(x))||_2^2 ]  and  D_prod := E_Q[ |<y,x> - <y, Q^{-1}(Q(x))>|^2 ]. The expectations above are taken with respect to the randomness of the quantizer Q(·). Furthermore, for inner-product quantizers, we require unbiasedness of the inner product estimator",
+        "Online (data-oblivious) quantization methods apply instantly without needing data-specific tuning or calibrations. In contrast, offline (data-dependent) methods require heavy preprocessing and learning to adapt the quantization map to the data, making them unsuitable for dynamic data scenarios"
+      ]
+    },
+    {
+      "module_index": 1,
+      "title": "Random Rotations & Hypersphere Geometry",
+      "description": "Implement the foundational insight of TurboQuant: multiplying a worst-case vector by a random orthogonal matrix transforms it into a uniformly random point on the unit hypersphere. You will generate random rotation matrices via QR decomposition, verify that rotated coordinates follow the predicted Beta distribution, and observe concentration of measure in high dimensions.",
+      "learning_objectives": [
+        "Generate a random orthogonal (rotation) matrix via QR decomposition of a Gaussian random matrix",
+        "Verify empirically that each coordinate of a randomly rotated unit vector follows the Beta distribution f_X(x) = Γ(d/2)/(√π·Γ((d-1)/2))·(1-x²)^((d-3)/2)",
+        "Demonstrate that the Beta distribution converges to N(0, 1/d) in high dimensions via concentration of measure",
+        "Explain why random rotation makes the quantizer data-oblivious: any input vector becomes statistically identical after rotation"
+      ],
+      "concepts_covered": [
+        "Random Rotation for Data-Oblivious Quantization",
+        "Beta Distribution of Hypersphere Coordinates",
+        "Near-Independence of Rotated Coordinates in High Dimensions"
+      ],
+      "depends_on": [
+        0
+      ],
+      "exercises": [
+        {
+          "title": "Random Rotation Matrix Generation",
+          "type": "implement",
+          "description": "Generate a random d×d orthogonal matrix Π by drawing a Gaussian random matrix and computing its QR decomposition. Verify orthogonality (Π^T·Π = I) and that rotation preserves norms and inner products. This is the first step of every TurboQuant invocation.",
+          "scaffolding_level": "heavy",
+          "what_is_provided": "Import block (numpy, numpy.linalg), test vectors (adversarial: all-zeros-except-one, linearly spaced, clustered), verify_orthogonality(Pi) that checks Π^T·Π ≈ I, verify_norm_preservation(x, Pi) that checks ||Πx|| = ||x||, verify_inner_product_preservation(x, y, Pi) that checks <Πx, Πy> = <x,y>, and a full __main__ block that runs all verifications at d=64,128,256 and prints a summary table.",
+          "what_student_writes": "generate_random_rotation(d, seed=None) — draw G ~ N(0,1)^{d×d}, compute Q,R = np.linalg.qr(G), return Q with sign correction to ensure uniform Haar measure (~6-10 lines); rotate_vector(x, Pi) — apply rotation Π·x (~2-3 lines); rotate_back(y, Pi) — apply inverse rotation Π^T·y (~2-3 lines)",
+          "milestone": "Prints verification that Π is orthogonal (max |Π^T·Π - I| < 1e-12), norms are preserved (relative error < 1e-12), and inner products are preserved (relative error < 1e-12) for all test dimensions. Shows that worst-case adversarial vectors become 'random-looking' after rotation.",
+          "key_insight": "The QR decomposition of a Gaussian random matrix yields a Haar-uniform random orthogonal matrix. The sign correction (multiplying columns of Q by sign(diag(R))) ensures true uniformity over the orthogonal group O(d).",
+          "common_mistakes": "Forgetting the sign correction on Q (np.linalg.qr does not guarantee Haar measure without it); confusing Q and R in the QR output; using a non-square Gaussian matrix",
+          "expected_output_pattern": "orthogonal"
+        },
+        {
+          "title": "Coordinate Distribution on the Hypersphere",
+          "type": "implement",
+          "description": "Rotate many different unit vectors using the same random rotation matrix and collect the distribution of a single coordinate across all rotated vectors. Verify it matches the theoretical Beta distribution from Lemma 1 of the paper. Plot the empirical histogram against the analytical PDF.",
+          "scaffolding_level": "medium",
+          "what_is_provided": "Import block (numpy, scipy.special, scipy.stats), generate_random_rotation from exercise 1, generate_diverse_unit_vectors(n, d) producing various unit vectors (random, adversarial, clustered), a beta_pdf_theoretical(x, d) that computes Γ(d/2)/(√π·Γ((d-1)/2))·(1-x²)^((d-3)/2), a ks_test_report(samples, d) that runs a KS test and prints results, and a full __main__ block that generates 50000 samples at d=32,128,512, plots histograms vs PDF, and prints KS test p-values.",
+          "what_student_writes": "collect_coordinate_samples(vectors, Pi, coord_idx=0) — rotate each vector by Π and extract coordinate coord_idx, returning array of samples (~4-6 lines); compute_empirical_cdf(samples, x_grid) — sort samples and compute empirical CDF on the grid for comparison (~4-6 lines); compare_moments(samples, d) — compute empirical mean, variance, kurtosis and compare to theoretical values (mean=0, var=1/d) (~5-8 lines)",
+          "milestone": "Prints moment comparison table: empirical mean ≈ 0 (< 0.01), empirical variance ≈ 1/d (within 5%), and KS test p-values > 0.05 for all dimensions. Shows histogram overlaid with theoretical Beta PDF matching closely.",
+          "key_insight": "The key fact enabling TurboQuant: regardless of what the input vector is, after random rotation each coordinate follows the SAME known distribution f_X(x). This is what makes the quantizer data-oblivious — we can precompute optimal codebooks for this fixed distribution.",
+          "common_mistakes": "Sampling multiple coordinates from the same rotated vector and treating them as independent samples of the marginal (they're not exactly independent, though nearly so); forgetting that the support is [-1, 1] not [0, 1]; using scipy.stats.beta with wrong parameterization (it uses alpha, beta shape params on [0,1])",
+          "expected_output_pattern": "KS test"
+        },
+        {
+          "title": "Concentration and Near-Independence in High Dimensions",
+          "type": "explore",
+          "description": "Explore how the Beta distribution concentrates around zero as dimension d increases, converging to N(0, 1/d). Vary d from 8 to 4096 and observe the narrowing distribution. Also measure pairwise correlation between distinct coordinates to verify near-independence.",
+          "scaffolding_level": "medium",
+          "what_is_provided": "Import block (numpy, scipy.special), generate_random_rotation, collect_coordinate_samples from exercise 2, a gaussian_comparison(samples, d) function that computes the sup-norm difference between empirical CDF and N(0,1/d) CDF, a print_concentration_table() formatter, a measure_pairwise_correlation(vectors, Pi) that computes correlation between coordinates 0 and 1, and a full __main__ block that sweeps d in [8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096], prints concentration metrics, correlation values, and a summary.",
+          "what_student_writes": "compute_gaussian_approx_error(samples, d) — compute max |F_empirical(x) - Φ(x·√d)| over a grid of x values to measure how close the Beta distribution is to N(0,1/d) (~6-10 lines); compute_coordinate_correlation(vectors, Pi, i, j) — rotate vectors, extract coordinates i and j, compute Pearson correlation (~4-6 lines); compute_effective_variance_ratio(samples, d) — compute var(samples)/(1/d) to verify the variance scaling (~3-4 lines)",
+          "milestone": "Prints a table showing: (1) Gaussian approximation error decreasing from ~0.15 at d=8 to <0.01 at d=512+; (2) pairwise coordinate correlation < 0.02 for d≥64; (3) variance ratio converging to 1.0. Demonstrates that in practice, coordinates are nearly independent Gaussian for d≥128.",
+          "key_insight": "In high dimensions, the Beta distribution concentrates tightly around zero and becomes indistinguishable from N(0, 1/d). This convergence, combined with near-independence of coordinates, justifies treating each coordinate separately with the same optimal scalar quantizer.",
+          "common_mistakes": "Using too few samples to detect the concentration (need ≥10000); not scaling the Gaussian comparison correctly (N(0,1/d) not N(0,1)); confusing correlation with independence (zero correlation is necessary but not sufficient for independence, though the paper proves near-independence as a deeper result)",
+          "expected_output_pattern": "correlation"
+        }
+      ],
+      "inline_questions": [
+        {
+          "question": "Why can't we just use a fixed rotation matrix (like the DFT matrix or Hadamard matrix) instead of a random one? What property would we lose?",
+          "context": "A fixed deterministic rotation has worst-case inputs that remain worst-case after rotation. The randomness of Π is what ensures that ANY input becomes uniformly distributed on S^{d-1}. However, structured random matrices (random Hadamard) can approximate this property with O(d log d) cost instead of O(d²)."
+        },
+        {
+          "question": "The paper claims coordinates become 'nearly independent' in high dimensions. Why is near-independence (not just zero correlation) important for per-coordinate quantization?",
+          "context": "If coordinates were uncorrelated but dependent, quantizing them independently could still incur a penalty because the joint distribution would not factor. Near-independence means the joint distribution approximately factors, so the sum of per-coordinate distortions approximately equals the total distortion."
+        }
+      ],
+      "visible_outcome": "A concentration table showing the Beta distribution converging to N(0, 1/d) as dimension increases, with Gaussian approximation error < 0.01 for d ≥ 512 and pairwise coordinate correlation < 0.02 for d ≥ 64.",
+      "key_excerpts": [
+        "if x ∈ S^{d-1} is a random variable uniformly distributed over the unit hypersphere, then for any j ∈ [d] the coordinate x_j follows the following (scaled/shifted) Beta distribution: x_j ~ f_X(x) := Γ(d/2)/(√π · Γ((d-1)/2)) · (1 - x²)^{(d-3)/2}. In high dimensions this beta distribution converges to the normal distribution f_X(·) → N(0, 1/d).",
+        "We start by randomizing this vector by multiplying it with a random rotation matrix Π ∈ R^{d×d}. We can generate Π by applying QR decomposition on a random matrix with i.i.d Normal entries. The resulting rotated vector, Π·x, is uniformly distributed on the unit sphere S^{d-1}.",
+        "in high dimensions, distinct coordinates of Π·x become nearly independent, allowing us to apply optimal scalar quantizers to each coordinate independently. This near-independence is a crucial aspect that simplifies our quantization design."
+      ]
+    },
+    {
+      "module_index": 2,
+      "title": "Optimal Scalar Quantization & TurboQuant_mse",
+      "description": "Build the core computational engine of TurboQuant: the Lloyd-Max optimal scalar quantizer for the Beta distribution of hypersphere coordinates. Then assemble the full TurboQuant_mse pipeline — rotate, quantize per coordinate, dequantize, rotate back — and verify that MSE distortion matches the theoretical bound D_mse ≤ (√3·π/2)·1/4^b.",
+      "learning_objectives": [
+        "Formulate optimal scalar quantization as a continuous 1D k-means problem: minimize E[|x - c_i|² · f_X(x)] over Voronoi cells",
+        "Implement Lloyd-Max iteration: alternate between updating boundaries (midpoints of centroids) and centroids (conditional expectations within cells)",
+        "Precompute codebooks for bit-widths b=1,2,3,4 against the Beta distribution",
+        "Assemble the complete TurboQuant_mse pipeline and verify MSE distortion values of approximately 0.36, 0.117, 0.03, 0.009 for b=1,2,3,4"
+      ],
+      "concepts_covered": [
+        "Lloyd-Max Optimal Scalar Quantization",
+        "MSE Distortion Bound",
+        "Panter-Dite High-Resolution Formula"
+      ],
+      "depends_on": [
+        1
+      ],
+      "exercises": [
+        {
+          "title": "Lloyd-Max Algorithm for Gaussian Distribution",
+          "type": "implement",
+          "description": "Implement the Lloyd-Max iterative algorithm to find optimal scalar quantizer codebooks for a known distribution. Start with Gaussian N(0, σ²) as a warm-up: iterate between computing Voronoi boundaries (midpoints of consecutive centroids) and updating centroids as conditional expectations E[X | X ∈ cell_i].",
+          "scaffolding_level": "medium",
+          "what_is_provided": "Import block (numpy, scipy.integrate, scipy.stats), gaussian_pdf(x, sigma) and gaussian_conditional_expectation(a, b, sigma) helper functions using scipy, initial_centroids_uniform(b, support_range) that seeds centroids uniformly, convergence_check(old, new, tol) that tests centroid movement, and a full __main__ block that runs Lloyd-Max for b=1,2,3,4 at sigma=1.0, prints final codebooks and MSE cost, compares to known optimal values.",
+          "what_student_writes": "compute_boundaries(centroids) — compute Voronoi boundaries as midpoints of consecutive sorted centroids, with -inf and +inf as outer boundaries (~4-6 lines); update_centroids(boundaries, pdf_func, b) — for each cell [boundary_i, boundary_{i+1}], compute the conditional expectation ∫x·f(x)dx / ∫f(x)dx using scipy.integrate.quad (~8-12 lines); lloyd_max_iterate(b, pdf_func, initial_centroids, max_iter=100, tol=1e-10) — run the alternating optimization until convergence (~10-15 lines); compute_mse_cost(centroids, boundaries, pdf_func) — compute total MSE ∑_i ∫|x-c_i|²·f(x)dx over all cells (~6-8 lines)",
+          "milestone": "Prints optimal codebooks for N(0,1): b=1 → {±0.7979}, b=2 → {±0.4528, ±1.5104}, matching known values to 3 decimal places. MSE costs printed alongside theoretical values.",
+          "key_insight": "Lloyd-Max is a continuous analog of k-means: boundaries are always midpoints (Voronoi condition), and centroids are conditional means (centroid condition). These two conditions are necessary and sufficient for optimality in 1D.",
+          "common_mistakes": "Not handling the outer boundaries at ±infinity (the first and last cells extend to -∞ and +∞); dividing by zero when a cell has near-zero probability mass; initializing centroids symmetrically for even-bit codebooks when the distribution is symmetric (this is correct and should be exploited, but students sometimes break symmetry accidentally)",
+          "expected_output_pattern": "codebook"
+        },
+        {
+          "title": "Lloyd-Max for the Beta Distribution",
+          "type": "extend",
+          "description": "Extend the Lloyd-Max algorithm from Gaussian to the Beta distribution of hypersphere coordinates. The key difference: the support is bounded [-1, 1] instead of (-∞, +∞), and the PDF is f_X(x) = Γ(d/2)/(√π·Γ((d-1)/2))·(1-x²)^((d-3)/2). Compute codebooks for d=128 at b=1,2,3,4 and verify they match the paper's predictions.",
+          "scaffolding_level": "medium",
+          "what_is_provided": "Import block (numpy, scipy.integrate, scipy.special), lloyd_max_iterate and compute_boundaries from exercise 1 (provided as working code), beta_pdf(x, d) implementing the hypersphere coordinate distribution, initial_centroids_symmetric(b, d) that seeds centroids symmetrically within [-1/√d, 1/√d], and a full __main__ block that computes codebooks for d=128 at b=1,2,3,4, prints them scaled by √d for comparison with Gaussian codebooks, and verifies MSE cost matches C(f_X, b) ≈ 0.36/d, 0.117/d, 0.03/d, 0.009/d.",
+          "what_student_writes": "beta_conditional_expectation(a, b_bound, d) — compute E[X | a ≤ X ≤ b] for the Beta distribution using numerical integration ∫x·f_X(x)dx / ∫f_X(x)dx (~6-8 lines); update_centroids_beta(boundaries, d, n_buckets) — update centroids using beta_conditional_expectation for each cell, handling the bounded support [-1, 1] (~6-10 lines); compute_per_coordinate_mse(centroids, boundaries, d) — compute C(f_X, b) = ∑_i ∫|x-c_i|²·f_X(x)dx over cells within [-1,1] (~6-8 lines); scale_codebook_to_gaussian(centroids, d) — multiply centroids by √d to show they converge to the Gaussian codebook (~2-3 lines)",
+          "milestone": "Prints codebooks for d=128: b=1 centroids ≈ ±0.0706 (which is ±√(2/πd)), b=2 centroids ≈ ±0.0401, ±0.1337. Per-coordinate MSE C(f_X, b) ≈ 0.0028, 0.00091, 0.00023, 0.000070 for b=1,2,3,4. Scaled codebooks (×√128) match Gaussian optimal values.",
+          "key_insight": "Because the Beta distribution converges to N(0, 1/d) in high dimensions, the optimal codebooks are approximately the Gaussian codebooks scaled by 1/√d. This means we can precompute codebooks once and reuse them across all input vectors — the foundation of TurboQuant's efficiency.",
+          "common_mistakes": "Forgetting to clip integration bounds to [-1, 1] for the Beta distribution; not handling the singularity in f_X near x=±1 for small d; confusing C(f_X, b) (per-coordinate cost) with d·C(f_X, b) (total MSE)",
+          "expected_output_pattern": "per-coordinate MSE"
+        },
+        {
+          "title": "Full TurboQuant_mse Pipeline",
+          "type": "implement",
+          "description": "Assemble the complete TurboQuant_mse algorithm: (1) generate random rotation Π, (2) precompute Lloyd-Max codebook for bit-width b, (3) quantize by rotating and finding nearest centroids, (4) dequantize by looking up centroids and rotating back. This implements Algorithm 1 from the paper.",
+          "scaffolding_level": "medium",
+          "what_is_provided": "Import block (numpy, scipy), generate_random_rotation from module 1, precomputed codebooks dict CODEBOOKS[d][b] containing centroids for d=128,256,512 and b=1,2,3,4 (computed via Lloyd-Max from exercise 2), a TurboQuantMSE class with __init__(self, d, b, seed) that stores Π and codebook, and a full __main__ block that creates a TurboQuantMSE instance, quantizes 10000 random unit vectors, computes MSE, and prints a comparison table against theoretical bounds.",
+          "what_student_writes": "TurboQuantMSE.quantize(self, x) — compute y = Π·x, then for each coordinate find the index of the nearest centroid, return indices array (~6-8 lines); TurboQuantMSE.dequantize(self, indices) — look up centroids from indices to get ỹ, then compute x̃ = Π^T·ỹ, return reconstructed vector (~4-6 lines); TurboQuantMSE.quantize_batch(self, X) — vectorized version for a matrix of vectors (each row is a vector) (~5-8 lines); measure_empirical_mse(quantizer, vectors) — quantize and dequantize each vector, compute average ||x - x̃||² (~4-6 lines)",
+          "milestone": "Prints MSE comparison table: empirical vs theoretical for d=128 at b=1,2,3,4. Expected: empirical MSE ≈ 0.36, 0.117, 0.03, 0.009 matching theoretical D_mse = d·C(f_X,b). Also shows that MSE is independent of input vector direction (data-oblivious property).",
+          "key_insight": "The full pipeline is remarkably simple: one matrix multiply (rotation), one nearest-neighbor lookup per coordinate (quantization), one table lookup (dequantization), and one matrix multiply (inverse rotation). The complexity is O(d²) dominated by the rotation, or O(d log d) with structured random rotations.",
+          "common_mistakes": "Transposing Π in the wrong direction (Π for quantization, Π^T for dequantization); using argmin over absolute differences |y_j - c_k| instead of (y_j - c_k)² (both work but absolute is more numerically stable); forgetting that the codebook centroids depend on dimension d",
+          "expected_output_pattern": "theoretical"
+        },
+        {
+          "title": "MSE Distortion: Theory vs. Experiment",
+          "type": "comparative",
+          "description": "Compare empirical MSE distortion against both the theoretical upper bound D_mse ≤ (√3·π/2)·1/4^b and the information-theoretic lower bound D_mse ≥ 1/4^b. Run experiments at multiple dimensions and bit-widths to reproduce Figure 4b from the paper.",
+          "scaffolding_level": "light",
+          "what_is_provided": "Import block (numpy, matplotlib.pyplot), TurboQuantMSE class from exercise 3 (provided), a generate_test_suite(dims, n_vectors) function, and a full __main__ block that sweeps d in [64, 128, 256, 512, 1024] and b in [1, 2, 3, 4], runs experiments, and prints a formatted table with columns: d, b, empirical_MSE, upper_bound, lower_bound, ratio_to_lower_bound.",
+          "what_student_writes": "compute_theoretical_upper_bound(b) — return (√3·π/2)/4^b for b>4, or lookup exact numerically computed values for b=1,2,3,4 (~5-8 lines); compute_lower_bound(b) — return 1/4^b (~2 lines); run_distortion_experiment(d, b, n_vectors=10000) — create TurboQuantMSE, quantize n_vectors random unit vectors, return mean MSE (~6-8 lines); compute_ratio_to_optimal(empirical_mse, lower_bound) — compute how far empirical is from the information-theoretic limit (~2-3 lines)",
+          "milestone": "Prints table showing empirical MSE is sandwiched between lower bound (1/4^b) and upper bound ((√3π/2)/4^b ≈ 2.72/4^b). Ratio to lower bound ranges from ~1.45 at b=1 to ~2.7 at b=4, matching the paper's claim. MSE is approximately constant across dimensions d (as expected for unit-norm vectors).",
+          "key_insight": "TurboQuant is provably within a factor of 2.7× of the information-theoretic optimum for MSE. At b=1, the gap narrows to only 1.45× — meaning TurboQuant is nearly optimal at low bit-widths where quantization matters most.",
+          "common_mistakes": "Using the asymptotic formula (√3π/2)/4^b at b=1,2,3,4 where exact values are tighter; confusing total MSE (d·C(f_X,b)) with per-coordinate MSE C(f_X,b); not averaging over enough vectors (need ≥5000 for stable estimates at b=4)",
+          "expected_output_pattern": "ratio"
+        }
+      ],
+      "inline_questions": [
+        {
+          "question": "The Lloyd-Max algorithm alternates between two steps. Prove that each step can only decrease (or maintain) the MSE cost. Why does this guarantee convergence?",
+          "context": "Step 1 (update boundaries to midpoints) minimizes MSE for fixed centroids because midpoints define optimal Voronoi cells. Step 2 (update centroids to conditional means) minimizes MSE for fixed cells because the conditional mean minimizes E[(X-c)²|X ∈ cell]. Since MSE decreases monotonically and is bounded below by 0, the algorithm must converge."
+        },
+        {
+          "question": "The Panter-Dite formula gives C(f_X, b) ≤ (1/12)·(∫f_X(x)^{1/3}dx)³ · 1/4^b. Why does the MSE scale as 1/4^b rather than, say, 1/2^b? What does this tell you about the value of each additional bit?",
+          "context": "Each additional bit doubles the number of quantization levels, but the distortion drops by a factor of 4 (not 2) because finer partition cells have both smaller width AND smaller within-cell variance. Equivalently, 1/4^b = 2^{-2b}, so each bit reduces MSE by 6 dB — a fundamental result in rate-distortion theory."
+        }
+      ],
+      "visible_outcome": "A comparison table showing empirical MSE sandwiched between the lower bound 1/4^b and upper bound (√3π/2)/4^b across b=1,2,3,4 for multiple dimensions, reproducing the paper's Figure 4b results.",
+      "key_excerpts": [
+        "C(f_X, b) := min_{-1 ≤ c_1 ≤ c_2 ≤ ... ≤ c_{2^b} ≤ 1} ∑_{i=1}^{2^b} ∫_{(c_{i-1}+c_i)/2}^{(c_i+c_{i+1})/2} |x - c_i|² · f_X(x) dx. Note that C(f_X, b) denotes the optimal MSE cost function for bit-width b",
+        "D_mse ≤ (√3 π)/2 · 1/4^b for any b ≥ 0. For small bit-widths the above distortion upper bound can be further refined. Specifically, for b = 1, 2, 3, 4 we have D_mse(Q_mse) ≈ 0.36, 0.117, 0.03, 0.009, respectively.",
+        "for moderately high dimensions d, where the distribution f_X(x) closely approximates a normal distribution, the optimal quantization centroids for bit-widths b = 1, 2 are {± √(2/(πd))} and {± 0.453/√d, ± 1.51/√d}, respectively.",
+        "C(f_X, b) ≤ (1/12) · (∫ f_X(x)^{1/3} dx)³ · 1/4^b = (√3 π)/(2d) · 1/4^b"
+      ]
+    },
+    {
+      "module_index": 3,
+      "title": "Inner Product Quantization: QJL & TurboQuant_prod",
+      "description": "Discover that MSE-optimal quantizers introduce bias in inner product estimation, then fix it. Implement the QJL (Quantized Johnson-Lindenstrauss) transform — a 1-bit inner product quantizer using random Gaussian projections and sign bits. Finally, compose TurboQuant_mse with QJL on the residual to build the two-stage TurboQuant_prod algorithm that provides unbiased inner product estimates.",
+      "learning_objectives": [
+        "Implement QJL: Q_qjl(x) = sign(S·x) with dequantization Q_qjl^{-1}(z) = √(π/2)/d · S^T·z, and verify unbiasedness and variance bound",
+        "Demonstrate empirically that TurboQuant_mse at b=1 has multiplicative bias 2/π ≈ 0.637 for inner product estimation",
+        "Implement the two-stage TurboQuant_prod: apply (b-1)-bit MSE quantizer, compute residual, apply QJL to residual",
+        "Verify that TurboQuant_prod is unbiased and achieves distortion D_prod ≤ (√3·π²·||y||²/d)·1/4^b"
+      ],
+      "concepts_covered": [
+        "QJL (Quantized Johnson-Lindenstrauss) Transform",
+        "MSE-Optimal Quantizers are Biased for Inner Products",
+        "Two-Stage Inner Product Quantizer (TurboQuant_prod)"
+      ],
+      "depends_on": [
+        2
+      ],
+      "exercises": [
+        {
+          "title": "QJL: 1-Bit Inner Product Quantizer",
+          "type": "implement",
+          "description": "Implement the Quantized Johnson-Lindenstrauss (QJL) transform. For a unit vector x, QJL quantizes to sign(S·x) where S is a random Gaussian matrix, and dequantizes via √(π/2)/d · S^T·z. Verify that <y, Q_qjl^{-1}(Q_qjl(x))> is an unbiased estimator of <y, x> with variance ≤ (π/2d)·||y||².",
+          "scaffolding_level": "medium",
+          "what_is_provided": "Import block (numpy), generate_random_unit_vectors(n, d), generate_query_vectors(n_q, d), compute_true_inner_products(queries, database), a QJL class with __init__(self, d, seed) that generates and stores random matrix S, print_unbiasedness_test() and print_variance_test() formatters, and a full __main__ block that runs unbiasedness test (estimates vs true over 1000 vector pairs), variance test, and prints summary comparing to theoretical bounds.",
+          "what_student_writes": "QJL.quantize(self, x) — compute z = sign(S·x), return sign vector (~3-4 lines); QJL.dequantize(self, z) — compute x̃ = √(π/2)/d · S^T·z, return reconstructed vector (~3-4 lines); QJL.estimate_inner_product(self, y, z) — compute <y, Q_qjl^{-1}(z)> = √(π/2)/d · y^T · S^T · z efficiently (~3-5 lines); measure_qjl_variance(qjl, x, y, n_trials=1000) — run n_trials with different S matrices, compute variance of inner product estimates (~6-10 lines)",
+          "milestone": "Prints unbiasedness test: mean(estimates - true) / mean(|true|) < 0.02 (relative bias < 2%). Prints variance test: empirical variance ≈ π/(2d) · ||y||² within 10%. Demonstrates that QJL gives unbiased 1-bit inner product estimates at the cost of high variance.",
+          "key_insight": "QJL works because E[sign(s^T·x)·s^T·y] = (2/π)·<x,y>/||x|| for Gaussian s. The √(π/2) scaling in dequantization cancels the 2/π factor, producing an unbiased estimator. This is the arc-cosine kernel trick in disguise.",
+          "common_mistakes": "Generating a new random S for each quantization (S must be fixed for a given QJL instance, regenerated only across independent trials); confusing sign(0) handling (convention: sign(0) = +1); computing S^T·z as matrix multiply instead of exploiting z ∈ {-1,+1} (sum/difference of rows)",
+          "expected_output_pattern": "unbiased"
+        },
+        {
+          "title": "The Bias of MSE-Optimal Quantizers",
+          "type": "contrastive",
+          "description": "First, use TurboQuant_mse for inner product estimation and measure the systematic bias. At b=1, the bias is exactly 2/π ≈ 0.637 (inner products are underestimated by ~36%). Then compare with QJL which has zero bias. This motivates the two-stage approach.",
+          "scaffolding_level": "medium",
+          "what_is_provided": "Import block (numpy), TurboQuantMSE from module 2, QJL from exercise 1, generate_database_queries(n_db, n_q, d), compute_true_inner_products(), a print_bias_comparison_table() that formats results, and a full __main__ block that runs both methods at b=1,2,3,4 bits, computes bias = E[<y,x̃>]/<y,x> for each, and prints the comparison.",
+          "what_student_writes": "estimate_ip_mse_quantizer(quantizer, queries, database) — quantize database with TurboQuant_mse, compute inner products between queries and dequantized vectors, return estimates matrix (~6-8 lines); compute_multiplicative_bias(true_ip, estimated_ip) — compute E[estimated]/E[|true|] to measure systematic scaling factor (~4-6 lines); compute_bias_vs_bitwidth(dims, bitwidths, n_vectors=5000) — sweep over dimensions and bit-widths, compute bias for each, return results dict (~8-12 lines)",
+          "milestone": "Prints bias comparison: TurboQuant_mse at b=1 has multiplicative bias ≈ 0.637 (2/π), at b=2 ≈ 0.88, at b=3 ≈ 0.97, at b=4 ≈ 0.99. QJL always shows bias ≈ 1.00. Clear demonstration that MSE-optimal ≠ inner-product-optimal.",
+          "key_insight": "At b=1, TurboQuant_mse reduces to Q_mse(x) = sign(Π·x) with dequantization scaled by √(2/(πd)). The inner product estimator inherits a multiplicative factor of 2/π because the dequantization scale was optimized for MSE (reconstruction), not for inner product preservation.",
+          "common_mistakes": "Computing additive bias instead of multiplicative bias; not separating the sign of true inner products (bias should be measured on |<y,x>| to avoid cancellation); using too few vectors at high bit-widths where bias is small and hard to measure",
+          "expected_output_pattern": "2/pi"
+        },
+        {
+          "title": "Two-Stage TurboQuant_prod",
+          "type": "implement",
+          "description": "Implement Algorithm 2 from the paper: the two-stage inner product quantizer. Stage 1: apply (b-1)-bit TurboQuant_mse to get an MSE-optimal reconstruction and compute the residual r = x - x̃_mse. Stage 2: apply QJL to the residual (after normalizing by ||r||). The combined estimator is unbiased because QJL provides unbiased estimates of <y, r>.",
+          "scaffolding_level": "light",
+          "what_is_provided": "Import block (numpy), TurboQuantMSE from module 2, QJL from exercise 1, a TurboQuantProd class with __init__(self, d, b, seed) that stores a TurboQuantMSE(d, b-1) and a QJL(d), and a full __main__ block that tests unbiasedness, measures distortion at b=1,2,3,4, compares against TurboQuant_mse, and prints results.",
+          "what_student_writes": "TurboQuantProd.quantize(self, x) — (1) idx = self.mse_quantizer.quantize(x), (2) x_mse = self.mse_quantizer.dequantize(idx), (3) r = x - x_mse, (4) gamma = ||r||, (5) qjl_bits = self.qjl.quantize(r/gamma if gamma>0 else r), return (idx, qjl_bits, gamma) (~8-12 lines); TurboQuantProd.dequantize(self, idx, qjl_bits, gamma) — compute x̃_mse + gamma · Q_qjl^{-1}(qjl_bits) (~4-6 lines); TurboQuantProd.estimate_inner_product(self, y, idx, qjl_bits, gamma) — compute <y, x̃_mse> + gamma · <y, Q_qjl^{-1}(qjl_bits)> (~4-6 lines); measure_prod_distortion(quantizer, queries, database) — compute E[|<y,x> - estimated|²] averaging over all pairs (~6-8 lines)",
+          "milestone": "Prints unbiasedness verification: relative bias < 0.02 at all bit-widths. Prints distortion D_prod at b=1,2,3,4: approximately 1.57/d, 0.56/d, 0.18/d, 0.047/d for d=128. Shows TurboQuant_prod is unbiased while TurboQuant_mse is biased, especially at low bit-widths.",
+          "key_insight": "The two-stage decomposition works because <y,x> = <y, x̃_mse> + <y, r>. The first term is computed exactly from the MSE reconstruction. The second term is estimated unbiasedly by QJL on the residual. The residual has small norm (because MSE quantizer minimized ||r||²), so QJL's variance π/(2d)·||r||²·||y||² is small.",
+          "common_mistakes": "Forgetting to normalize the residual by its norm before applying QJL (QJL assumes unit-norm input); not storing gamma = ||r|| as part of the quantized representation; computing the residual in rotated space instead of original space (residual should be x - x̃_mse in the original basis)",
+          "expected_output_pattern": "D_prod"
+        },
+        {
+          "title": "Inner Product Distortion: Prod vs MSE Comparison",
+          "type": "comparative",
+          "description": "Produce a comprehensive comparison of TurboQuant_prod vs TurboQuant_mse for inner product estimation across bit-widths b=1,2,3,4 and dimensions d=128,512,1536. Reproduce the error distribution histograms from Figure 1 of the paper, showing that prod is unbiased (centered at 0) while mse is biased (shifted).",
+          "scaffolding_level": "light",
+          "what_is_provided": "Import block (numpy, matplotlib.pyplot if available), TurboQuantMSE and TurboQuantProd from previous exercises, generate_database_queries(n_db, n_q, d) with realistic embedding-like vectors, compute_true_inner_products(), and a full __main__ block that runs both methods, collects error distributions, computes summary statistics, and prints a formatted comparison table with columns: method, b, d, mean_error, std_error, D_prod, theoretical_bound.",
+          "what_student_writes": "collect_ip_errors(quantizer_class, queries, database, b, d) — quantize database, estimate inner products, compute errors (estimated - true), return error array (~8-12 lines); compute_error_statistics(errors) — compute mean, std, MSE (=variance + bias²) for the error distribution (~4-6 lines); compute_theoretical_prod_bound(b, d, y_norm_sq) — return (√3·π²·||y||²/d)/4^b for b>4 or exact values for b=1,2,3,4 (~5-8 lines); format_comparison_row(method, b, d, stats, bound) — create formatted string for one table row (~3-5 lines)",
+          "milestone": "Prints comparison table showing: (1) TurboQuant_prod has mean error ≈ 0 at all bit-widths (unbiased), (2) TurboQuant_mse has mean error proportional to true IP with bias factor 1-2/π at b=1, (3) D_prod for TurboQuant_prod matches theoretical bound within 20%, (4) at high bit-widths (b≥3), TurboQuant_mse catches up because its bias shrinks.",
+          "key_insight": "At high bit-widths (b≥3), TurboQuant_mse actually achieves LOWER inner product distortion than TurboQuant_prod despite being biased, because it uses all b bits for MSE minimization while TurboQuant_prod reserves 1 bit for QJL. The two-stage approach pays a cost for unbiasedness.",
+          "common_mistakes": "Not separating bias and variance components of distortion (D_prod = bias² + variance); comparing distortion without normalizing by ||y||²/d; averaging errors with sign (which hides bias) instead of computing signed mean separately",
+          "expected_output_pattern": "comparison"
+        }
+      ],
+      "inline_questions": [
+        {
+          "question": "At b=1, TurboQuant_prod uses b-1=0 bits for MSE quantization (i.e., no MSE stage at all) and 1 bit for QJL. This means TurboQuant_prod at b=1 IS just QJL. Verify this by checking that the residual r = x (since x̃_mse = 0).",
+          "context": "When b=1, the MSE quantizer has bit-width 0, meaning it outputs x̃_mse = 0 for any input. The residual is r = x - 0 = x, and γ = ||x|| = 1. So TurboQuant_prod at b=1 reduces to pure QJL: sign(S·x) with dequantization √(π/2)/d · S^T · z."
+        },
+        {
+          "question": "The paper proves D_prod ≤ (π/2d)·||y||²·D_mse(b-1). Explain in words why inner product distortion is proportional to MSE distortion of the RESIDUAL, scaled by the query norm and dimension.",
+          "context": "The inner product error comes entirely from QJL applied to the residual r. QJL's variance is (π/2d)·||r||²·||y||². Taking expectation: E[||r||²] = D_mse(b-1). So D_prod = (π/2d)·||y||²·D_mse(b-1). The MSE quantizer's job is to make ||r|| as small as possible."
+        }
+      ],
+      "visible_outcome": "A comparison table showing TurboQuant_prod is unbiased (mean error < 0.02) while TurboQuant_mse has bias factor ≈ 2/π at b=1, with distortion values matching theoretical bounds D_prod ≈ 1.57/d, 0.56/d, 0.18/d, 0.047/d at b=1,2,3,4.",
+      "key_excerpts": [
+        "Q_qjl(x) := sign(S · x) for any x ∈ R^d, where S ∈ R^{d×d} is a random matrix with i.i.d. entries sampled from N(0,1). The inverse/dequantization map Q_qjl^{-1}(z) := √(π/2)/d · S^T · z for any z ∈ {-1,+1}^d.",
+        "Unbiased: E[<y, Q_qjl^{-1}(Q_qjl(x))>] = <y, x>.  Variance Bound: Var(<y, Q_qjl^{-1}(Q_qjl(x))>) ≤ π/(2d) · ||y||²",
+        "for large enough d, we have E[<y, Q_mse^{-1}(Q_mse(x))>] = (2/π) · <y, x>, which has a multiplicative bias of 2/π. This bias diminishes with increasing bit-widths b",
+        "the residual vector, defined as r := x - Q_mse^{-1}(Q_mse(x)), has a small L2 norm. We can then apply the QJL quantization map Q_qjl on this residual vector, resulting in an overall bit-width of b and providing the following unbiased inner product estimator: <y, Q_mse^{-1}(Q_mse(x))> + ||r|| · <y, Q_qjl^{-1}(Q_qjl(r))>",
+        "D_prod ≤ (√3 π² · ||y||²/d) · 1/4^b for any b ≥ 0. For small bit-widths, specifically b = 1, 2, 3, 4, D_prod ≈ 1.57/d, 0.56/d, 0.18/d, 0.047/d, respectively."
+      ]
+    },
+    {
+      "module_index": 4,
+      "title": "Information-Theoretic Lower Bounds & Applications",
+      "description": "Verify that TurboQuant is near-optimal by computing Shannon's distortion-rate lower bound and comparing it to empirical results. Then apply TurboQuant to two real-world tasks: nearest neighbor search (comparing against product quantization) and simplified KV cache quantization in a toy attention mechanism. This module ties the theoretical contributions back to practical impact.",
+      "learning_objectives": [
+        "Compute the Shannon Lower Bound D(B) ≥ 2^{-2B/d} for the uniform distribution on S^{d-1} using differential entropy and Stirling's approximation",
+        "Verify empirically that TurboQuant's MSE is within a factor of ~2.7 of the lower bound across bit-widths",
+        "Apply TurboQuant to nearest neighbor search and measure recall@k, comparing against naive uniform quantization",
+        "Implement simplified KV cache quantization in a toy attention computation and measure the effect on attention score accuracy"
+      ],
+      "concepts_covered": [
+        "Information-Theoretic Lower Bounds (Shannon + Yao)",
+        "Product Quantization for Nearest Neighbor Search",
+        "KV Cache Quantization in Transformer Models",
+        "Outlier Channel Handling for Non-Integer Bit-Widths"
+      ],
+      "depends_on": [
+        2,
+        3
+      ],
+      "exercises": [
+        {
+          "title": "Shannon Lower Bound Computation",
+          "type": "implement",
+          "description": "Compute the information-theoretic lower bound on MSE distortion for any b-bit vector quantizer operating on the unit hypersphere. The proof uses the entropy of the uniform distribution on S^{d-1} and Shannon's distortion-rate function. Verify the simplified result D(B) ≥ 2^{-2B/d} = 1/4^b using Stirling's approximation.",
+          "scaffolding_level": "light",
+          "what_is_provided": "Import block (numpy, scipy.special), a compute_sphere_surface_area(d) helper using the formula A_d = 2π^{d/2}/Γ(d/2), a print_bound_table() formatter, and a full __main__ block that computes both the exact SLB (using full entropy calculation) and the simplified bound 1/4^b for b=1..8 and d=64,128,256,512, then prints comparison showing they are close.",
+          "what_student_writes": "compute_sphere_entropy(d) — compute h(x) = log2(A_d) where A_d is the surface area of S^{d-1}, using scipy.special.gammaln for numerical stability (~4-6 lines); compute_exact_slb(d, b) — compute (d/(2πe)) · 2^{(2/d)(h(x) - b·d)} using the full Shannon Lower Bound formula (~4-6 lines); compute_simplified_slb(b) — return 1/4^b = 2^{-2b}, the simplified bound after Stirling's approximation (~2 lines); verify_stirling_approximation(d) — compute A_d^{2/d} and verify it equals approximately (2πe/d) for large d, which makes the SLB simplify to 1/4^b (~5-8 lines)",
+          "milestone": "Prints table showing: (1) exact SLB closely matches simplified 1/4^b for d≥64, (2) Stirling approximation error < 5% for d≥32, (3) TurboQuant's ratio to lower bound ≈ 1.45 at b=1, increasing to ≈ 2.7 at b=4. Demonstrates TurboQuant is within a small constant of optimal.",
+          "key_insight": "The lower bound D_mse ≥ 1/4^b holds for ANY quantization algorithm — deterministic, randomized, data-dependent or not. The proof uses Yao's minimax principle to reduce from randomized worst-case to deterministic average-case, then applies Shannon's source coding theorem. TurboQuant nearly matches this fundamental limit.",
+          "common_mistakes": "Overflow in computing Γ(d/2) for large d (must use gammaln and work in log space); confusing total bits B = b·d with per-coordinate bits b; forgetting the factor d/(2πe) in the exact SLB and concluding the bound is looser than it actually is",
+          "expected_output_pattern": "lower bound"
+        },
+        {
+          "title": "Distortion Bounds Visualization",
+          "type": "analyze",
+          "description": "Produce a comprehensive analysis of TurboQuant's distortion versus theoretical bounds. Plot MSE distortion and inner product distortion as functions of bit-width b, showing empirical values sandwiched between upper and lower bounds. Answer analytical questions about the gap and its implications.",
+          "scaffolding_level": "light",
+          "what_is_provided": "Import block (numpy), TurboQuantMSE and TurboQuantProd from previous modules, compute_exact_slb and compute_simplified_slb from exercise 1, generate_test_data(n, d), and a full __main__ block that runs all experiments, computes bounds, prints analysis tables, and answers embedded questions by printing formatted responses.",
+          "what_student_writes": "compute_all_mse_bounds(b_range, d) — compute lower bound, empirical MSE, and upper bound for each bit-width, return dict (~8-12 lines); compute_all_prod_bounds(b_range, d, y_norm_sq=1.0) — compute lower bound (||y||²/(d·4^b)), empirical D_prod, and upper bound for inner product distortion (~8-12 lines); compute_optimality_gap(empirical, lower) — compute ratio empirical/lower for each bit-width (~3-4 lines); analyze_crossover(mse_distortion, prod_distortion, bitwidths) — find the bit-width where TurboQuant_mse becomes better than TurboQuant_prod for inner product estimation (when bias becomes negligible) (~5-8 lines)",
+          "milestone": "Prints analysis: (1) MSE optimality gap table: b=1 gap=1.45, b=2 gap=1.87, b=3 gap=1.92, b=4 gap=2.30, (2) inner product gap: similar scaling with extra π/2 factor, (3) crossover analysis: TurboQuant_mse becomes competitive with TurboQuant_prod for inner products at b≥3 where bias is < 3%. Answers question: 'Is the 2.7× gap fundamental or an artifact of the analysis?'",
+          "key_insight": "The gap between TurboQuant and the lower bound comes from two sources: (1) treating coordinates as independent (they're only approximately independent), and (2) using the Panter-Dite high-resolution formula which is asymptotic. At b=1, the gap is only 1.45× because the exact codebook is computed numerically.",
+          "common_mistakes": "Plotting on linear scale instead of log scale (the 1/4^b scaling makes linear plots useless); comparing MSE bounds with inner product bounds without the ||y||²/d normalization; claiming the gap is 'large' without noting that constant factors are typically considered excellent in information theory",
+          "expected_output_pattern": "gap"
+        },
+        {
+          "title": "Nearest Neighbor Search with TurboQuant",
+          "type": "extend",
+          "description": "Apply TurboQuant to approximate nearest neighbor search. Quantize a database of vectors, then for each query, compute approximate inner products with all database vectors using the quantized representations. Measure recall@k (fraction of true top-k neighbors found in approximate top-k) and compare against naive uniform quantization.",
+          "scaffolding_level": "light",
+          "what_is_provided": "Import block (numpy), TurboQuantProd from module 3, uniform_quantize/dequantize from module 0, generate_embedding_database(n, d) producing normalized random embeddings resembling real text embeddings, generate_queries(n_q, d), compute_exact_topk(queries, database, k) returning ground-truth top-k indices, and a full __main__ block that runs both methods at b=2,3,4 for d=256 with n=10000 database vectors and n_q=100 queries, prints recall@1, recall@10, recall@100 comparison.",
+          "what_student_writes": "quantize_database(quantizer, database) — quantize all database vectors, store quantized representations (~5-8 lines); approximate_topk(quantizer, quantized_db, query, k) — compute approximate inner products with query and return indices of top-k (~6-10 lines); compute_recall_at_k(true_topk, approx_topk, k) — fraction of true top-k that appear in approximate top-k (~4-6 lines); run_nn_experiment(quantizer_class, database, queries, k_values, b) — full experiment: quantize, search, measure recall, return results dict (~8-12 lines)",
+          "milestone": "Prints recall comparison table. Expected: TurboQuant_prod at b=4 achieves recall@10 > 0.95, recall@100 > 0.99. Uniform quantization achieves recall@10 ≈ 0.80, recall@100 ≈ 0.90 at same bit-width. TurboQuant's advantage is larger at lower bit-widths. Also prints quantization time showing TurboQuant has near-zero indexing time (no codebook training needed).",
+          "key_insight": "TurboQuant's key advantage over product quantization for NN search is zero indexing time — no k-means training on the database is needed. The paper reports TurboQuant indexing in 0.002s vs PQ in 239-3957s. This makes TurboQuant ideal for dynamic databases where vectors are added/removed frequently.",
+          "common_mistakes": "Not normalizing database vectors to unit norm before quantization; computing recall@k by checking if the single best neighbor is in top-k (that's recall@1, not recall@k); using Euclidean distance instead of inner product for the similarity metric",
+          "expected_output_pattern": "recall"
+        },
+        {
+          "title": "Simplified KV Cache Quantization",
+          "type": "implement",
+          "description": "Apply TurboQuant to a simplified attention computation: given key and value matrices (simulating a KV cache), quantize them with TurboQuant, then compute attention scores and output using the quantized representations. Measure the error in attention output compared to full-precision computation. Implement outlier channel handling for non-integer bit-widths (e.g., 2.5 bits).",
+          "scaffolding_level": "light",
+          "what_is_provided": "Import block (numpy, scipy.special), TurboQuantMSE from module 2, generate_kv_cache(n_tokens, d_head) simulating realistic KV embeddings with outlier channels, softmax(x) helper, compute_full_precision_attention(q, K, V, d_head) reference implementation, and a full __main__ block that runs attention with quantized KV at b=2,2.5,3,3.5,4 bits, compares output to full precision, and prints attention error and a summary table.",
+          "what_student_writes": "quantize_kv_cache(K, V, b, n_outlier_channels=0) — quantize key and value matrices row-by-row with TurboQuant_mse; if n_outlier_channels > 0, split channels into outlier (higher b) and regular (lower b) groups to achieve fractional bit-width (~10-15 lines); compute_quantized_attention(q, K_quantized, V_quantized, quantizer_K, quantizer_V, d_head) — dequantize K and V, compute softmax(K·q/√d)·V (~8-12 lines); measure_attention_error(attn_full, attn_quantized) — compute ||output_full - output_quantized||/||output_full|| as relative error (~3-4 lines); compute_compression_ratio(d_head, b, n_outlier, b_outlier) — compute effective bits per parameter and compression ratio vs FP16 (~4-6 lines)",
+          "milestone": "Prints attention error table: b=4 relative error < 0.01 (quality-neutral), b=3.5 error < 0.02, b=2.5 error < 0.05 (marginal degradation). Shows compression ratios: 3.5 bits → 4.57× compression vs FP16. Outlier handling: 2.5 bits achieved via 32 channels at 3 bits + 96 channels at 2 bits = (32×3 + 96×2)/128 = 2.5 effective bits.",
+          "key_insight": "KV cache quantization is uniquely suited for TurboQuant because it requires online quantization — new KV pairs arrive with each generated token and must be quantized immediately without seeing the full dataset. Data-dependent methods (GPTQ, AWQ) cannot be applied here because there is no calibration data.",
+          "common_mistakes": "Applying softmax before quantization (keys/values must be quantized, not attention weights); not handling the scaling factor 1/√d in attention scores; quantizing queries (only keys and values go in the cache); treating all channels equally when some channels have much larger variance (outlier channels)",
+          "expected_output_pattern": "compression"
+        }
+      ],
+      "inline_questions": [
+        {
+          "question": "Yao's minimax principle states that the expected cost of the best randomized algorithm on worst-case inputs equals the expected cost of the best deterministic algorithm on the hardest distribution. How does this help prove a LOWER bound for TurboQuant specifically?",
+          "context": "The principle converts the problem from 'for all randomized Q, there exists a hard x' to 'there exists a hard distribution over x such that for all deterministic Q, the expected MSE is large.' The hardest distribution turns out to be uniform on S^{d-1} — which is exactly the distribution TurboQuant induces via random rotation! So the lower bound for deterministic algorithms on uniform-sphere inputs directly bounds all randomized algorithms."
+        },
+        {
+          "question": "The paper achieves 3.5 bits with 'absolute quality neutrality' for KV cache. How many bytes does this save per token per layer compared to FP16 (16 bits) for a model with d_head=128?",
+          "context": "FP16: 128 × 16 = 2048 bits = 256 bytes per KV pair per layer. At 3.5 bits: 128 × 3.5 = 448 bits = 56 bytes. Savings: 200 bytes per token per layer. For Llama-3.1-8B with 32 layers and 8 KV heads: 200 × 32 × 8 = 51,200 bytes ≈ 50 KB per token. At 128K context: 6.4 GB saved."
+        },
+        {
+          "question": "Why does TurboQuant outperform product quantization for nearest neighbor search despite PQ being data-dependent (and thus having access to more information)?",
+          "context": "PQ partitions coordinates into groups and runs k-means per group, which can overfit to the training distribution and requires expensive retraining when the database changes. TurboQuant's data-oblivious design avoids this overfitting and provides worst-case guarantees. Also, PQ's codebook size grows exponentially with bits per group, limiting practical bit-widths."
+        }
+      ],
+      "visible_outcome": "A comprehensive summary table showing: (1) TurboQuant is within 1.45-2.7× of the information-theoretic lower bound, (2) recall@10 > 0.95 at 4-bit quantization for NN search, (3) attention output error < 1% at 3.5-bit KV cache quantization with 4.57× compression ratio.",
+      "key_excerpts": [
+        "D_mse(Q) ≥ 1/4^b. Furthermore, there exists a y ∈ S^{d-1} such that: D_prod(Q) ≥ (1/d) · 1/4^b",
+        "Let A_d denote the area of the hypersphere S^{d-1}, the entropy of uniform distribution over hypersphere is h(x) = log2(A_d). Plugging this into the SLB we get D(B) ≥ (d/(2πe)) · A_d^{2/d} · 2^{-2B/d}. Using Stirling's approximation we get D(B) ≥ 2^{-2B/d}.",
+        "TurboQuant's MSE distortion is provably within a factor of at most (√3 π)/2 ≈ 2.7 of the information-theoretical lower bound. Notably, for smaller bit-widths, this factor significantly decreases. For instance, at a bit-width of b=1 TurboQuant achieves a distortion that is only a factor of approximately 1.45 away from the optimal",
+        "we achieve perfect long-context retrieval in needle-in-a-haystack tasks and maintain high performance on other long-context downstream tasks, all while compressing the KV cache by a factor exceeding 5×",
+        "For example, in our 2.5-bit setup, 32 outlier channels are quantized at 3 bits, while the remaining 96 channels use 2 bits, leading to an effective bit precision of (32 × 3 + 96 × 2) / 128 = 2.5"
+      ]
+    }
+  ]
+}

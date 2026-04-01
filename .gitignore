@@ -9,7 +9,6 @@ build/
 .env
 .venv/
 venv/
-output/
 .cache/
 *.so
 *.o
