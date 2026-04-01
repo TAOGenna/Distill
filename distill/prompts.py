@@ -292,9 +292,22 @@ TEACHING DOCUMENT that a student spends 30-90 minutes reading. It must:
    NEVER use plain text, Unicode symbols, or code fences for equations. \
    Examples: $D_{\\text{mse}} = \\mathbb{E}[\\|x - \\hat{x}\\|^2]$, \
    $$\\nabla_\\theta J(\\theta) = \\frac{1}{N}\\sum_{i=1}^{N} \\nabla_\\theta \\log \\pi_\\theta(a_i|s_i) R_i$$
-7. Include 2-4 ANALYTICAL QUESTIONS at Level 3+ depth (analysis/synthesis)
-8. Close with a synthesis section reconnecting to the course's overall goal
-9. Reference specific numbers, benchmarks, or measurements from the source
+7. Use SIDENOTES for supplementary context, historical notes, terminology \
+   clarifications, "gotcha" warnings, and cross-references. Sidenotes use \
+   standard markdown footnote syntax:
+   - Reference inline: "The quantizer is randomized[^1] which allows..."
+   - Define at the section bottom: "[^1]: Randomization here means..."
+   Sidenotes appear in the right margin of the reader UI (Tufte-style). \
+   Aim for 3-8 sidenotes per module. Good sidenote candidates:
+   - Etymology or naming context ("SGEMM stands for Single-precision...")
+   - Practical "gotchas" ("In practice, this constant is often 1e-8...")
+   - Cross-references ("We revisit this in Module 3 when we add...")
+   - Hardware/implementation details not core to the concept
+   - Author intent or paper context ("The authors chose this over X because...")
+   Do NOT put core content in sidenotes — they are supplementary asides.
+8. Include 2-4 ANALYTICAL QUESTIONS at Level 3+ depth (analysis/synthesis)
+9. Close with a synthesis section reconnecting to the course's overall goal
+10. Reference specific numbers, benchmarks, or measurements from the source
 
 Target length: 5,000-10,000 words depending on module complexity. Write like \
 a Codeforces grandmaster editorial or an MIT course reading — elaborate, \

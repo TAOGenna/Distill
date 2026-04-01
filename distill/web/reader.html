@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Distill — Reader</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.21/dist/katex.min.css">
+    <link rel="stylesheet" href="/reader.css">
+</head>
+<body>
+    <header>
+        <nav class="reader-nav">
+            <a href="/" class="back-link">&larr; distill</a>
+            <span class="course-title" id="course-title"></span>
+            <select id="module-select" class="module-select"></select>
+            <button type="button" class="theme-toggle" id="theme-toggle" title="toggle theme" aria-label="toggle theme"></button>
+        </nav>
+    </header>
+
+    <nav class="module-sidebar" id="module-sidebar"></nav>
+
+    <article id="article">
+        <p class="loading">Loading&hellip;</p>
+    </article>
+
+    <nav class="module-pager" id="module-pager"></nav>
+
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.21/dist/katex.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked@15.0.4/marked.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.11.1/build/highlight.min.js"></script>
+    <script src="/reader.js"></script>
+</body>
+</html>

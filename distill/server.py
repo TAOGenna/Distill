@@ -17,7 +17,7 @@ from typing import Any
 import anyio
 from starlette.applications import Starlette
 from starlette.requests import Request
-from starlette.responses import JSONResponse, StreamingResponse
+from starlette.responses import FileResponse, JSONResponse, StreamingResponse
 from starlette.routing import Mount, Route
 from starlette.staticfiles import StaticFiles
 
@@ -474,6 +474,118 @@ async def _diagrams_setup_endpoint(request: Request) -> JSONResponse:
     return JSONResponse(result, status_code=200 if result["ok"] else 500)
 
 
+# ── Course reader endpoints ──────────────────────────────────────────────────
+
+
+async def _course_detail_endpoint(request: Request) -> JSONResponse:
+    """Return course metadata + module list for the reader."""
+    name = request.path_params["name"]
+
+    output_dir = Path(_get_output_dir()).resolve()
+    course_dir = (output_dir / name).resolve()
+
+    # Path traversal protection
+    if not str(course_dir).startswith(str(output_dir)) or not course_dir.is_dir():
+        return JSONResponse({"error": "not found"}, status_code=404)
+
+    curriculum = course_dir / "_curriculum.json"
+    if not curriculum.exists():
+        return JSONResponse({"error": "no curriculum found"}, status_code=404)
+
+    try:
+        curr = json.loads(curriculum.read_text())
+    except (json.JSONDecodeError, OSError):
+        return JSONResponse({"error": "invalid curriculum"}, status_code=500)
+
+    modules: list[dict[str, Any]] = []
+    for m in curr.get("modules", []):
+        idx = m["module_index"]
+        title = m["title"]
+
+        # Find actual directory on disk (module_00_name_slug)
+        dirs = sorted(
+            d for d in course_dir.iterdir()
+            if d.is_dir() and d.name.startswith(f"module_{idx:02d}")
+        )
+        dir_name = dirs[0].name if dirs else None
+
+        exercises: list[str] = []
+        if dir_name:
+            ex_dir = course_dir / dir_name
+            exercises = sorted(
+                f.name for f in ex_dir.iterdir()
+                if f.is_file() and f.name.startswith("ex") and f.suffix == ".py"
+            )
+
+        modules.append({
+            "index": idx,
+            "title": title,
+            "description": m.get("description", ""),
+            "dir_name": dir_name,
+            "exercises": exercises,
+            "depends_on": m.get("depends_on", []),
+        })
+
+    return JSONResponse({
+        "title": curr.get("course_title", name),
+        "description": curr.get("course_description", ""),
+        "modules": modules,
+    })
+
+
+async def _module_content_endpoint(request: Request) -> JSONResponse:
+    """Return raw README markdown + exercise file contents for a module."""
+    name = request.path_params["name"]
+    dir_name = request.path_params["dir_name"]
+
+    output_dir = Path(_get_output_dir()).resolve()
+    module_dir = (output_dir / name / dir_name).resolve()
+
+    if not str(module_dir).startswith(str(output_dir)) or not module_dir.is_dir():
+        return JSONResponse({"error": "not found"}, status_code=404)
+
+    readme = module_dir / "README.md"
+    content = ""
+    if readme.exists():
+        try:
+            content = readme.read_text()
+        except OSError:
+            pass
+
+    exercises: list[dict[str, str]] = []
+    for f in sorted(module_dir.iterdir()):
+        if f.is_file() and f.suffix == ".py" and f.name.startswith("ex"):
+            try:
+                exercises.append({
+                    "filename": f.name,
+                    "content": f.read_text(),
+                })
+            except OSError:
+                pass
+
+    return JSONResponse({"content": content, "exercises": exercises})
+
+
+async def _course_file_endpoint(
+    request: Request,
+) -> FileResponse | JSONResponse:
+    """Serve a static file from a course directory (diagrams, images, etc.)."""
+    name = request.path_params["name"]
+    file_path = request.path_params["path"]
+
+    output_dir = Path(_get_output_dir()).resolve()
+    full_path = (output_dir / name / file_path).resolve()
+
+    # Security: resolved path must stay inside output directory
+    if not str(full_path).startswith(str(output_dir)):
+        return JSONResponse({"error": "forbidden"}, status_code=403)
+
+    if not full_path.is_file():
+        return JSONResponse({"error": "not found"}, status_code=404)
+
+    return FileResponse(full_path)
+
+
 # ── App factory ───────────────────────────────────────────────────────────────
 
 
@@ -487,6 +599,10 @@ def create_app() -> Starlette:
         Route("/api/generate", _generate_endpoint, methods=["POST"]),
         Route("/api/events/{job_id}", _events_endpoint),
         Route("/api/courses", _courses_endpoint),
+        # Course reader endpoints
+        Route("/api/courses/{name}/detail", _course_detail_endpoint),
+        Route("/api/courses/{name}/module/{dir_name}", _module_content_endpoint),
+        Route("/api/courses/{name}/files/{path:path}", _course_file_endpoint),
         Mount("/", StaticFiles(directory=str(WEB_DIR), html=True)),
     ]
 
