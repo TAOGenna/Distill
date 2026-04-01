@@ -34,7 +34,7 @@ By the end of this module you will be able to:
 
 Before we touch a single formula, let us build intuition for why this problem matters today.
 
-Modern transformer models store sequences of floating-point vectors throughout their computation. Each attention head in a decoder-based model (like GPT-4, Llama, or Gemini) must remember *every previous token's key and value embeddings* for the entire context window. This is called the **KV cache**.
+Modern transformer models store sequences of floating-point vectors throughout their computation. Each attention head in a decoder-based model (like GPT-4, Llama, or Gemini) must remember *every previous token's key and value embeddings* for the entire context window. This is called the **KV cache**.[^1]
 
 Consider the math: Llama-3.1-8B has 32 attention layers, each with 8 key-value heads of dimension 128. For a context of 128,000 tokens stored in float16 (2 bytes):
 
@@ -58,11 +58,11 @@ $$Q : \mathbb{R}^d \to \{0,1\}^B \quad \text{(quantization, encoding)}$$
 
 $$Q^{-1} : \{0,1\}^B \to \mathbb{R}^d \quad \text{(dequantization, decoding)}$$
 
-where $B = b \times d$. The quantizer is **randomized**: it uses internal random coins, so $Q(x)$ is a random variable even when $x$ is fixed. This randomness is the key design choice — it allows worst-case guarantees that deterministic quantizers cannot achieve.
+where $B = b \times d$. The quantizer is **randomized**[^2]: it uses internal random coins, so $Q(x)$ is a random variable even when $x$ is fixed. This randomness is the key design choice — it allows worst-case guarantees that deterministic quantizers cannot achieve.
 
 **Why randomized?** With a deterministic quantizer, an adversary can always find a worst-case input. With a randomized quantizer, the adversary must bet against your random choices. TurboQuant exploits this by using a random rotation that the adversary cannot predict.
 
-The bit-width $b$ represents the *average number of bits per real-valued coordinate*. At $b = 1$, you store each of the $d$ real numbers as a single bit. At $b = 4$, you use 4 bits per coordinate (equivalent to storing integers in $[0, 15]$). Float32 uses 32 bits per coordinate, so $b = 4$ gives an 8x compression over float32.
+The bit-width $b$ represents the *average number of bits per real-valued coordinate*. At $b = 1$, you store each of the $d$ real numbers as a single bit. At $b = 4$, you use 4 bits per coordinate (equivalent to storing integers in $[0, 15]$). Float32 uses 32 bits per coordinate, so $b = 4$ gives an 8x compression over float32.[^3]
 
 **The distortion measures.** The paper defines two distortion objectives:
 
@@ -94,7 +94,7 @@ def measure_ip_distortion(y, x, Q, Q_inv, n_trials=1000):
     return total / n_trials
 ```
 
-The paper also requires **unbiasedness** for the inner product quantizer:
+The paper also requires **unbiasedness**[^4] for the inner product quantizer:
 
 $$\mathbb{E}_Q\!\left[ \langle y, Q^{-1}(Q(x)) \rangle \right] = \langle y, x \rangle \quad \text{for all } y, x$$
 
@@ -273,7 +273,7 @@ density_d256 = beta_pdf_sphere(x_vals, d=256)
 print(f"Std dev of x_j for d=256: {1/np.sqrt(256):.4f}")  # 0.0625
 ```
 
-**This is the concentration of measure phenomenon.** In $d = 256$ dimensions, virtually all the "volume" of the unit sphere is concentrated near the equator (any great circle). Each coordinate has standard deviation only $1/\sqrt{d} \approx 0.0625$.
+**This is the concentration of measure phenomenon.**[^6] In $d = 256$ dimensions, virtually all the "volume" of the unit sphere is concentrated near the equator (any great circle). Each coordinate has standard deviation only $1/\sqrt{d} \approx 0.0625$.
 
 ### Why Uniform Quantization is Wasteful
 
@@ -297,7 +297,7 @@ This is why distribution-aware quantization matters. Exercise 3 will let you mea
 
 The MSE of a scalar quantizer with bucket width $\Delta$ (assuming uniform distribution within a bucket) is $\Delta^2/12$. Equivalently, $\text{MSE} \propto \Delta^2$. A distribution-aware quantizer uses small $\Delta$ where $f_X$ is large and large $\Delta$ where $f_X$ is small.
 
-The optimal (Lloyd-Max) quantizer minimizes total MSE by solving:
+The optimal (Lloyd-Max) quantizer[^7] minimizes total MSE by solving:
 
 $$\min_{\{c_1, \ldots, c_k\},\; \{t_0, \ldots, t_k\}} \sum_i \int_{t_{i-1}}^{t_i} (x - c_i)^2 \, f_X(x) \, dx$$
 
@@ -319,7 +319,7 @@ One of the most important design constraints for TurboQuant is that it must be *
 
 ### Offline (Data-Dependent) Quantization
 
-Methods like GPTQ, SqueezeLLM, and AWQ are offline quantizers. Their general approach:
+Methods like GPTQ, SqueezeLLM, and AWQ are offline quantizers.[^5] Their general approach:
 1. Collect a calibration dataset of representative vectors.
 2. Run an expensive optimization (often involving Hessians or second-order methods) to design the codebook specifically for this data distribution.
 3. Apply the resulting quantizer to all future vectors.
@@ -415,7 +415,7 @@ TurboQuant achieves $D_{\text{mse}} \leq \frac{\sqrt{3}\,\pi}{2} \cdot \frac{1}{
 
 ### Yao's Minimax Principle
 
-The lower bound for randomized quantizers uses **Yao's minimax principle**: the expected performance of the best randomized algorithm on the worst-case input equals the expected performance of the best deterministic algorithm on the worst-case input distribution.
+The lower bound for randomized quantizers uses **Yao's minimax principle**[^8]: the expected performance of the best randomized algorithm on the worst-case input equals the expected performance of the best deterministic algorithm on the worst-case input distribution.
 
 Formally: for any randomized quantizer, there exists a worst-case input $x$ such that $D_{\text{mse}} \geq 1/4^b$. The proof constructs this hard input by showing that for $x$ distributed uniformly on the sphere (the "hardest" input distribution), even the best deterministic quantizer must suffer at least $1/4^b$ MSE on average.
 
@@ -489,5 +489,21 @@ Build on Exercise 1 by measuring inner product distortion and bias. You will dis
 Implement an equiprobable (equal-probability-mass) quantizer as a stepping stone toward Lloyd-Max. Unlike uniform quantization, equiprobable quantization places bucket boundaries at equal probability mass, concentrating resolution where data is dense. You will see a 10-30% MSE improvement — a preview of the gains that optimal Lloyd-Max codebooks deliver.
 
 ---
+
+[^1]: The term "KV cache" comes from the Key-Value pairs in the attention mechanism. Each layer stores both a Key matrix and a Value matrix for every token seen so far. Some implementations also cache the Query projections, though this is less common since queries are only used once.
+
+[^2]: Randomized quantizers are sometimes called "dithered" quantizers in signal processing. The idea dates back to Roberts (1962) who showed that adding random noise before quantization can eliminate systematic distortion patterns. TurboQuant's random rotation is a much more sophisticated version of this idea.
+
+[^3]: In practice, many systems use float16 (16 bits) as the baseline rather than float32. Against float16, $b = 4$ gives 4x compression, and $b = 2$ gives 8x. The paper's guarantees hold regardless of the original precision since they bound the absolute MSE, not relative to some baseline format.
+
+[^4]: Unbiasedness is a statistical property: the expected value of the estimate equals the true value. In the quantization context, this means the quantizer introduces only random noise, not systematic distortion. This is the same concept as an "unbiased estimator" in statistics — the sample mean is unbiased for the population mean, while the sample variance with $1/n$ denominator is biased.
+
+[^5]: GPTQ (Frantar et al., 2022) uses approximate second-order information to minimize layer-wise reconstruction error. AWQ (Lin et al., 2023) protects "salient" weight channels by scaling them up before quantization. SqueezeLLM (Kim et al., 2023) uses sensitivity-weighted non-uniform quantization. All three require a calibration pass over representative data.
+
+[^6]: Concentration of measure is one of the most profound phenomena in high-dimensional geometry. It explains why high-dimensional spheres are "almost all equator" — a fact first rigorously studied by Paul Levy in 1951. A closely related result: if you pick two random points on a high-dimensional sphere, their inner product is almost always close to zero (they are nearly orthogonal).
+
+[^7]: Named after Stuart Lloyd (Bell Labs, 1957/1982) and Joel Max (1960) who independently discovered the same iterative algorithm. Lloyd's original paper was an internal Bell Labs memo in 1957 but wasn't published until 1982 — making it one of the most cited "delayed publication" papers in information theory. The algorithm is essentially k-means clustering in 1D.
+
+[^8]: Andrew Yao introduced this principle in 1977 in the context of computational complexity. It connects randomized algorithms to distributional analysis: instead of analyzing a randomized algorithm on a worst-case input, you can equivalently analyze the best deterministic algorithm on a worst-case input distribution. This duality is a cornerstone of lower bound proofs in theoretical CS.
 
 *Next: Module 1 — Beta Distribution and Lloyd-Max Optimal Codebooks*
