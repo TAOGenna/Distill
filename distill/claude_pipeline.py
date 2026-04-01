@@ -310,6 +310,7 @@ async def _phase_design(
     url: str,
     student_level: str,
     model: str,
+    output_dir: str | Path = "./output",
 ) -> tuple[CurriculumDesign, dict]:
     """Design Blueprint via Claude Code → structured CurriculumDesign."""
     _log_step("Phase 1b: Designing Blueprint...")
@@ -318,15 +319,24 @@ async def _phase_design(
     analysis_json = analysis.model_dump_json(indent=2)
     today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
 
+    # Write the JSON to a file — the schema is too large for inline text output
+    abs_output = Path(output_dir).resolve()
+    abs_output.mkdir(parents=True, exist_ok=True)
+    design_json_path = abs_output / "_blueprint.json"
+
     prompt = (
-        f"Design a progressive course Blueprint and respond with a JSON object "
-        f"matching this exact schema. Output ONLY valid JSON.\n\n"
+        f"Design a progressive course Blueprint matching this exact JSON schema.\n\n"
         f"Schema:\n{json.dumps(CurriculumDesign.model_json_schema(), indent=2)}\n\n"
         f"Source URL: {url}\n"
         f"Student level: {student_level}\n"
         f"Date: {today}\n\n"
         f"Analysis:\n{analysis_json}\n\n"
-        f"Source material:\n\n{source_content}"
+        f"Source material:\n\n{source_content}\n\n"
+        f"IMPORTANT: The output JSON is large. Write the complete valid JSON object "
+        f"to this file using the Write tool:\n"
+        f"  {design_json_path}\n\n"
+        f"Write ONLY valid JSON to the file — no markdown fences, no prose. "
+        f"Make sure the JSON is complete and not truncated."
     )
 
     messages, result, usage = await _query_sdk(
@@ -334,12 +344,26 @@ async def _phase_design(
         system=CURRICULUM_DESIGN_SYSTEM_PROMPT,
         model=model,
         effort="high",  # Blueprint design needs deep thinking
-        max_turns=5,
-        allowed_tools=[],
+        max_turns=10,
+        cwd=abs_output,
+        allowed_tools=["Write"],
     )
 
-    text = _extract_text(messages)
-    data = _extract_json(text)
+    # Primary: read from the file the model wrote
+    data = None
+    if design_json_path.exists():
+        try:
+            raw = design_json_path.read_text(encoding="utf-8")
+            data = json.loads(raw)
+        except json.JSONDecodeError:
+            # File exists but isn't valid JSON — try extracting
+            data = _extract_json(raw)
+
+    # Fallback: try extracting from text output
+    if data is None:
+        text = _extract_text(messages)
+        data = _extract_json(text)
+
     if data is None:
         raise ValueError("Phase 1b: Claude Code did not return valid JSON for CurriculumDesign")
 
@@ -844,6 +868,7 @@ async def run_claude_pipeline(
         url=url,
         student_level=user_level,
         model=design_model,
+        output_dir=output_dir,
     )
     total_cost += design_usage["cost_usd"]
     _accum(design_usage)
