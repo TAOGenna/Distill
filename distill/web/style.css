@@ -732,8 +732,16 @@ button {
 /* ── Courses ──────────────────────────────────────── */
 
 .course-item {
+    display: block;
     padding: 0.75rem 0;
     border-bottom: 1px solid var(--border-faint);
+    text-decoration: none;
+    color: inherit;
+    transition: opacity 0.15s;
+}
+
+.course-item:hover {
+    opacity: 0.7;
 }
 
 .course-item:last-child {

@@ -489,7 +489,7 @@ function loadCourses() {
       coursesEl.innerHTML = data.courses
         .map(
           (c) =>
-            '<div class="course-item">' +
+            '<a class="course-item" href="/reader.html?course=' + encodeURIComponent(c.name) + '">' +
             '<div class="course-name">' +
             esc(c.title || c.name) +
             "</div>" +
@@ -500,7 +500,7 @@ function loadCourses() {
             '<div class="course-path">' +
             esc(c.path) +
             "</div>" +
-            "</div>"
+            "</a>"
         )
         .join("");
     })
