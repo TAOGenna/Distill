@@ -27,7 +27,7 @@ import httpx
 
 # Path to the mcp_excalidraw package — installed as a git submodule or
 # cloned alongside the project. Adjust if your layout differs.
-_MCP_PACKAGE_DIR = Path(__file__).parent / "excalidraw"
+MCP_PACKAGE_DIR = Path(__file__).parent / "excalidraw"
 
 _CANVAS_PORT = 18420  # Uncommon port — avoids 3000 collisions with React/Next.js
 _CANVAS_HOST = "localhost"
@@ -69,7 +69,7 @@ def find_mcp_package() -> Path | None:
 
     Returns the path if found and built (dist/ exists), else None.
     """
-    pkg = _MCP_PACKAGE_DIR
+    pkg = MCP_PACKAGE_DIR
     if pkg.exists() and (pkg / "dist" / "server.js").exists():
         return pkg
     return None
@@ -101,7 +101,7 @@ def start_canvas_server() -> subprocess.Popen | None:
     if pkg is None:
         print(
             "  Warning: mcp_excalidraw not found or not built at "
-            f"{_MCP_PACKAGE_DIR}. Diagrams will use blind generation.",
+            f"{MCP_PACKAGE_DIR}. Diagrams will use blind generation.",
             file=sys.stderr,
         )
         return None

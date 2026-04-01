@@ -160,6 +160,15 @@ function updateSetupKeyVisibility(provider) {
   if (row) row.style.display = (provider === "ollama" || provider === "claude_code" || provider === "mock") ? "none" : "";
   var effortRow = $("#effort-row");
   if (effortRow) effortRow.style.display = provider === "claude_code" ? "" : "none";
+  var diagramsRow = $("#diagrams-row");
+  if (diagramsRow) diagramsRow.style.display = provider === "claude_code" ? "" : "none";
+}
+
+function setDiagramsStatus(text, cls) {
+  var el = $("#diagrams-status");
+  if (!el) return;
+  el.textContent = text;
+  el.className = "diagrams-status" + (cls ? " " + cls : "");
 }
 
 function updateFormState() {
@@ -245,6 +254,21 @@ fetch("/api/config")
         gs.innerHTML += '<option value="' + esc(cfg.generate_model) + '">' + esc(cfg.generate_model) + '</option>';
       }
       gs.value = cfg.generate_model;
+    }
+
+    // Diagrams mode
+    var diagramsSel = $("#cfg-diagrams");
+    if (diagramsSel) {
+      var mode = cfg.diagram_mode || "ascii";
+      if (mode === "excalidraw" && cfg.diagrams_available) {
+        diagramsSel.value = "excalidraw";
+        setDiagramsStatus("ready", "ok");
+      } else {
+        diagramsSel.value = "ascii";
+        if (mode === "excalidraw" && !cfg.diagrams_available) {
+          setDiagramsStatus("excalidraw not built", "error");
+        }
+      }
     }
 
     // If key is set, hide setup panel and enable form
@@ -382,6 +406,42 @@ _bind("#cfg-effort", "change", async () => {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ effort: $("#cfg-effort").value }),
   });
+});
+
+_bind("#cfg-diagrams", "change", async () => {
+  var sel = $("#cfg-diagrams");
+  var mode = sel.value;
+
+  if (mode === "excalidraw") {
+    sel.disabled = true;
+    setDiagramsStatus("setting up\u2026", "loading");
+    try {
+      var res = await fetch("/api/diagrams/setup", { method: "POST" });
+      var data = await res.json();
+      if (data.ok) {
+        setDiagramsStatus("ready", "ok");
+        await fetch("/api/config", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ diagram_mode: "excalidraw" }),
+        });
+      } else {
+        sel.value = "ascii";
+        setDiagramsStatus(data.message || "setup failed", "error");
+      }
+    } catch (e) {
+      sel.value = "ascii";
+      setDiagramsStatus("setup failed", "error");
+    }
+    sel.disabled = false;
+  } else {
+    setDiagramsStatus("", "");
+    await fetch("/api/config", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ diagram_mode: "ascii" }),
+    });
+  }
 });
 
 /* ── Auto-grow textarea + live form validation ────── */

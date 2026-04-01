@@ -112,6 +112,8 @@ async def _config_endpoint(request: Request) -> JSONResponse:
         provider_key = config.get(f"{provider}_api_key", "")
         has_key = bool(provider_key or (env_var and os.environ.get(env_var)))
 
+        from .diagrams import mcp_tools_available
+
         result: dict[str, Any] = {
             "output_dir": config.get("output_dir", "./output"),
             "provider": provider,
@@ -124,6 +126,9 @@ async def _config_endpoint(request: Request) -> JSONResponse:
             "effort": config.get("effort", "high"),
             "profiles": config.get("profiles", []),
             "presets": config.get("presets", []),
+            "diagram_mode": config.get("diagram_mode", "ascii"),
+            "diagrams_available": mcp_tools_available(),
+            "diagrams_node_available": shutil.which("node") is not None,
         }
 
         if provider_key and len(provider_key) > 8:
@@ -157,6 +162,8 @@ async def _config_endpoint(request: Request) -> JSONResponse:
         config["profiles"] = body["profiles"]
     if "presets" in body:
         config["presets"] = body["presets"]
+    if "diagram_mode" in body:
+        config["diagram_mode"] = body["diagram_mode"]
 
     _save_config(config)
     return JSONResponse({"ok": True})
@@ -219,6 +226,7 @@ async def _run_generation(
     output_dir = params.get("output_dir") or _get_output_dir()
     max_revision_cycles = config.get("max_revision_cycles", 1)
     effort = config.get("effort", "high")
+    diagram_mode = config.get("diagram_mode", "ascii")
 
     # Resolve API key for the provider
     from .llm import PROVIDER_ENV_VARS
@@ -260,6 +268,7 @@ async def _run_generation(
                 max_revision_cycles=max_revision_cycles,
                 sources_dir=str(sources_dir),
                 on_event=emit,
+                diagram_mode=diagram_mode,
             )
         else:
             result = await run_pipeline(
@@ -390,6 +399,81 @@ async def _courses_endpoint(request: Request) -> JSONResponse:
     return JSONResponse({"courses": courses})
 
 
+# ── Diagrams setup ───────────────────────────────────────────────────────────
+
+
+async def _diagrams_setup_endpoint(request: Request) -> JSONResponse:
+    """One-click setup: git submodule init + npm ci + npm run build:server."""
+    import subprocess as sp
+    from .diagrams import mcp_tools_available, MCP_PACKAGE_DIR
+
+    # Already built — nothing to do
+    if mcp_tools_available():
+        config = _load_config()
+        config["diagram_mode"] = "excalidraw"
+        _save_config(config)
+        return JSONResponse({"ok": True, "message": "ready"})
+
+    # Pre-flight: node/npm available?
+    if not shutil.which("node"):
+        return JSONResponse(
+            {"ok": False, "message": "Node.js is required for diagrams. Install from https://nodejs.org"},
+            status_code=400,
+        )
+    if not shutil.which("npm"):
+        return JSONResponse(
+            {"ok": False, "message": "npm is required (usually bundled with Node.js)"},
+            status_code=400,
+        )
+
+    project_root = MCP_PACKAGE_DIR.parent.parent  # Distill repo root
+
+    def _run_setup() -> dict:
+        steps: list[dict] = []
+
+        # Step 1: git submodule init (if package.json not present)
+        if not (MCP_PACKAGE_DIR / "package.json").exists():
+            r = sp.run(
+                ["git", "submodule", "update", "--init", "--", "distill/excalidraw"],
+                cwd=str(project_root),
+                capture_output=True, text=True, timeout=60,
+            )
+            steps.append({"step": "submodule", "ok": r.returncode == 0})
+            if r.returncode != 0:
+                return {"ok": False, "message": f"Git submodule init failed: {r.stderr[:300]}", "steps": steps}
+
+        # Step 2: npm ci
+        r = sp.run(
+            ["npm", "ci"],
+            cwd=str(MCP_PACKAGE_DIR),
+            capture_output=True, text=True, timeout=120,
+        )
+        steps.append({"step": "npm_install", "ok": r.returncode == 0})
+        if r.returncode != 0:
+            return {"ok": False, "message": f"npm ci failed: {r.stderr[:300]}", "steps": steps}
+
+        # Step 3: npm run build:server
+        r = sp.run(
+            ["npm", "run", "build:server"],
+            cwd=str(MCP_PACKAGE_DIR),
+            capture_output=True, text=True, timeout=60,
+        )
+        steps.append({"step": "build", "ok": r.returncode == 0})
+        if r.returncode != 0:
+            return {"ok": False, "message": f"Build failed: {r.stderr[:300]}", "steps": steps}
+
+        return {"ok": True, "message": "ready", "steps": steps}
+
+    result = await anyio.to_thread.run_sync(_run_setup)
+
+    if result["ok"]:
+        config = _load_config()
+        config["diagram_mode"] = "excalidraw"
+        _save_config(config)
+
+    return JSONResponse(result, status_code=200 if result["ok"] else 500)
+
+
 # ── App factory ───────────────────────────────────────────────────────────────
 
 
@@ -399,6 +483,7 @@ def create_app() -> Starlette:
     routes = [
         Route("/api/config", _config_endpoint, methods=["GET", "PUT"]),
         Route("/api/browse-folder", _browse_folder_endpoint, methods=["POST"]),
+        Route("/api/diagrams/setup", _diagrams_setup_endpoint, methods=["POST"]),
         Route("/api/generate", _generate_endpoint, methods=["POST"]),
         Route("/api/events/{job_id}", _events_endpoint),
         Route("/api/courses", _courses_endpoint),

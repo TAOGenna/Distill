@@ -491,3 +491,104 @@ DIAGRAM TYPES TO CONSIDER:
 
 Keep diagrams clear: 10-30 elements per diagram. Annotate everything.
 """
+
+# ── ASCII Diagram Guide (fallback when Excalidraw MCP is unavailable) ───────
+
+ASCII_DIAGRAM_GUIDE = """\
+
+═══════════════════════════════════════════════════════════════════════════════════
+EXPLANATORY DIAGRAMS — ASCII art (2-4 per module, inline in README)
+═══════════════════════════════════════════════════════════════════════════════════
+
+For EACH module, create 2-4 ASCII diagrams embedded directly in the README inside
+fenced code blocks. These are NOT decorative — each must explain something text
+alone struggles to convey: data flow, architecture layers, algorithm steps,
+memory layouts, or matrix operations.
+
+ASCII diagrams are extremely versatile — use box-drawing characters, Unicode
+blocks, alignment, and whitespace to create rich, information-dense visuals.
+
+TOOLKIT — use these building blocks:
+
+  Box drawing:    ┌─┐ └─┘ │ ─ ├ ┤ ┬ ┴ ┼ ╔═╗ ╚═╝ ║
+  Arrows:         → ← ↑ ↓ ↔ ⟶ ⟵ ▶ ◀ ▲ ▼
+  Blocks/fills:   █ ▓ ▒ ░ ■ □ ▪ ▫ ● ○ ◆ ◇
+  Math:           ∑ ∏ √ ∞ ≈ ≠ ≤ ≥ ∈ ∉ ⊂ ∪ ∩ ∀ ∃ α β γ θ λ
+  Brackets:       ⎡ ⎤ ⎣ ⎦ ⎢ ⎥ (for matrices)
+  Connectors:     ╭─╮ ╰─╯ (rounded corners)
+
+DIAGRAM TYPES — match the concept:
+
+  Data flow / pipeline:
+  ```
+  ┌──────────┐     ┌──────────┐     ┌──────────┐
+  │  Input   │────▶│ Process  │────▶│  Output  │
+  │  (raw)   │     │ (transform)    │  (clean) │
+  └──────────┘     └──────────┘     └──────────┘
+  ```
+
+  Memory layout / data structure:
+  ```
+  Address   0x00   0x04   0x08   0x0C   0x10
+           ┌──────┬──────┬──────┬──────┬──────┐
+  Array:   │  42  │  17  │  83  │   5  │  91  │
+           └──────┴──────┴──────┴──────┴──────┘
+           ▲             ▲
+           left          pivot
+  ```
+
+  Matrix / tensor visualization:
+  ```
+  A (3×4)              B (4×2)           C (3×2)
+  ⎡ a₀₀ a₀₁ a₀₂ a₀₃ ⎤   ⎡ b₀₀ b₀₁ ⎤   ⎡ c₀₀ c₀₁ ⎤
+  ⎢ a₁₀ a₁₁ a₁₂ a₁₃ ⎥ × ⎢ b₁₀ b₁₁ ⎥ = ⎢ c₁₀ c₁₁ ⎥
+  ⎣ a₂₀ a₂₁ a₂₂ a₂₃ ⎦   ⎢ b₂₀ b₂₁ ⎥   ⎣ c₂₀ c₂₁ ⎦
+                          ⎣ b₃₀ b₃₁ ⎦
+  ```
+
+  Algorithm steps (before/after, numbered):
+  ```
+  Step 1: partition         Step 2: recurse
+  ┌───┬───┬───┬───┬───┐    ┌───┬───┐ ┌───┬───┐
+  │ 3 │ 1 │ 4 │ 1 │ 5 │    │ 1 │ 1 │ │ 4 │ 5 │
+  └───┴───┴───┴───┴───┘    └───┴───┘ └───┴───┘
+        ▲ pivot=3                ▲         ▲
+      <3  │  ≥3              sorted    sorted
+  ```
+
+  Architecture / layer diagram:
+  ```
+  ╔═══════════════════════════════╗
+  ║        Application Layer      ║
+  ╠═══════════════════════════════╣
+  ║   ┌─────────┐ ┌──────────┐   ║
+  ║   │ Router  │→│ Handler  │   ║
+  ║   └─────────┘ └────┬─────┘   ║
+  ╠════════════════════╪══════════╣
+  ║        Storage     ▼ Layer    ║
+  ║   ┌─────────┐ ┌──────────┐   ║
+  ║   │  Cache  │←│    DB    │   ║
+  ║   └─────────┘ └──────────┘   ║
+  ╚═══════════════════════════════╝
+  ```
+
+  Comparison (side by side):
+  ```
+  Naive O(n²)                Optimized O(n log n)
+  ┌──────────────────┐       ┌──────────────────┐
+  │ for i in range(n):│       │ sort(array)       │
+  │   for j in range(n):     │ two_pointer(L, R) │
+  │     if match...  │       │   while L < R:    │
+  │                  │       │     adjust L or R  │
+  │ Comparisons: n²  │       │ Comparisons: n    │
+  └──────────────────┘       └──────────────────┘
+  ```
+
+RULES:
+  • Place each diagram in a ``` fenced code block (no language tag)
+  • Add a bold title above: **Figure N: Description**
+  • Annotate generously — label every region, pointer, and flow
+  • Use consistent symbols: same shape = same concept type
+  • Keep width under 80 columns for terminal/mobile readability
+  • Place diagrams INLINE right after introducing the concept
+"""
