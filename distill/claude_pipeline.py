@@ -71,9 +71,18 @@ def _cost_from_usage(usage: dict, model: str) -> float:
 from .prompts import (
     ANALYSIS_SYSTEM_PROMPT,
     CURRICULUM_DESIGN_SYSTEM_PROMPT,
+    EXCALIDRAW_DIAGRAM_GUIDE,
     MODULE_CONVERSATION_SYSTEM_PROMPT,
     LESSON_TURN_TEMPLATE,
     REVIEW_SYSTEM_PROMPT,
+)
+from .diagrams import (
+    clear_canvas,
+    get_mcp_server_config,
+    mcp_tools_available,
+    render_module_diagrams,
+    start_canvas_server,
+    stop_canvas_server,
 )
 from .schemas import Analysis, CurriculumDesign, ModuleReview, slugify
 
@@ -189,6 +198,7 @@ async def _query_sdk(
     cwd: str | Path | None = None,
     allowed_tools: list[str] | None = None,
     add_dirs: list[str | Path] | None = None,
+    mcp_servers: dict | None = None,
 ) -> tuple[list, ResultMessage | None, dict]:
     """Run a Claude Agent SDK query and collect all messages.
 
@@ -196,7 +206,7 @@ async def _query_sdk(
     input_tokens, output_tokens, cache_creation_input_tokens,
     cache_read_input_tokens, cost_usd.
     """
-    options = ClaudeAgentOptions(
+    kwargs: dict[str, Any] = dict(
         system_prompt=system,
         model=model,
         effort=effort,
@@ -206,6 +216,9 @@ async def _query_sdk(
         allowed_tools=allowed_tools or ["Bash", "Read", "Write", "Edit"],
         add_dirs=[str(d) for d in add_dirs] if add_dirs else [],
     )
+    if mcp_servers:
+        kwargs["mcp_servers"] = mcp_servers
+    options = ClaudeAgentOptions(**kwargs)
 
     messages: list = []
     agg = {"input_tokens": 0, "output_tokens": 0,
@@ -405,7 +418,11 @@ def _build_module_prompt(
 
     # Build file manifest — explicit ordering
     file_list = [f"1. README.md — lesson document (5,000-10,000 words)"]
-    file_num = 2
+    file_list.append(
+        f"2. diagrams/*.excalidraw — 2-4 explanatory diagrams\n"
+        f"   Use MCP tools (or Write) to create. Reference as ![desc](diagrams/name.svg) in README."
+    )
+    file_num = 3
     for i, ex in enumerate(exercises):
         ex_title = ex.get("title", f"exercise_{i+1}")
         ex_slug = _slugify(ex_title)
@@ -521,6 +538,7 @@ This is the primary teaching content. 5,000-10,000 words. NOT a summary.
 - Formula translation: math → plain language → code (step by step)
 - 2-4 analytical questions at Level 3+ depth
 - Synthesis section reconnecting to the course goal
+- 2-4 inline diagrams: ![Description](diagrams/name.svg) placed with explanations
 
 ═══════════════════════════════════════════════════════════════════════════
 EXERCISE CONTRACTS (follow these EXACTLY)
@@ -602,6 +620,7 @@ async def _generate_module_claude(
     effort: str,
     course_dir: Path,
     sources_dir: str | None,
+    mcp_config: dict | None = None,
 ) -> tuple[int, dict]:
     """Generate a module via Claude Code agent."""
     idx = module_spec["module_index"]
@@ -611,6 +630,7 @@ async def _generate_module_claude(
     module_dir = course_dir / module_slug
     module_dir.mkdir(parents=True, exist_ok=True)
     (module_dir / "_solutions").mkdir(exist_ok=True)
+    (module_dir / "diagrams").mkdir(exist_ok=True)
 
     prompt = _build_module_prompt(
         module_spec=module_spec,
@@ -623,16 +643,38 @@ async def _generate_module_claude(
 
     _log(f"Module {idx}: launching Claude Code agent...", _C.BLUE)
 
+    # Build tool list — include MCP Excalidraw tools if available
+    allowed = ["Bash", "Read", "Write", "Edit"]
+    system = MODULE_CONVERSATION_SYSTEM_PROMPT
+    if mcp_config:
+        allowed.append("mcp__excalidraw__*")
+        system += "\n\n" + EXCALIDRAW_DIAGRAM_GUIDE
+
     messages, result, usage = await _query_sdk(
         prompt=prompt,
-        system=MODULE_CONVERSATION_SYSTEM_PROMPT,
+        system=system,
         model=model,
         effort=effort,
         max_turns=50,  # 30 was cutting modules short — agents need room for write→run→fix loops
         cwd=module_dir,
-        allowed_tools=["Bash", "Read", "Write", "Edit"],
+        allowed_tools=allowed,
         add_dirs=[sources_dir] if sources_dir else [],
+        mcp_servers=mcp_config,
     )
+
+    # Render Excalidraw diagrams to SVG
+    diagram_count = render_module_diagrams(module_dir)
+    if diagram_count:
+        _log(f"Module {idx}: rendered {diagram_count} diagram(s) to SVG", _C.DIM)
+
+    # Clear canvas for next module
+    if mcp_config:
+        await clear_canvas()
+
+    # Clean up empty diagrams directory
+    diagrams_dir = module_dir / "diagrams"
+    if diagrams_dir.exists() and not any(diagrams_dir.iterdir()):
+        diagrams_dir.rmdir()
 
     cost = usage["cost_usd"]
     turns = result.num_turns if result else 0
@@ -665,6 +707,7 @@ async def _phase_generate(
     effort: str,
     course_dir: Path,
     sources_dir: str | None,
+    mcp_config: dict | None = None,
 ) -> dict[int, dict]:
     """Generate modules sequentially to avoid rate limits.
 
@@ -711,6 +754,7 @@ async def _phase_generate(
                 effort=effort,
                 course_dir=course_dir,
                 sources_dir=sources_dir,
+                mcp_config=mcp_config,
             )
 
             # Check if the agent actually produced files
@@ -725,6 +769,7 @@ async def _phase_generate(
                     effort=effort,
                     course_dir=course_dir,
                     sources_dir=sources_dir,
+                    mcp_config=mcp_config,
                 )
 
             results[idx] = summary
@@ -967,16 +1012,34 @@ async def run_claude_pipeline(
     })
 
     # ── Phase 2: Generate Modules ─────────────────────────────────────────
-    module_outputs = await _phase_generate(
-        design=design,
-        analysis=analysis,
-        source_content=source_content,
-        student_level=user_level,
-        model=generate_model,
-        effort=effort,
-        course_dir=course_dir,
-        sources_dir=sources_dir,
-    )
+    # Start Excalidraw MCP canvas server for diagram generation
+    mcp_config = None
+    canvas_proc = None
+    if mcp_tools_available():
+        _log("Starting Excalidraw canvas server...", _C.DIM)
+        canvas_proc = start_canvas_server()
+        # start_canvas_server returns None both when it started an existing
+        # server and when startup failed. Check if config is usable.
+        mcp_config = get_mcp_server_config() or None
+        if mcp_config:
+            _log("Excalidraw MCP enabled for diagram generation", _C.CYAN)
+        else:
+            _log("Excalidraw MCP unavailable — diagrams will use blind generation", _C.YELLOW)
+
+    try:
+        module_outputs = await _phase_generate(
+            design=design,
+            analysis=analysis,
+            source_content=source_content,
+            student_level=user_level,
+            model=generate_model,
+            effort=effort,
+            course_dir=course_dir,
+            sources_dir=sources_dir,
+            mcp_config=mcp_config,
+        )
+    finally:
+        stop_canvas_server(canvas_proc)
 
     # Accumulate costs from module generation
     for summary in module_outputs.values():

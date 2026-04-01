@@ -409,3 +409,85 @@ For each file that needs fixing, output the corrected version. Use this format:
 
 Only output files that need changes. Do not repeat files that are fine.\
 """
+
+# ── Excalidraw Diagram Guide (Claude Code route only) ──────────────────────
+
+EXCALIDRAW_DIAGRAM_GUIDE = """\
+
+═══════════════════════════════════════════════════════════════════════════════════
+EXPLANATORY DIAGRAMS — Excalidraw (2-4 per module)
+═══════════════════════════════════════════════════════════════════════════════════
+
+For EACH module, create 2-4 explanatory diagrams that visualize key concepts.
+These are NOT decorative — each must explain something text alone struggles to
+convey: data flow, architecture layers, algorithm steps, memory layouts, or
+conceptual comparisons.
+
+STYLE TARGET (study these for quality):
+  • Aleksa Gordic's GPU matmul blog — color-coded pyramid hierarchies, dense
+    annotations, grid layouts showing memory access patterns
+  • Simon Boehm's CUDA-MMM blog — bold warp/thread diagrams with color-coded
+    regions, matrix tiling visualizations
+
+Each diagram should feature:
+  • Color-coded regions distinguishing different concepts or layers
+  • Spatial layout that reveals structure (hierarchy, flow, comparison)
+  • Annotation text explaining what the reader should notice
+  • Enough detail to be standalone — comprehensible without reading the lesson
+
+═══════════════════════════════════════════════════════════════════════════════════
+DIAGRAM WORKFLOW (using MCP tools)
+═══════════════════════════════════════════════════════════════════════════════════
+
+You have access to Excalidraw MCP tools. Use this workflow for each diagram:
+
+1. PLAN the diagram: decide what concept to visualize, what elements are needed
+2. CREATE elements: use mcp__excalidraw__batch_create_elements to place shapes,
+   arrows, and text. Use descriptive IDs like "matrix_a", "arrow_data_flow".
+3. VERIFY layout: call mcp__excalidraw__describe_scene to check spatial layout,
+   overlaps, and connections. This gives you text feedback on what you built.
+4. REFINE if needed: use mcp__excalidraw__update_element to fix positions,
+   sizes, or colors. Use mcp__excalidraw__align_elements or
+   mcp__excalidraw__distribute_elements for clean alignment.
+5. EXPORT: call mcp__excalidraw__export_scene with a file path to save the
+   diagram as diagrams/<name>.excalidraw
+6. CLEAR: call mcp__excalidraw__clear_canvas before starting the next diagram.
+
+REFERENCE in README: ![Description](diagrams/<name>.svg)
+Place diagrams INLINE with the explanation — right after introducing the concept.
+SVGs are auto-rendered from the .excalidraw files after generation.
+
+If MCP tools are unavailable, fall back to writing .excalidraw JSON files
+directly using the Write tool with the format described below.
+
+═══════════════════════════════════════════════════════════════════════════════════
+EXCALIDRAW ELEMENT REFERENCE
+═══════════════════════════════════════════════════════════════════════════════════
+
+When using batch_create_elements, pass an elements array. Each element needs
+at minimum: type, x, y. Shapes need width and height. Text needs text and
+fontSize. Arrows need points.
+
+COLOR PALETTE (use consistently — same color = same concept):
+  Strokes: #1e1e1e (black), #e03131 (red), #2f9e44 (green), #1971c2 (blue),
+           #f08c00 (orange), #9c36b5 (purple), #0c8599 (teal)
+  Fills:   #a5d8ff (light blue), #b2f2bb (light green), #ffc9c9 (light red),
+           #ffec99 (light yellow), #d0bfff (light purple), #99e9f2 (light cyan)
+
+LAYOUT RULES:
+  • Shapes: min 120×60 px for labeled shapes, 60×40 for compact nodes
+  • Font sizes: 20px titles, 16px labels, 14px annotations
+  • Spacing: 40-80 px between elements
+  • Canvas: ~800×500 for simple, up to 1200×800 for detailed diagrams
+  • For arrows: use startElementId/endElementId to bind to shapes by ID
+
+DIAGRAM TYPES TO CONSIDER:
+  • Data flow / pipeline (arrows connecting processing stages)
+  • Memory layout (colored rectangles showing data organization)
+  • Algorithm steps (numbered stages with before/after states)
+  • Matrix/tensor visualization (colored grid regions)
+  • Comparison (naive vs optimized side by side)
+  • Architecture (system components and connections)
+
+Keep diagrams clear: 10-30 elements per diagram. Annotate everything.
+"""
