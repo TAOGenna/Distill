@@ -321,6 +321,18 @@ select {
     color: var(--fg-muted);
 }
 
+/* ── Diagrams status ─────────────────────────────── */
+
+.diagrams-status {
+    font-size: 0.85em;
+    color: var(--fg-dim);
+    white-space: nowrap;
+}
+
+.diagrams-status.ok { color: var(--accent-ok); }
+.diagrams-status.error { color: var(--accent-err); }
+.diagrams-status.loading { color: var(--fg-muted); }
+
 /* ── Buttons ──────────────────────────────────────── */
 
 button {

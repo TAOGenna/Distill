@@ -1,0 +1,3 @@
+[submodule "distill/excalidraw"]
+	path = distill/excalidraw
+	url = https://github.com/yctimlin/mcp_excalidraw.git

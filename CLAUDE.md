@@ -10,6 +10,7 @@ distill/
 ├── fetch.py              # Source preprocessing — URL → local artifacts (no LLM)
 ├── pipeline.py           # Course generation pipeline — multi-turn conversations (LiteLLM)
 ├── claude_pipeline.py    # Course generation pipeline — Claude Agent SDK (standalone)
+├── diagrams.py           # Excalidraw MCP lifecycle + pure Python SVG renderer
 ├── llm.py                # LLM client (LiteLLM + Instructor) — provider abstraction
 ├── mock.py               # Mock LLM client for zero-cost end-to-end testing
 ├── sources.py            # Source budget management — read + truncate/summarize
@@ -48,6 +49,13 @@ The target is MIT 6.102-level course material, not README summaries. Each module
 - Solution versions in `_solutions/` — must run and produce correct output
 - Real dependencies only (numpy, torch — never placeholder packages)
 - Baked-in realistic domain-appropriate data (not foo/bar/42)
+
+**Explanatory diagrams (diagrams/*.svg)** — 2-4 per module (Claude Code route):
+- Excalidraw JSON source (`.excalidraw`) preserved alongside rendered SVG
+- Color-coded regions, heavy annotations, spatial layouts
+- Referenced inline in README.md where the concept is explained
+- Style reference: Aleksa Gordic's matmul blog, Simon Boehm's CUDA-MMM
+- Model uses MCP tools (`describe_scene`) for spatial feedback during creation
 
 ## Architecture
 
@@ -146,6 +154,18 @@ The model writes a 3,000-10,000 word lesson BEFORE any exercise code. During tha
 - Articulates the key insights in prose
 
 By the time it writes exercises, it has deeply processed the material. This is the opposite of the old approach (README written last as an afterthought) and dramatically better than single-shot (no deep processing at all).
+
+### Diagram generation (Claude Code route only)
+
+The module agent creates Excalidraw diagrams using MCP tools from `yctimlin/mcp_excalidraw`. The Express canvas server is auto-started before Phase 2 and stopped after. Workflow per diagram:
+1. Agent calls `batch_create_elements` to build the diagram
+2. Agent calls `describe_scene` for spatial feedback (no browser needed)
+3. Agent refines with `update_element`, `align_elements`, `distribute_elements`
+4. Agent calls `export_scene` to save as `diagrams/<name>.excalidraw`
+5. After the agent finishes, `diagrams.py` renders each `.excalidraw` → `.svg` via a pure Python renderer (feTurbulence wobble filter, Virgil font family)
+6. README references: `![Description](diagrams/name.svg)`
+
+If the MCP server is unavailable, the agent falls back to writing `.excalidraw` JSON directly via Write tool. The `.excalidraw` source files are always preserved for full-fidelity viewing at excalidraw.com.
 
 ## Blueprint Schema
 

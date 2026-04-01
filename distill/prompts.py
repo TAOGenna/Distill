@@ -409,3 +409,186 @@ For each file that needs fixing, output the corrected version. Use this format:
 
 Only output files that need changes. Do not repeat files that are fine.\
 """
+
+# ── Excalidraw Diagram Guide (Claude Code route only) ──────────────────────
+
+EXCALIDRAW_DIAGRAM_GUIDE = """\
+
+═══════════════════════════════════════════════════════════════════════════════════
+EXPLANATORY DIAGRAMS — Excalidraw (2-4 per module)
+═══════════════════════════════════════════════════════════════════════════════════
+
+For EACH module, create 2-4 explanatory diagrams that visualize key concepts.
+These are NOT decorative — each must explain something text alone struggles to
+convey: data flow, architecture layers, algorithm steps, memory layouts, or
+conceptual comparisons.
+
+STYLE TARGET (study these for quality):
+  • Aleksa Gordic's GPU matmul blog — color-coded pyramid hierarchies, dense
+    annotations, grid layouts showing memory access patterns
+  • Simon Boehm's CUDA-MMM blog — bold warp/thread diagrams with color-coded
+    regions, matrix tiling visualizations
+
+Each diagram should feature:
+  • Color-coded regions distinguishing different concepts or layers
+  • Spatial layout that reveals structure (hierarchy, flow, comparison)
+  • Annotation text explaining what the reader should notice
+  • Enough detail to be standalone — comprehensible without reading the lesson
+
+═══════════════════════════════════════════════════════════════════════════════════
+DIAGRAM WORKFLOW (using MCP tools)
+═══════════════════════════════════════════════════════════════════════════════════
+
+You have access to Excalidraw MCP tools. Use this workflow for each diagram:
+
+1. PLAN the diagram: decide what concept to visualize, what elements are needed
+2. CREATE elements: use mcp__excalidraw__batch_create_elements to place shapes,
+   arrows, and text. Use descriptive IDs like "matrix_a", "arrow_data_flow".
+3. VERIFY layout: call mcp__excalidraw__describe_scene to check spatial layout,
+   overlaps, and connections. This gives you text feedback on what you built.
+4. REFINE if needed: use mcp__excalidraw__update_element to fix positions,
+   sizes, or colors. Use mcp__excalidraw__align_elements or
+   mcp__excalidraw__distribute_elements for clean alignment.
+5. EXPORT: call mcp__excalidraw__export_scene with a file path to save the
+   diagram as diagrams/<name>.excalidraw
+6. CLEAR: call mcp__excalidraw__clear_canvas before starting the next diagram.
+
+REFERENCE in README: ![Description](diagrams/<name>.svg)
+Place diagrams INLINE with the explanation — right after introducing the concept.
+SVGs are auto-rendered from the .excalidraw files after generation.
+
+If MCP tools are unavailable, fall back to writing .excalidraw JSON files
+directly using the Write tool with the format described below.
+
+═══════════════════════════════════════════════════════════════════════════════════
+EXCALIDRAW ELEMENT REFERENCE
+═══════════════════════════════════════════════════════════════════════════════════
+
+When using batch_create_elements, pass an elements array. Each element needs
+at minimum: type, x, y. Shapes need width and height. Text needs text and
+fontSize. Arrows need points.
+
+COLOR PALETTE (use consistently — same color = same concept):
+  Strokes: #1e1e1e (black), #e03131 (red), #2f9e44 (green), #1971c2 (blue),
+           #f08c00 (orange), #9c36b5 (purple), #0c8599 (teal)
+  Fills:   #a5d8ff (light blue), #b2f2bb (light green), #ffc9c9 (light red),
+           #ffec99 (light yellow), #d0bfff (light purple), #99e9f2 (light cyan)
+
+LAYOUT RULES:
+  • Shapes: min 120×60 px for labeled shapes, 60×40 for compact nodes
+  • Font sizes: 20px titles, 16px labels, 14px annotations
+  • Spacing: 40-80 px between elements
+  • Canvas: ~800×500 for simple, up to 1200×800 for detailed diagrams
+  • For arrows: use startElementId/endElementId to bind to shapes by ID
+
+DIAGRAM TYPES TO CONSIDER:
+  • Data flow / pipeline (arrows connecting processing stages)
+  • Memory layout (colored rectangles showing data organization)
+  • Algorithm steps (numbered stages with before/after states)
+  • Matrix/tensor visualization (colored grid regions)
+  • Comparison (naive vs optimized side by side)
+  • Architecture (system components and connections)
+
+Keep diagrams clear: 10-30 elements per diagram. Annotate everything.
+"""
+
+# ── ASCII Diagram Guide (fallback when Excalidraw MCP is unavailable) ───────
+
+ASCII_DIAGRAM_GUIDE = """\
+
+═══════════════════════════════════════════════════════════════════════════════════
+EXPLANATORY DIAGRAMS — ASCII art (2-4 per module, inline in README)
+═══════════════════════════════════════════════════════════════════════════════════
+
+For EACH module, create 2-4 ASCII diagrams embedded directly in the README inside
+fenced code blocks. These are NOT decorative — each must explain something text
+alone struggles to convey: data flow, architecture layers, algorithm steps,
+memory layouts, or matrix operations.
+
+ASCII diagrams are extremely versatile — use box-drawing characters, Unicode
+blocks, alignment, and whitespace to create rich, information-dense visuals.
+
+TOOLKIT — use these building blocks:
+
+  Box drawing:    ┌─┐ └─┘ │ ─ ├ ┤ ┬ ┴ ┼ ╔═╗ ╚═╝ ║
+  Arrows:         → ← ↑ ↓ ↔ ⟶ ⟵ ▶ ◀ ▲ ▼
+  Blocks/fills:   █ ▓ ▒ ░ ■ □ ▪ ▫ ● ○ ◆ ◇
+  Math:           ∑ ∏ √ ∞ ≈ ≠ ≤ ≥ ∈ ∉ ⊂ ∪ ∩ ∀ ∃ α β γ θ λ
+  Brackets:       ⎡ ⎤ ⎣ ⎦ ⎢ ⎥ (for matrices)
+  Connectors:     ╭─╮ ╰─╯ (rounded corners)
+
+DIAGRAM TYPES — match the concept:
+
+  Data flow / pipeline:
+  ```
+  ┌──────────┐     ┌──────────┐     ┌──────────┐
+  │  Input   │────▶│ Process  │────▶│  Output  │
+  │  (raw)   │     │ (transform)    │  (clean) │
+  └──────────┘     └──────────┘     └──────────┘
+  ```
+
+  Memory layout / data structure:
+  ```
+  Address   0x00   0x04   0x08   0x0C   0x10
+           ┌──────┬──────┬──────┬──────┬──────┐
+  Array:   │  42  │  17  │  83  │   5  │  91  │
+           └──────┴──────┴──────┴──────┴──────┘
+           ▲             ▲
+           left          pivot
+  ```
+
+  Matrix / tensor visualization:
+  ```
+  A (3×4)              B (4×2)           C (3×2)
+  ⎡ a₀₀ a₀₁ a₀₂ a₀₃ ⎤   ⎡ b₀₀ b₀₁ ⎤   ⎡ c₀₀ c₀₁ ⎤
+  ⎢ a₁₀ a₁₁ a₁₂ a₁₃ ⎥ × ⎢ b₁₀ b₁₁ ⎥ = ⎢ c₁₀ c₁₁ ⎥
+  ⎣ a₂₀ a₂₁ a₂₂ a₂₃ ⎦   ⎢ b₂₀ b₂₁ ⎥   ⎣ c₂₀ c₂₁ ⎦
+                          ⎣ b₃₀ b₃₁ ⎦
+  ```
+
+  Algorithm steps (before/after, numbered):
+  ```
+  Step 1: partition         Step 2: recurse
+  ┌───┬───┬───┬───┬───┐    ┌───┬───┐ ┌───┬───┐
+  │ 3 │ 1 │ 4 │ 1 │ 5 │    │ 1 │ 1 │ │ 4 │ 5 │
+  └───┴───┴───┴───┴───┘    └───┴───┘ └───┴───┘
+        ▲ pivot=3                ▲         ▲
+      <3  │  ≥3              sorted    sorted
+  ```
+
+  Architecture / layer diagram:
+  ```
+  ╔═══════════════════════════════╗
+  ║        Application Layer      ║
+  ╠═══════════════════════════════╣
+  ║   ┌─────────┐ ┌──────────┐   ║
+  ║   │ Router  │→│ Handler  │   ║
+  ║   └─────────┘ └────┬─────┘   ║
+  ╠════════════════════╪══════════╣
+  ║        Storage     ▼ Layer    ║
+  ║   ┌─────────┐ ┌──────────┐   ║
+  ║   │  Cache  │←│    DB    │   ║
+  ║   └─────────┘ └──────────┘   ║
+  ╚═══════════════════════════════╝
+  ```
+
+  Comparison (side by side):
+  ```
+  Naive O(n²)                Optimized O(n log n)
+  ┌──────────────────┐       ┌──────────────────┐
+  │ for i in range(n):│       │ sort(array)       │
+  │   for j in range(n):     │ two_pointer(L, R) │
+  │     if match...  │       │   while L < R:    │
+  │                  │       │     adjust L or R  │
+  │ Comparisons: n²  │       │ Comparisons: n    │
+  └──────────────────┘       └──────────────────┘
+  ```
+
+RULES:
+  • Place each diagram in a ``` fenced code block (no language tag)
+  • Add a bold title above: **Figure N: Description**
+  • Annotate generously — label every region, pointer, and flow
+  • Use consistent symbols: same shape = same concept type
+  • Keep width under 80 columns for terminal/mobile readability
+  • Place diagrams INLINE right after introducing the concept
+"""
