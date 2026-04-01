@@ -251,9 +251,14 @@ TEACHING DOCUMENT that a student spends 30-90 minutes reading. It must:
    What about lambda=infinity?"
 5. Translate formulas from the source material step by step — show the math, \
    explain in plain language, then translate to code
-6. Include 2-4 ANALYTICAL QUESTIONS at Level 3+ depth (analysis/synthesis)
-7. Close with a synthesis section reconnecting to the course's overall goal
-8. Reference specific numbers, benchmarks, or measurements from the source
+6. Write ALL math and equations using LaTeX notation: \
+   inline math with $...$ and display math with $$...$$. \
+   NEVER use plain text, Unicode symbols, or code fences for equations. \
+   Examples: $D_{\\text{mse}} = \\mathbb{E}[\\|x - \\hat{x}\\|^2]$, \
+   $$\\nabla_\\theta J(\\theta) = \\frac{1}{N}\\sum_{i=1}^{N} \\nabla_\\theta \\log \\pi_\\theta(a_i|s_i) R_i$$
+7. Include 2-4 ANALYTICAL QUESTIONS at Level 3+ depth (analysis/synthesis)
+8. Close with a synthesis section reconnecting to the course's overall goal
+9. Reference specific numbers, benchmarks, or measurements from the source
 
 Target length: 3,000-10,000 words depending on module complexity. Write like \
 a Codeforces grandmaster editorial or an MIT course reading — elaborate, \
