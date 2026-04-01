@@ -409,6 +409,7 @@ def _build_module_prompt(
     student_level: str,
     sources_dir: str | None,
     module_dir: Path,
+    diagrams_enabled: bool = False,
 ) -> str:
     """Build the comprehensive prompt for a module generation agent."""
     idx = module_spec["module_index"]
@@ -418,11 +419,13 @@ def _build_module_prompt(
 
     # Build file manifest — explicit ordering
     file_list = [f"1. README.md — lesson document (5,000-10,000 words)"]
-    file_list.append(
-        f"2. diagrams/*.excalidraw — 2-4 explanatory diagrams\n"
-        f"   Use MCP tools (or Write) to create. Reference as ![desc](diagrams/name.svg) in README."
-    )
-    file_num = 3
+    file_num = 2
+    if diagrams_enabled:
+        file_list.append(
+            f"{file_num}. diagrams/*.excalidraw — 2-4 explanatory diagrams\n"
+            f"   Use MCP tools (or Write) to create. Reference as ![desc](diagrams/name.svg) in README."
+        )
+        file_num += 1
     for i, ex in enumerate(exercises):
         ex_title = ex.get("title", f"exercise_{i+1}")
         ex_slug = _slugify(ex_title)
@@ -511,6 +514,11 @@ def _build_module_prompt(
             f"Use Read to access specific sections when needed.\n"
         )
 
+    diagram_bullet = (
+        "\n- 2-4 inline diagrams: ![Description](diagrams/name.svg) placed with explanations"
+        if diagrams_enabled else ""
+    )
+
     return f"""\
 Execute this Blueprint for Module {idx}: "{title}"
 
@@ -537,8 +545,7 @@ This is the primary teaching content. 5,000-10,000 words. NOT a summary.
 - Embedded comprehension checks: "What would happen if...?"
 - Formula translation: math → plain language → code (step by step)
 - 2-4 analytical questions at Level 3+ depth
-- Synthesis section reconnecting to the course goal
-- 2-4 inline diagrams: ![Description](diagrams/name.svg) placed with explanations
+- Synthesis section reconnecting to the course goal{diagram_bullet}
 
 ═══════════════════════════════════════════════════════════════════════════
 EXERCISE CONTRACTS (follow these EXACTLY)
@@ -630,7 +637,8 @@ async def _generate_module_claude(
     module_dir = course_dir / module_slug
     module_dir.mkdir(parents=True, exist_ok=True)
     (module_dir / "_solutions").mkdir(exist_ok=True)
-    (module_dir / "diagrams").mkdir(exist_ok=True)
+    if mcp_config:
+        (module_dir / "diagrams").mkdir(exist_ok=True)
 
     prompt = _build_module_prompt(
         module_spec=module_spec,
@@ -639,6 +647,7 @@ async def _generate_module_claude(
         student_level=student_level,
         sources_dir=sources_dir,
         module_dir=module_dir,
+        diagrams_enabled=bool(mcp_config),
     )
 
     _log(f"Module {idx}: launching Claude Code agent...", _C.BLUE)
@@ -1018,9 +1027,7 @@ async def run_claude_pipeline(
     if mcp_tools_available():
         _log("Starting Excalidraw canvas server...", _C.DIM)
         canvas_proc = start_canvas_server()
-        # start_canvas_server returns None both when it started an existing
-        # server and when startup failed. Check if config is usable.
-        mcp_config = get_mcp_server_config() or None
+        mcp_config = get_mcp_server_config()
         if mcp_config:
             _log("Excalidraw MCP enabled for diagram generation", _C.CYAN)
         else:

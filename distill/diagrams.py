@@ -13,13 +13,14 @@ from __future__ import annotations
 
 import json
 import os
-import shutil
 import socket
 import subprocess
 import sys
 import time
 from pathlib import Path
 from xml.sax.saxutils import escape as xml_escape
+
+import httpx
 
 
 # ── MCP Canvas Server Lifecycle ─────────────────────────────────────────────
@@ -28,7 +29,7 @@ from xml.sax.saxutils import escape as xml_escape
 # cloned alongside the project. Adjust if your layout differs.
 _MCP_PACKAGE_DIR = Path(__file__).parent / "excalidraw"
 
-_CANVAS_PORT = 3000
+_CANVAS_PORT = 18420  # Uncommon port — avoids 3000 collisions with React/Next.js
 _CANVAS_HOST = "localhost"
 _CANVAS_URL = f"http://{_CANVAS_HOST}:{_CANVAS_PORT}"
 _STARTUP_TIMEOUT = 15  # seconds to wait for canvas server
@@ -40,6 +41,26 @@ def _port_open(host: str, port: int) -> bool:
         with socket.create_connection((host, port), timeout=1):
             return True
     except OSError:
+        return False
+
+
+def _is_canvas_server(host: str, port: int) -> bool:
+    """Verify the process on this port is actually our Excalidraw canvas server.
+
+    Hits GET /health and checks for the expected response shape.
+    Uses urllib (stdlib) to stay synchronous — called from start_canvas_server.
+    """
+    import urllib.request
+    import urllib.error
+
+    try:
+        req = urllib.request.Request(
+            f"http://{host}:{port}/health", method="GET"
+        )
+        with urllib.request.urlopen(req, timeout=2) as resp:
+            data = json.loads(resp.read())
+            return data.get("status") == "healthy"
+    except (urllib.error.URLError, json.JSONDecodeError, OSError, KeyError):
         return False
 
 
@@ -60,13 +81,21 @@ def start_canvas_server() -> subprocess.Popen | None:
     Returns the Popen handle, or None if the server couldn't start.
     The caller is responsible for calling stop_canvas_server() when done.
     """
-    # If port is already in use, assume server is already running
+    # If port is already in use, verify it's actually our canvas server
     if _port_open(_CANVAS_HOST, _CANVAS_PORT):
-        print(
-            f"  Canvas server already running on port {_CANVAS_PORT}",
-            file=sys.stderr,
-        )
-        return None  # None means "we didn't start it, don't stop it"
+        if _is_canvas_server(_CANVAS_HOST, _CANVAS_PORT):
+            print(
+                f"  Canvas server already running on port {_CANVAS_PORT}",
+                file=sys.stderr,
+            )
+            return None  # We didn't start it — don't stop it
+        else:
+            print(
+                f"  Warning: port {_CANVAS_PORT} is in use by another process. "
+                f"Cannot start canvas server.",
+                file=sys.stderr,
+            )
+            return None
 
     pkg = find_mcp_package()
     if pkg is None:
@@ -123,8 +152,6 @@ def stop_canvas_server(proc: subprocess.Popen | None) -> None:
 
 async def clear_canvas() -> None:
     """Clear all elements from the canvas (reset between modules)."""
-    import httpx
-
     try:
         async with httpx.AsyncClient() as client:
             await client.delete(
@@ -134,15 +161,19 @@ async def clear_canvas() -> None:
         pass  # Best effort — if server isn't running, skip silently
 
 
-def get_mcp_server_config() -> dict:
-    """Return MCP server config dict for ClaudeAgentOptions.mcp_servers.
+def get_mcp_server_config() -> dict | None:
+    """Return MCP server config if the canvas server is running and verified.
 
-    The MCP stdio server connects to the Express canvas server via
-    EXPRESS_SERVER_URL environment variable.
+    Returns None if the package isn't built OR the Express canvas server
+    isn't reachable (prevents handing the agent tools that point at a
+    wrong server on the same port).
     """
     pkg = find_mcp_package()
     if pkg is None:
-        return {}
+        return None
+
+    if not _is_canvas_server(_CANVAS_HOST, _CANVAS_PORT):
+        return None
 
     return {
         "excalidraw": {
@@ -458,7 +489,12 @@ def render_excalidraw_to_svg(
             rendered.append(_render_line(el, markers))
         elif t == "text":
             rendered.append(_render_text(el))
-        # Skip unknown element types silently
+        elif t:
+            print(
+                f"  Warning: skipping unsupported element type '{t}' in "
+                f"{excalidraw_path.name}",
+                file=sys.stderr,
+            )
 
     # Build defs
     markers_svg = _build_markers_svg(markers)
