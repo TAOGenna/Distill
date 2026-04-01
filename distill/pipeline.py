@@ -89,11 +89,9 @@ def _log_step(msg: str) -> None:
 # ── Helpers ──────────────────────────────────────────────────────────────────
 
 
-def _slugify(title: str) -> str:
-    slug = title.lower()
-    slug = "".join(c if c.isalnum() or c == " " else "" for c in slug)
-    slug = slug.strip().replace(" ", "_")
-    return slug[:50].rstrip("_")
+from .schemas import slugify
+
+_slugify = slugify  # local alias used throughout this file
 
 
 # ── Phase 1a: Analyze ────────────────────────────────────────────────────────
@@ -311,7 +309,8 @@ async def _generate_module_conversational(
     ) or "  (none provided)"
 
     exercise_summaries = "\n".join(
-        f"  Exercise {i+1}: \"{ex.get('title', '')}\" ({ex.get('type', '')})\n"
+        f"  Exercise {i+1}: \"{ex.get('title', '')}\" ({ex.get('type', '')}) "
+        f"[{ex.get('format', 'single_file')}]\n"
         f"    Student writes: {ex.get('what_student_writes', '')}\n"
         f"    Milestone: {ex.get('milestone', '')}"
         for i, ex in enumerate(exercises)
@@ -351,6 +350,17 @@ async def _generate_module_conversational(
     for ex_i, ex in enumerate(exercises):
         ex_num = ex_i + 1
         ex_title = ex.get("title", f"exercise_{ex_num}")
+        ex_format = ex.get("format", "single_file")
+
+        # Project exercises need agent tool access (Bash/Write/Edit) — skip in LiteLLM
+        if ex_format == "project":
+            _log(
+                f"Module {idx}: skipping ex{ex_num:02d} (project format — "
+                f"use Claude Code provider for project exercises)",
+                _C.YELLOW,
+            )
+            continue
+
         ex_slug = _slugify(ex_title)
         filename = f"ex{ex_num:02d}_{ex_slug}.py"
 
@@ -491,10 +501,16 @@ async def _phase_generate(
         f"  - {c.name} ({c.priority}): {c.description}"
         for c in analysis.key_concepts
     )
+    module_map_lines = "\n".join(
+        f"  Module {m.module_index}: {m.title}"
+        for m in modules
+    )
     course_context = (
         f"Course: {curriculum.course_title}\n"
         f"Description: {curriculum.course_description}\n"
         f"Content type: {analysis.content_type}\n\n"
+        f"Course modules (use ONLY these indices for cross-references):\n"
+        f"{module_map_lines}\n\n"
         f"Key concepts:\n{concept_lines}"
     )
 
