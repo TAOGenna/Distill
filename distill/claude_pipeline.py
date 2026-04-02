@@ -22,9 +22,9 @@ from pathlib import Path
 from typing import Any
 
 import anyio
-from claude_code_sdk import (
+from claude_agent_sdk import (
     AssistantMessage,
-    ClaudeCodeOptions,
+    ClaudeAgentOptions,
     ResultMessage,
     TextBlock,
     ToolUseBlock,
@@ -222,14 +222,23 @@ async def _query_sdk(
     )
     if mcp_servers:
         kwargs["mcp_servers"] = mcp_servers
-    options = ClaudeCodeOptions(**kwargs)
+    options = ClaudeAgentOptions(**kwargs)
 
     messages: list = []
+    agg = {"input_tokens": 0, "output_tokens": 0,
+           "cache_creation_input_tokens": 0, "cache_read_input_tokens": 0}
 
     async for msg in query(prompt=prompt, options=options):
         messages.append(msg)
 
         if isinstance(msg, AssistantMessage):
+            # Accumulate tokens from each assistant turn
+            if msg.usage:
+                agg["input_tokens"] += msg.usage.get("input_tokens", 0)
+                agg["output_tokens"] += msg.usage.get("output_tokens", 0)
+                agg["cache_creation_input_tokens"] += msg.usage.get("cache_creation_input_tokens", 0)
+                agg["cache_read_input_tokens"] += msg.usage.get("cache_read_input_tokens", 0)
+
             # Log tool use for progress tracking
             for block in msg.content:
                 if isinstance(block, TextBlock) and len(block.text) > 10:
@@ -243,15 +252,7 @@ async def _query_sdk(
     result = _extract_result(messages)
     model_name = model or "sonnet"
 
-    # Usage and cost come from ResultMessage (SDK aggregates across all turns)
-    agg = {"input_tokens": 0, "output_tokens": 0,
-           "cache_creation_input_tokens": 0, "cache_read_input_tokens": 0}
-    if result and result.usage:
-        agg["input_tokens"] = result.usage.get("input_tokens", 0)
-        agg["output_tokens"] = result.usage.get("output_tokens", 0)
-        agg["cache_creation_input_tokens"] = result.usage.get("cache_creation_input_tokens", 0)
-        agg["cache_read_input_tokens"] = result.usage.get("cache_read_input_tokens", 0)
-
+    # SDK has exact pricing (incl. ephemeral cache tiers) — prefer it
     if result and result.total_cost_usd:
         agg["cost_usd"] = result.total_cost_usd
     else:
