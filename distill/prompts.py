@@ -317,6 +317,30 @@ thorough, with every step justified.
 EXERCISE FILE STANDARDS
 ═══════════════════════════════════════════════════════════════════════════════════
 
+HARDWARE CONSTRAINT — FAST VERIFICATION MODE:
+  Solutions are verified during generation on a CPU laptop (no GPU, no large \
+downloads). Every __main__ block MUST complete in under 10 seconds.
+
+  Use the DISTILL_VERIFY environment variable (set automatically during \
+generation) to switch between fast verification and full student defaults:
+
+  ```python
+  import os
+  VERIFY = os.environ.get("DISTILL_VERIFY")
+  N_STEPS = 2 if VERIFY else 20_000        # 2 steps to verify, 20k for real
+  N_SAMPLES = 16 if VERIFY else 60_000     # tiny batch vs full dataset
+  BATCH_SIZE = 8 if VERIFY else 128
+  ```
+
+  Rules:
+  - ALWAYS check DISTILL_VERIFY in __main__ and use tiny params when set
+  - NEVER download datasets during verification — generate synthetic data:
+    `X = torch.randn(16, 1, 28, 28)` not `torchvision.datasets.MNIST(...)`
+  - NEVER run more than 2-3 training steps during verification
+  - Use `torch.no_grad()` where possible to skip gradient computation
+  - Use comments to show students what full-scale params look like
+  - The solution must still print output matching expected_output_pattern
+
 SINGLE-FILE exercises (format: single_file):
 
   SCAFFOLD (~65% provided, ~35% TODO):
@@ -326,11 +350,13 @@ SINGLE-FILE exercises (format: single_file):
   - NotImplementedError("YOUR CODE HERE") in TODO zones
   - __main__ block: 20-50 lines, ALWAYS fully provided, never scaffolded
   - Must parse without errors as-is
+  - __main__ MUST check DISTILL_VERIFY for fast execution (see above)
 
   SOLUTION (identical structure, TODOs filled in):
   - Same imports, same __main__ block, same structure
   - TODO zones replaced with correct implementation
   - Must run and produce educational output matching the milestone
+  - Must complete in <10 seconds when DISTILL_VERIFY is set
 
 PROJECT exercises (format: project):
 

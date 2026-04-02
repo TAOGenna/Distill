@@ -219,6 +219,7 @@ async def _query_sdk(
         allowed_tools=allowed_tools or ["Bash", "Read", "Write", "Edit"],
         add_dirs=[str(d) for d in add_dirs] if add_dirs else [],
         extra_args=extra,
+        env={"DISTILL_VERIFY": "1"},
     )
     if mcp_servers:
         kwargs["mcp_servers"] = mcp_servers
