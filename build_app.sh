@@ -16,6 +16,14 @@ cat > "$APP_DIR/Contents/MacOS/Distill" << 'LAUNCHER'
 #!/bin/bash
 # Distill launcher — pulls latest code and starts the web UI.
 
+# macOS apps get a minimal PATH — load the user's shell environment
+if [ -x /usr/libexec/path_helper ]; then
+    eval "$(/usr/libexec/path_helper -s)"
+fi
+# Pick up homebrew, nvm, fnm, etc.
+[ -f "$HOME/.zprofile" ] && source "$HOME/.zprofile" 2>/dev/null
+[ -f "$HOME/.zshrc" ] && source "$HOME/.zshrc" 2>/dev/null
+
 REPO_DIR="__REPO_DIR__"
 
 if [ ! -d "$REPO_DIR/.git" ]; then

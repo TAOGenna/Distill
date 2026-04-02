@@ -107,13 +107,21 @@ def start_canvas_server() -> subprocess.Popen | None:
         return None
 
     env = {**os.environ, "PORT": str(_CANVAS_PORT)}
-    proc = subprocess.Popen(
-        ["node", str(pkg / "dist" / "server.js")],
-        env=env,
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.PIPE,
-        cwd=str(pkg),
-    )
+    try:
+        proc = subprocess.Popen(
+            ["node", str(pkg / "dist" / "server.js")],
+            env=env,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.PIPE,
+            cwd=str(pkg),
+        )
+    except FileNotFoundError:
+        print(
+            "  Warning: 'node' not found in PATH. "
+            "Diagrams will use blind generation.",
+            file=sys.stderr,
+        )
+        return None
 
     # Wait for port to become available
     deadline = time.monotonic() + _STARTUP_TIMEOUT
