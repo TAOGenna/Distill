@@ -24,7 +24,7 @@ from urllib.parse import urljoin, urlparse
 
 import httpx
 
-SourceType = Literal["arxiv", "github", "pdf", "blog"]
+SourceType = Literal["arxiv", "github", "github_file", "pdf", "blog"]
 
 _FIGURE_EXTS = frozenset({".png", ".jpg", ".jpeg", ".pdf", ".eps", ".svg", ".gif"})
 _IMAGE_EXTS = frozenset({".png", ".jpg", ".jpeg", ".gif", ".svg", ".webp"})
@@ -44,7 +44,18 @@ def detect_source_type(url: str) -> tuple[SourceType, dict[str, str]]:
     if m:
         return "arxiv", {"paper_id": m.group(1)}
 
-    # GitHub repo
+    # GitHub single file — /blob/{branch}/{path}
+    m = re.match(
+        r"https?://github\.com/([^/]+/[^/]+?)/blob/([^/]+)/(.+)", url
+    )
+    if m:
+        return "github_file", {
+            "repo": m.group(1),
+            "branch": m.group(2),
+            "path": m.group(3),
+        }
+
+    # GitHub repo (or /tree/ directory view)
     m = re.match(r"https?://github\.com/([^/]+/[^/]+?)(?:\.git)?(?:/|$)", url)
     if m:
         return "github", {"repo": m.group(1)}
@@ -286,6 +297,44 @@ def _fetch_pdf(url: str, dest: Path, log: Callable) -> dict[str, Any]:
     return meta
 
 
+def _fetch_github_file(
+    repo: str, branch: str, path: str, dest: Path, log: Callable,
+) -> dict[str, Any]:
+    """Fetch a single file from a GitHub repo via raw.githubusercontent.com."""
+    raw_url = f"https://raw.githubusercontent.com/{repo}/{branch}/{path}"
+    meta: dict[str, Any] = {
+        "url": f"https://github.com/{repo}/blob/{branch}/{path}",
+        "type": "github_file",
+        "repo": repo,
+        "branch": branch,
+        "path": path,
+        "fetched_at": _now(),
+        "artifacts": [],
+        "errors": [],
+    }
+
+    filename = Path(path).name
+    log(f"Fetching {repo}/{path}...")
+
+    with httpx.Client(follow_redirects=True, timeout=30) as client:
+        resp = client.get(raw_url)
+
+    if resp.status_code != 200:
+        meta["errors"].append(f"Fetch failed: {resp.status_code}")
+        log(f"Failed to fetch {path}: {resp.status_code}", "error")
+        (dest / "meta.json").write_text(json.dumps(meta, indent=2))
+        return meta
+
+    content = resp.text
+    (dest / filename).write_text(content)
+    meta["artifacts"].append(filename)
+    meta["filename"] = filename
+    log(f"Got {len(content)} chars from {filename}", "ok")
+
+    (dest / "meta.json").write_text(json.dumps(meta, indent=2))
+    return meta
+
+
 def _fetch_github(repo: str, dest: Path, log: Callable) -> dict[str, Any]:
     """Shallow clone a GitHub repo."""
     meta: dict[str, Any] = {
@@ -385,6 +434,10 @@ def _fetch_source(url: str, dest: Path, log: Callable) -> dict[str, Any]:
 
     if source_type == "arxiv":
         return _fetch_arxiv(metadata["paper_id"], dest, log)
+    elif source_type == "github_file":
+        return _fetch_github_file(
+            metadata["repo"], metadata["branch"], metadata["path"], dest, log,
+        )
     elif source_type == "github":
         return _fetch_github(metadata["repo"], dest, log)
     elif source_type == "pdf":
@@ -469,6 +522,8 @@ def _manifest_entry(url: str, dir_name: str, meta: dict) -> dict:
         entry["tex_files"] = meta["tex_files"]
     if "figure_files" in meta:
         entry["figure_files"] = meta["figure_files"]
+    if "filename" in meta:
+        entry["filename"] = meta["filename"]
     return entry
 
 

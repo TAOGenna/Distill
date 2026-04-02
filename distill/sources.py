@@ -80,6 +80,14 @@ def _read_source_entry(entry: dict, sources_dir: Path) -> str:
         else:
             parts.append("[PDF source — text extraction not available]\n")
 
+    elif source_type == "github_file":
+        # Single file fetched from a repo
+        filename = entry.get("filename", "")
+        if filename:
+            content = _read_text_file(src_dir / filename)
+            if content:
+                parts.append(f"[{filename}]\n{content}\n")
+
     elif source_type == "github":
         # Read key source files from cloned repo
         repo_dir = src_dir / "repo"
