@@ -124,11 +124,13 @@
             <div class="field-row field-secondary">
                 <div class="field">
                     <label for="design-model">design model <span class="hint">(analysis + curriculum)</span></label>
-                    <select name="design_model" id="design-model"></select>
+                    <input type="text" name="design_model" id="design-model" list="design-model-list" autocomplete="off">
+                    <datalist id="design-model-list"></datalist>
                 </div>
                 <div class="field">
                     <label for="generate-model">generate model <span class="hint">(exercise files)</span></label>
-                    <select name="generate_model" id="generate-model"></select>
+                    <input type="text" name="generate_model" id="generate-model" list="generate-model-list" autocomplete="off">
+                    <datalist id="generate-model-list"></datalist>
                 </div>
             </div>
 

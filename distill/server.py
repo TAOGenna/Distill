@@ -170,6 +170,72 @@ async def _config_endpoint(request: Request) -> JSONResponse:
     return JSONResponse({"ok": True})
 
 
+async def _models_endpoint(request: Request) -> JSONResponse:
+    """Return available models for a provider, fetched from its API when possible."""
+    import httpx
+    from .llm import PROVIDER_DEFAULTS, PROVIDER_ENV_VARS
+
+    config = _load_config()
+    provider = request.query_params.get("provider", config.get("provider", "anthropic"))
+    defaults = PROVIDER_DEFAULTS.get(provider, {})
+
+    # For anthropic and claude_code, try to fetch from the Anthropic API
+    if provider in ("anthropic", "claude_code"):
+        api_key = config.get("anthropic_api_key") or os.environ.get("ANTHROPIC_API_KEY", "")
+        if api_key:
+            try:
+                async with httpx.AsyncClient(timeout=10) as client:
+                    resp = await client.get(
+                        "https://api.anthropic.com/v1/models?limit=100",
+                        headers={
+                            "x-api-key": api_key,
+                            "anthropic-version": "2023-06-01",
+                        },
+                    )
+                    if resp.status_code == 200:
+                        data = resp.json()
+                        models = sorted(
+                            [m["id"] for m in data.get("data", [])],
+                            reverse=True,
+                        )
+                        if provider == "claude_code":
+                            # SDK accepts short names like "opus", "sonnet"
+                            short = []
+                            for m in models:
+                                for alias in ("opus", "sonnet", "haiku"):
+                                    if alias in m and alias not in short:
+                                        short.append(alias)
+                            models = short + models
+                        return JSONResponse({"models": models, "defaults": defaults})
+            except Exception:
+                pass
+
+    # For openai, try the models API
+    if provider == "openai":
+        api_key = config.get("openai_api_key") or os.environ.get("OPENAI_API_KEY", "")
+        if api_key:
+            try:
+                async with httpx.AsyncClient(timeout=10) as client:
+                    resp = await client.get(
+                        "https://api.openai.com/v1/models",
+                        headers={"Authorization": f"Bearer {api_key}"},
+                    )
+                    if resp.status_code == 200:
+                        data = resp.json()
+                        models = sorted(
+                            [m["id"] for m in data.get("data", [])
+                             if "gpt" in m["id"] or "o1" in m["id"] or "o3" in m["id"] or "o4" in m["id"]],
+                            reverse=True,
+                        )
+                        return JSONResponse({"models": models, "defaults": defaults})
+            except Exception:
+                pass
+
+    # Fallback: return just the defaults
+    fallback = list({defaults.get("design", ""), defaults.get("generate", "")} - {""})
+    return JSONResponse({"models": sorted(fallback), "defaults": defaults})
+
+
 async def _generate_endpoint(request: Request) -> JSONResponse:
     from .llm import PROVIDER_ENV_VARS
 
@@ -612,6 +678,7 @@ def create_app() -> Starlette:
         Route("/api/config", _config_endpoint, methods=["GET", "PUT"]),
         Route("/api/browse-folder", _browse_folder_endpoint, methods=["POST"]),
         Route("/api/diagrams/setup", _diagrams_setup_endpoint, methods=["POST"]),
+        Route("/api/models", _models_endpoint),
         Route("/api/generate", _generate_endpoint, methods=["POST"]),
         Route("/api/events/{job_id}", _events_endpoint),
         Route("/api/courses", _courses_endpoint),
@@ -657,11 +724,30 @@ def _is_wsl() -> bool:
         return False
 
 
+def _port_in_use(host: str, port: int) -> bool:
+    """Check if a port is already bound."""
+    import socket
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        try:
+            s.bind((host, port))
+            return False
+        except OSError:
+            return True
+
+
 def serve(host: str = "127.0.0.1", port: int = 8420, open_browser: bool = True) -> None:
     """Start the local web server."""
     import uvicorn
 
     from . import __version__
+
+    # If already running, just open the browser to the existing instance
+    if _port_in_use(host, port):
+        url = f"http://{host}:{port}"
+        print(f"Distill is already running at {url}")
+        if open_browser and not _is_wsl():
+            webbrowser.open(url)
+        return
 
     _apply_config()
 

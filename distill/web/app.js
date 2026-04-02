@@ -141,18 +141,35 @@ function isoIcon(size, palette) {
 let providerDefaults = {};
 let apiKeySet = false;
 
-function populateModelDropdowns(provider) {
+async function populateModelDropdowns(provider) {
   var defaults = providerDefaults[provider] || { design: "", generate: "" };
-  var designSelect = $("#design-model");
-  var generateSelect = $("#generate-model");
 
-  designSelect.innerHTML = '<option value="' + esc(defaults.design) + '">' + esc(defaults.design) + '</option>';
-  generateSelect.innerHTML = '<option value="' + esc(defaults.generate) + '">' + esc(defaults.generate) + '</option>';
+  // Set defaults immediately, then try to fetch full list
+  $("#design-model").value = defaults.design;
+  $("#generate-model").value = defaults.generate;
 
-  if (defaults.design !== defaults.generate) {
-    designSelect.innerHTML += '<option value="' + esc(defaults.generate) + '">' + esc(defaults.generate) + '</option>';
-    generateSelect.innerHTML += '<option value="' + esc(defaults.design) + '">' + esc(defaults.design) + '</option>';
-  }
+  try {
+    var resp = await fetch("/api/models?provider=" + encodeURIComponent(provider));
+    if (resp.ok) {
+      var data = await resp.json();
+      var models = data.models || [];
+      if (data.defaults) defaults = data.defaults;
+      var opts = models.map(function (m) {
+        return '<option value="' + esc(m) + '">';
+      }).join("");
+      $("#design-model-list").innerHTML = opts;
+      $("#generate-model-list").innerHTML = opts;
+      return;
+    }
+  } catch (e) {}
+
+  // Fallback: just show defaults
+  var fallback = new Set([defaults.design, defaults.generate].filter(Boolean));
+  var opts = Array.from(fallback).map(function (m) {
+    return '<option value="' + esc(m) + '">';
+  }).join("");
+  $("#design-model-list").innerHTML = opts;
+  $("#generate-model-list").innerHTML = opts;
 }
 
 function updateSetupKeyVisibility(provider) {
@@ -239,21 +256,13 @@ fetch("/api/config")
     }
     if (cfg.provider_defaults) {
       providerDefaults = cfg.provider_defaults;
-      populateModelDropdowns(cfg.provider || "anthropic");
+      await populateModelDropdowns(cfg.provider || "anthropic");
     }
     if (cfg.design_model) {
-      var ds = $("#design-model");
-      if (!ds.querySelector('option[value="' + cfg.design_model + '"]')) {
-        ds.innerHTML += '<option value="' + esc(cfg.design_model) + '">' + esc(cfg.design_model) + '</option>';
-      }
-      ds.value = cfg.design_model;
+      $("#design-model").value = cfg.design_model;
     }
     if (cfg.generate_model) {
-      var gs = $("#generate-model");
-      if (!gs.querySelector('option[value="' + cfg.generate_model + '"]')) {
-        gs.innerHTML += '<option value="' + esc(cfg.generate_model) + '">' + esc(cfg.generate_model) + '</option>';
-      }
-      gs.value = cfg.generate_model;
+      $("#generate-model").value = cfg.generate_model;
     }
 
     // Diagrams mode
@@ -311,7 +320,7 @@ if ($("#setup-provider")) {
   $("#setup-provider").addEventListener("change", async () => {
     var provider = $("#setup-provider").value;
     updateSetupKeyVisibility(provider);
-    populateModelDropdowns(provider);
+    await populateModelDropdowns(provider);
     // Persist provider to server immediately
     await fetch("/api/config", {
       method: "PUT",
@@ -1157,18 +1166,10 @@ function restoreFormState(state) {
     el.style.height = el.scrollHeight + "px";
   }
   if (state.design_model && $("#design-model")) {
-    var ds = $("#design-model");
-    if (!ds.querySelector('option[value="' + state.design_model + '"]')) {
-      ds.innerHTML += '<option value="' + esc(state.design_model) + '">' + esc(state.design_model) + '</option>';
-    }
-    ds.value = state.design_model;
+    $("#design-model").value = state.design_model;
   }
   if (state.generate_model && $("#generate-model")) {
-    var gs = $("#generate-model");
-    if (!gs.querySelector('option[value="' + state.generate_model + '"]')) {
-      gs.innerHTML += '<option value="' + esc(state.generate_model) + '">' + esc(state.generate_model) + '</option>';
-    }
-    gs.value = state.generate_model;
+    $("#generate-model").value = state.generate_model;
   }
   if (state.refs && state.refs.length) {
     state.refs.forEach(function (url, i) {
@@ -1199,14 +1200,14 @@ function saveFormState() {
   } catch (e) {}
 }
 
-function clearForm() {
+async function clearForm() {
   $("#url-input").value = "";
   $("#level-input").value = "";
   $("#level-input").style.height = "auto";
   $("#refs").innerHTML = "";
   // Reset models to defaults
   var provider = $("#setup-provider") ? $("#setup-provider").value : "anthropic";
-  populateModelDropdowns(provider);
+  await populateModelDropdowns(provider);
   // Clear stored state
   try { localStorage.removeItem(FORM_KEY); } catch (e) {}
   $("#preset-select").value = "";
