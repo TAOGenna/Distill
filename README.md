@@ -4,14 +4,31 @@ Turn technical blog posts, papers, and repos into hands-on coursework you can ac
 
 Distill takes expert-level content — deep blog posts, arXiv papers, GitHub repos — and generates progressive courses with MIT-quality lesson documents, scaffolded exercises, and observable milestones. The student works through modules that build toward **reproducing the author's results as faithfully as possible**.
 
-## Quick Start
+## Install
 
 ```bash
-uv pip install distill
+git clone https://github.com/TAOGenna/Distill.git
+cd Distill
+uv sync
+```
 
-distill
+**Run from terminal:**
+
+```bash
+uv run python -m distill
 # → opens http://localhost:8420
 ```
+
+**Or build the macOS desktop app:**
+
+```bash
+./build_app.sh
+cp -R dist/Distill.app /Applications/
+```
+
+Then launch Distill from Applications, Launchpad, or Spotlight.
+
+## Usage
 
 1. Pick a provider (Anthropic, OpenAI, Google, Ollama, OpenRouter, Claude Code) and add your API key
 2. Paste a URL, describe your background, hit generate
@@ -132,32 +149,6 @@ Two pipeline paths: **LiteLLM** (multi-provider, requires API key) and **Claude 
 | Mock | -- | -- | -- |
 
 **Mock** runs the full pipeline with canned responses for zero-cost end-to-end testing.
-
-## Desktop App (macOS)
-
-A standalone `.app` bundle — no Python install required:
-
-```bash
-git clone https://github.com/TAOGenna/Distill.git
-cd Distill
-uv sync
-./build_app.sh
-cp -R dist/Distill.app /Applications/
-```
-
-Double-click **Distill** from Applications, Launchpad, or Spotlight. It starts the server and opens your browser automatically.
-
-## Development
-
-```bash
-git clone https://github.com/TAOGenna/Distill.git
-cd distill
-uv sync
-uv run python -m distill            # default port 8420
-uv run python -m distill --port 8421 # run on a different port
-```
-
-The web UI supports dark mode (follows OS setting or use the toggle in the header).
 
 ## Acknowledgments
 
