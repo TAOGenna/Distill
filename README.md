@@ -4,7 +4,11 @@
 
 Distill takes expert-level content — deep blog posts, arXiv papers, GitHub repos — and generates progressive courses with lesson documents, scaffolded exercises, and observable milestones. Each course builds toward reproducing the author's results.
 
+<div align="center">
+
 https://github.com/user-attachments/assets/53a5ba44-a4a9-434b-914b-2be105dc6901
+
+</div>
 
 > **Lesson documents, not summaries** — 3,000–10,000 word teaching documents with running examples, inline code, comprehension checks, and formula walkthroughs.
 
