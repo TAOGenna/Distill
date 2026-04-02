@@ -210,6 +210,14 @@ async def _models_endpoint(request: Request) -> JSONResponse:
             except Exception:
                 pass
 
+        # claude_code has no API key — provide known SDK-accepted names
+        if provider == "claude_code":
+            models = [
+                "opus", "sonnet", "haiku",
+                "claude-opus-4-6", "claude-sonnet-4-6", "claude-haiku-4-5",
+            ]
+            return JSONResponse({"models": models, "defaults": defaults})
+
     # For openai, try the models API
     if provider == "openai":
         api_key = config.get("openai_api_key") or os.environ.get("OPENAI_API_KEY", "")

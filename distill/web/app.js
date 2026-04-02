@@ -143,33 +143,24 @@ let apiKeySet = false;
 
 async function populateModelDropdowns(provider) {
   var defaults = providerDefaults[provider] || { design: "", generate: "" };
-
-  // Set defaults immediately, then try to fetch full list
-  $("#design-model").value = defaults.design;
-  $("#generate-model").value = defaults.generate;
+  var models = [defaults.design, defaults.generate].filter(Boolean);
 
   try {
     var resp = await fetch("/api/models?provider=" + encodeURIComponent(provider));
     if (resp.ok) {
       var data = await resp.json();
-      var models = data.models || [];
+      if (data.models && data.models.length) models = data.models;
       if (data.defaults) defaults = data.defaults;
-      var opts = models.map(function (m) {
-        return '<option value="' + esc(m) + '">';
-      }).join("");
-      $("#design-model-list").innerHTML = opts;
-      $("#generate-model-list").innerHTML = opts;
-      return;
     }
   } catch (e) {}
 
-  // Fallback: just show defaults
-  var fallback = new Set([defaults.design, defaults.generate].filter(Boolean));
-  var opts = Array.from(fallback).map(function (m) {
-    return '<option value="' + esc(m) + '">';
+  var opts = models.map(function (m) {
+    return '<option value="' + esc(m) + '">' + esc(m) + '</option>';
   }).join("");
-  $("#design-model-list").innerHTML = opts;
-  $("#generate-model-list").innerHTML = opts;
+  $("#design-model").innerHTML = opts;
+  $("#generate-model").innerHTML = opts;
+  $("#design-model").value = defaults.design;
+  $("#generate-model").value = defaults.generate;
 }
 
 function updateSetupKeyVisibility(provider) {
@@ -237,7 +228,7 @@ if ($("#log-toggle")) {
 // Load config
 fetch("/api/config")
   .then((r) => r.json())
-  .then((cfg) => {
+  .then(async (cfg) => {
     apiKeySet = cfg.api_key_set;
 
     if (cfg.output_dir) $("#cfg-output").value = cfg.output_dir;
