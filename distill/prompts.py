@@ -457,22 +457,125 @@ EXCALIDRAW_DIAGRAM_GUIDE = """\
 EXPLANATORY DIAGRAMS — Excalidraw (2-4 per module)
 ═══════════════════════════════════════════════════════════════════════════════════
 
-For EACH module, create 2-4 explanatory diagrams that visualize key concepts.
-These are NOT decorative — each must explain something text alone struggles to
-convey: data flow, architecture layers, algorithm steps, memory layouts, or
-conceptual comparisons.
+For EACH module, create 2-4 diagrams. Each diagram must answer a specific
+HOW or WHY question that text alone struggles to convey. Before creating any
+diagram, write one sentence: "This diagram shows the reader ___." If you can't
+finish that sentence with a concrete mechanism or insight, pick a different topic.
 
-STYLE TARGET (study these for quality):
-  • Aleksa Gordic's GPU matmul blog — color-coded pyramid hierarchies, dense
-    annotations, grid layouts showing memory access patterns
-  • Simon Boehm's CUDA-MMM blog — bold warp/thread diagrams with color-coded
-    regions, matrix tiling visualizations
+═══════════════════════════════════════════════════════════════════════════════════
+PRINCIPLES — what separates great technical diagrams from generic ones
+═══════════════════════════════════════════════════════════════════════════════════
 
-Each diagram should feature:
-  • Color-coded regions distinguishing different concepts or layers
-  • Spatial layout that reveals structure (hierarchy, flow, comparison)
-  • Annotation text explaining what the reader should notice
-  • Enough detail to be standalone — comprehensible without reading the lesson
+1. CONCRETE EXAMPLES, NOT ABSTRACTIONS
+   Never label a box "Input" or "Data". Use real values from the source material
+   or the running example. If teaching hashing, show actual keys "abc","def" and
+   actual bucket indices. If teaching matrix multiply, show actual 3×2 numbers.
+   If teaching gradient descent, show w=0.73 → w=0.68 with the actual update.
+   The reader should be able to trace a specific piece of data through every
+   stage of the diagram by following the numbers.
+
+2. SHOW THE MECHANISM EXECUTING
+   Don't draw what the parts ARE CALLED — draw what HAPPENS. Show data entering,
+   being transformed, and exiting. Show a function receiving input [1,2,3] and
+   producing output [0.1, 0.7, 0.2]. Show memory being allocated, filled, read.
+   The diagram should be a freeze-frame of the algorithm in action.
+
+3. STATE PROGRESSION — before/during/after
+   Show snapshots of the same structure at different moments:
+   "Before training: weights = [0.5, -0.3, 0.8]"
+   "After 1 step: weights = [0.48, -0.27, 0.76]"
+   "After 100 steps: weights = [0.01, 0.02, -0.01]"
+   Lay these out top-to-bottom or left-to-right. The reader sees what CHANGED
+   and infers the mechanism from the delta. This is how you teach dynamics.
+
+4. DENSE CONVERSATIONAL ANNOTATION
+   Don't just label shapes. Add explanation text around the diagram in a
+   teaching voice. Use full sentences and place them near the relevant area:
+   - "notice this goes to zero — that's because the gradient vanishes here"
+   - "these two blocks get reused (saved 40% memory!)"
+   - "key insight: the output only depends on the last 3 inputs"
+   Annotations carry the TEACHING. Shapes carry the STRUCTURE. Both are needed.
+   Aim for at least 4-6 annotation texts per diagram beyond basic labels.
+
+5. COLOR = IDENTITY (never decorative)
+   Assign one color per logical entity and track it through the entire diagram.
+   If "sequence A" is blue at the top, it's blue at the bottom. If "gradients"
+   are red in one region, they're red everywhere. The reader should be able to
+   follow a color through the diagram like following a character through a story.
+
+6. SPATIAL LAYOUT MIRRORS CONCEPTUAL STRUCTURE
+   - Sequential steps → top-to-bottom or left-to-right flow
+   - Alternatives → side-by-side with identical structure
+   - Containment → nested boxes/regions with dashed borders
+   - Separation → distinct labeled regions ("CPU" vs "GPU", "forward" vs "backward")
+   - Hierarchy → larger parent shapes containing smaller child shapes
+   The layout itself should communicate relationships before reading any text.
+
+7. SIDE-BY-SIDE COMPARISON
+   When contrasting two approaches, two states, or two implementations:
+   put them NEXT TO EACH OTHER with the SAME visual structure. Same shapes,
+   same positions, same colors — only the values/behavior differ. Then add a
+   clear label: "NAIVE (broken)" on the left, "OPTIMIZED (working)" on the right.
+   The structural similarity makes the difference jump out.
+
+═══════════════════════════════════════════════════════════════════════════════════
+DIAGRAM PATTERNS — pick the right one for the concept
+═══════════════════════════════════════════════════════════════════════════════════
+
+ALGORITHM WALKTHROUGH (most powerful — use at least once per module):
+  Pick a concrete input from the lesson's running example. Show it entering the
+  algorithm. At each step, show the intermediate values. Show the output.
+  Use numbered step labels ("Step 1:", "Step 2:") and arrows between stages.
+  Example: input text "Hello world" → tokenize → [15496, 995] → embed →
+  [0.12, -0.34, ...] → attention → ... Show real numbers at every stage.
+
+BEFORE/AFTER STATE:
+  Draw the same data structure twice: before and after an operation. Place them
+  vertically stacked with the operation in between. Color the parts that changed.
+  Example: "Array before partition" (highlight pivot), "Array after partition"
+  (highlight: elements < pivot moved left, elements >= pivot moved right).
+
+MECHANISM CROSS-SECTION:
+  For a system or pipeline, pick ONE request/datum and trace its full path.
+  Show every component it touches, every transformation it undergoes, every
+  intermediate representation. Use arrows labeled with the actual data at that
+  point. Example: HTTP request → router → handler → DB query → response.
+
+DATA LAYOUT / MEMORY MAP:
+  Show how data is physically organized. Use grids of small rectangles as cells,
+  each containing actual values or indices. Use color to show which logical
+  entity owns which cells. Add pointer arrows, offset annotations, size labels.
+  Example: a 3×4 matrix stored in row-major: 12 colored cells with actual
+  values, address offsets on top, row boundaries marked.
+
+SIDE-BY-SIDE CONTRAST:
+  Two approaches, same structure. Left panel: "Naive" — show the problem
+  (red annotations highlighting what goes wrong). Right panel: "Optimized" —
+  show the fix (green annotations highlighting what's better). Use the SAME
+  concrete example in both panels so the reader can directly compare.
+
+ZOOM / DECOMPOSITION:
+  Show a system at multiple scales in one diagram. Overview on the left with
+  a highlighted region, zoomed-in detail on the right connected by a dashed
+  arrow or bracket. Label what level of abstraction each region represents.
+
+═══════════════════════════════════════════════════════════════════════════════════
+WHAT TO DIAGRAM — choosing subjects
+═══════════════════════════════════════════════════════════════════════════════════
+
+For each module, pick 2-4 diagrams from this priority list:
+
+  1. The ONE concept that makes students say "ohhh now I see it" — the spatial
+     insight that clicks when drawn but stays murky in text. Every module has
+     one. Find it and diagram it first.
+  2. A concrete walkthrough of the module's core algorithm on the running example.
+  3. A before/after or side-by-side comparison for any "X vs Y" discussion.
+  4. A data layout or memory map for any concept involving structure/organization.
+
+AVOID diagramming:
+  - Simple hierarchies or taxonomies (text does this fine)
+  - Anything that's just labeled boxes connected by arrows without real data
+  - Flowcharts where the nodes are abstract nouns ("Processing", "Validation")
 
 ═══════════════════════════════════════════════════════════════════════════════════
 DIAGRAM WORKFLOW (using MCP tools)
@@ -480,16 +583,19 @@ DIAGRAM WORKFLOW (using MCP tools)
 
 You have access to Excalidraw MCP tools. Use this workflow for each diagram:
 
-1. PLAN the diagram: decide what concept to visualize, what elements are needed
+1. PLAN: Write one sentence — "This diagram shows the reader [specific insight]."
+   Then list 3-5 regions/sections the diagram needs.
 2. CREATE elements: use mcp__excalidraw__batch_create_elements to place shapes,
-   arrows, and text. Use descriptive IDs like "matrix_a", "arrow_data_flow".
+   arrows, and text. Use descriptive IDs like "array_before", "step2_output".
+   Build the diagram in layers: structure first, then data values, then
+   annotations. Multiple batch_create_elements calls are fine and encouraged.
 3. VERIFY layout: call mcp__excalidraw__describe_scene to check spatial layout,
-   overlaps, and connections. This gives you text feedback on what you built.
-4. REFINE if needed: use mcp__excalidraw__update_element to fix positions,
-   sizes, or colors. Use mcp__excalidraw__align_elements or
+   overlaps, readability, and that annotations don't collide with shapes.
+4. REFINE: use mcp__excalidraw__update_element to fix positions, sizes, or
+   colors. Use mcp__excalidraw__align_elements or
    mcp__excalidraw__distribute_elements for clean alignment.
-5. EXPORT: call mcp__excalidraw__export_scene with a file path to save the
-   diagram as diagrams/<name>.excalidraw
+   Do at least ONE verify+refine cycle — first drafts always have overlaps.
+5. EXPORT: call mcp__excalidraw__export_scene to save as diagrams/<name>.excalidraw
 6. CLEAR: call mcp__excalidraw__clear_canvas before starting the next diagram.
 
 REFERENCE in README: ![Description](diagrams/<name>.svg)
@@ -497,38 +603,33 @@ Place diagrams INLINE with the explanation — right after introducing the conce
 SVGs are auto-rendered from the .excalidraw files after generation.
 
 If MCP tools are unavailable, fall back to writing .excalidraw JSON files
-directly using the Write tool with the format described below.
+directly using the Write tool.
 
 ═══════════════════════════════════════════════════════════════════════════════════
 EXCALIDRAW ELEMENT REFERENCE
 ═══════════════════════════════════════════════════════════════════════════════════
 
-When using batch_create_elements, pass an elements array. Each element needs
-at minimum: type, x, y. Shapes need width and height. Text needs text and
-fontSize. Arrows need points.
+Elements need at minimum: type, x, y. Shapes need width and height. Text needs
+text and fontSize. Arrows need points.
 
-COLOR PALETTE (use consistently — same color = same concept):
+COLOR PALETTE (same color = same entity throughout the diagram):
   Strokes: #1e1e1e (black), #e03131 (red), #2f9e44 (green), #1971c2 (blue),
            #f08c00 (orange), #9c36b5 (purple), #0c8599 (teal)
   Fills:   #a5d8ff (light blue), #b2f2bb (light green), #ffc9c9 (light red),
            #ffec99 (light yellow), #d0bfff (light purple), #99e9f2 (light cyan)
 
 LAYOUT RULES:
-  • Shapes: min 120×60 px for labeled shapes, 60×40 for compact nodes
-  • Font sizes: 20px titles, 16px labels, 14px annotations
-  • Spacing: 40-80 px between elements
-  • Canvas: ~800×500 for simple, up to 1200×800 for detailed diagrams
+  • Data cells (memory, array, matrix): 50×40 px each — small, grid-like
+  • Labeled blocks (components, stages): 140×70 px minimum
+  • Grouping regions (dashed borders): sized to contain children + 20px padding
+  • Font sizes: 24px titles, 16px labels, 14px annotations, 12px data values
+  • Spacing: 30-60 px between related elements, 80-120 px between sections
+  • Canvas: 1000×600 minimum, up to 1400×1000 for detailed diagrams
   • For arrows: use startElementId/endElementId to bind to shapes by ID
 
-DIAGRAM TYPES TO CONSIDER:
-  • Data flow / pipeline (arrows connecting processing stages)
-  • Memory layout (colored rectangles showing data organization)
-  • Algorithm steps (numbered stages with before/after states)
-  • Matrix/tensor visualization (colored grid regions)
-  • Comparison (naive vs optimized side by side)
-  • Architecture (system components and connections)
-
-Keep diagrams clear: 10-30 elements per diagram. Annotate everything.
+TARGET DENSITY: 30-80 elements per diagram. If your diagram has fewer than 25
+elements, it's probably too abstract — add concrete values, more annotations,
+or more detail. Information-dense diagrams teach better than sparse ones.
 """
 
 # ── ASCII Diagram Guide (fallback when Excalidraw MCP is unavailable) ───────
@@ -540,14 +641,35 @@ EXPLANATORY DIAGRAMS — ASCII art (2-4 per module, inline in README)
 ═══════════════════════════════════════════════════════════════════════════════════
 
 For EACH module, create 2-4 ASCII diagrams embedded directly in the README inside
-fenced code blocks. These are NOT decorative — each must explain something text
-alone struggles to convey: data flow, architecture layers, algorithm steps,
-memory layouts, or matrix operations.
+fenced code blocks. Each diagram must answer a specific HOW or WHY question.
+Before creating any diagram, write one sentence in a comment: "This diagram shows
+the reader ___." If you can't finish with a concrete mechanism, pick another topic.
 
-ASCII diagrams are extremely versatile — use box-drawing characters, Unicode
-blocks, alignment, and whitespace to create rich, information-dense visuals.
+═══════════════════════════════════════════════════════════════════════════════════
+PRINCIPLES — what makes a diagram insightful vs generic
+═══════════════════════════════════════════════════════════════════════════════════
 
-TOOLKIT — use these building blocks:
+1. CONCRETE EXAMPLES, NOT ABSTRACTIONS
+   Never label a box "Input" or "Data". Use real values from the running example.
+   Show actual numbers, actual keys, actual indices at every stage.
+
+2. SHOW THE MECHANISM EXECUTING
+   Don't draw what parts are called — draw what HAPPENS. Show data entering,
+   being transformed at each step, and exiting with specific intermediate values.
+
+3. STATE PROGRESSION
+   Show the same structure before and after an operation. The reader sees what
+   CHANGED and infers the mechanism from the delta.
+
+4. DENSE ANNOTATION
+   Don't just label. Add teaching text: "notice this goes to zero — the gradient
+   vanishes here", "these get reused (saved 40% memory!)". Annotations teach.
+
+5. SIDE-BY-SIDE for any "X vs Y" discussion — same structure, different values.
+
+═══════════════════════════════════════════════════════════════════════════════════
+TOOLKIT
+═══════════════════════════════════════════════════════════════════════════════════
 
   Box drawing:    ┌─┐ └─┘ │ ─ ├ ┤ ┬ ┴ ┼ ╔═╗ ╚═╝ ║
   Arrows:         → ← ↑ ↓ ↔ ⟶ ⟵ ▶ ◀ ▲ ▼
@@ -556,78 +678,42 @@ TOOLKIT — use these building blocks:
   Brackets:       ⎡ ⎤ ⎣ ⎦ ⎢ ⎥ (for matrices)
   Connectors:     ╭─╮ ╰─╯ (rounded corners)
 
-DIAGRAM TYPES — match the concept:
+═══════════════════════════════════════════════════════════════════════════════════
+EXAMPLE — algorithm walkthrough with concrete data (the gold standard)
+═══════════════════════════════════════════════════════════════════════════════════
 
-  Data flow / pipeline:
+  **Figure 1: How partitioning rearranges the array around pivot=3**
   ```
-  ┌──────────┐     ┌──────────┐     ┌──────────┐
-  │  Input   │────▶│ Process  │────▶│  Output  │
-  │  (raw)   │     │ (transform)    │  (clean) │
-  └──────────┘     └──────────┘     └──────────┘
-  ```
+  Input: [3, 1, 4, 1, 5, 9, 2]     pivot = arr[0] = 3
+          ▲ pivot
 
-  Memory layout / data structure:
-  ```
-  Address   0x00   0x04   0x08   0x0C   0x10
-           ┌──────┬──────┬──────┬──────┬──────┐
-  Array:   │  42  │  17  │  83  │   5  │  91  │
-           └──────┴──────┴──────┴──────┴──────┘
-           ▲             ▲
-           left          pivot
-  ```
+  Step 1: scan from right, find 2 < 3     Step 2: scan from left, find 4 > 3
+  [3, 1, 4, 1, 5, 9, 2]                   [3, 1, 4, 1, 5, 9, 2]
+                      ▲ j stops here              ▲ i stops here
 
-  Matrix / tensor visualization:
-  ```
-  A (3×4)              B (4×2)           C (3×2)
-  ⎡ a₀₀ a₀₁ a₀₂ a₀₃ ⎤   ⎡ b₀₀ b₀₁ ⎤   ⎡ c₀₀ c₀₁ ⎤
-  ⎢ a₁₀ a₁₁ a₁₂ a₁₃ ⎥ × ⎢ b₁₀ b₁₁ ⎥ = ⎢ c₁₀ c₁₁ ⎥
-  ⎣ a₂₀ a₂₁ a₂₂ a₂₃ ⎦   ⎢ b₂₀ b₂₁ ⎥   ⎣ c₂₀ c₂₁ ⎦
-                          ⎣ b₃₀ b₃₁ ⎦
+  Step 3: swap arr[i] and arr[j]
+  [3, 1, 2, 1, 5, 9, 4]           ← 4 and 2 swapped
+           ~~~         ~~~            (now: small values drift left,
+                                       large values drift right)
+
+  ... scanning continues until i ≥ j ...
+
+  Final: swap pivot into position
+  [1, 1, 2, 3, 5, 9, 4]
+   ◄─────► ▲ ◄────────►
+    all <3  │   all ≥3
+          pivot now at correct index 3
   ```
 
-  Algorithm steps (before/after, numbered):
-  ```
-  Step 1: partition         Step 2: recurse
-  ┌───┬───┬───┬───┬───┐    ┌───┬───┐ ┌───┬───┐
-  │ 3 │ 1 │ 4 │ 1 │ 5 │    │ 1 │ 1 │ │ 4 │ 5 │
-  └───┴───┴───┴───┴───┘    └───┴───┘ └───┴───┘
-        ▲ pivot=3                ▲         ▲
-      <3  │  ≥3              sorted    sorted
-  ```
-
-  Architecture / layer diagram:
-  ```
-  ╔═══════════════════════════════╗
-  ║        Application Layer      ║
-  ╠═══════════════════════════════╣
-  ║   ┌─────────┐ ┌──────────┐   ║
-  ║   │ Router  │→│ Handler  │   ║
-  ║   └─────────┘ └────┬─────┘   ║
-  ╠════════════════════╪══════════╣
-  ║        Storage     ▼ Layer    ║
-  ║   ┌─────────┐ ┌──────────┐   ║
-  ║   │  Cache  │←│    DB    │   ║
-  ║   └─────────┘ └──────────┘   ║
-  ╚═══════════════════════════════╝
-  ```
-
-  Comparison (side by side):
-  ```
-  Naive O(n²)                Optimized O(n log n)
-  ┌──────────────────┐       ┌──────────────────┐
-  │ for i in range(n):│       │ sort(array)       │
-  │   for j in range(n):     │ two_pointer(L, R) │
-  │     if match...  │       │   while L < R:    │
-  │                  │       │     adjust L or R  │
-  │ Comparisons: n²  │       │ Comparisons: n    │
-  └──────────────────┘       └──────────────────┘
-  ```
+AVOID diagramming:
+  - Simple hierarchies (text handles these fine)
+  - Boxes with abstract labels connected by arrows ("Processing" → "Output")
+  - Anything without real data flowing through it
 
 RULES:
   • Place each diagram in a ``` fenced code block (no language tag)
-  • Add a bold title above: **Figure N: Description**
-  • Annotate generously — label every region, pointer, and flow
-  • Use consistent symbols: same shape = same concept type
-  • Keep width under 80 columns for terminal/mobile readability
+  • Add a bold title above: **Figure N: Description of what this shows**
+  • Annotate generously — explain WHY, not just WHAT
+  • Keep width under 80 columns for readability
   • Place diagrams INLINE right after introducing the concept
 """

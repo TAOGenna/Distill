@@ -244,7 +244,7 @@ def _execute_python(file_path: Path, timeout: int = 10) -> str:
             output += ("\n--- stderr ---\n" + result.stderr[:1000])
         return output.strip() or "(no output)"
     except subprocess.TimeoutExpired:
-        return "(timed out after {timeout}s)"
+        return f"(timed out after {timeout}s)"
     except Exception as e:
         return f"(execution failed: {type(e).__name__})"
 
