@@ -718,6 +718,26 @@ async def _generate_module_claude(
     }
 
 
+def _module_is_complete(course_dir: Path, module_spec: dict) -> bool:
+    """Check if a module directory has a README and at least one exercise."""
+    idx = module_spec["module_index"]
+    title = module_spec["title"]
+    slug = f"module_{idx:02d}_{_slugify(title)}"
+    module_dir = course_dir / slug
+
+    if not module_dir.is_dir():
+        return False
+
+    readme = module_dir / "README.md"
+    if not readme.exists() or readme.stat().st_size < 500:
+        return False
+
+    # Check for at least one exercise file
+    exercises = [f for f in module_dir.iterdir()
+                 if f.is_file() and f.name.startswith("ex") and f.suffix == ".py"]
+    return len(exercises) > 0
+
+
 async def _phase_generate(
     design: CurriculumDesign,
     analysis: Analysis,
@@ -735,6 +755,8 @@ async def _phase_generate(
     multiple API calls. Running 5+ in parallel triggers rate limiting, causing
     agents to die with 0 turns and 0 files. Sequential execution is slower
     but reliable.
+
+    Supports resume: modules with existing README + exercises are skipped.
     """
     curriculum = design.curriculum
     modules = curriculum.modules
@@ -764,6 +786,20 @@ async def _phase_generate(
         module_spec = module.model_dump()
         idx = module_spec["module_index"]
         title = module_spec["title"]
+
+        # Resume: skip modules that are already complete on disk
+        if _module_is_complete(course_dir, module_spec):
+            _log(f"Module {idx} ({title}): already complete — skipping", _C.GREEN)
+            _emit({"type": "module_start", "module_index": idx, "title": title})
+            _emit({"type": "module_complete", "module_index": idx, "title": title})
+            slug = f"module_{idx:02d}_{_slugify(title)}"
+            module_dir = course_dir / slug
+            file_count = sum(1 for f in module_dir.rglob("*")
+                             if f.is_file() and not f.name.startswith("_"))
+            results[idx] = {"files_written": file_count, "turns": 0,
+                            "cost": 0.0, "usage": {}, "resumed": True}
+            continue
+
         try:
             _, summary = await _generate_module_claude(
                 module_spec=module_spec,
@@ -969,32 +1005,47 @@ async def run_claude_pipeline(
         for k in total_usage:
             total_usage[k] += u.get(k, 0)
 
-    # ── Phase 1a: Analyze ─────────────────────────────────────────────────
-    analysis, analyze_usage = await _phase_analyze(
-        source_content=source_content,
-        url=url,
-        model=design_model,
-    )
-    total_cost += analyze_usage["cost_usd"]
-    _accum(analyze_usage)
-
     abs_output_dir = Path(output_dir).resolve()
     abs_output_dir.mkdir(parents=True, exist_ok=True)
-    (abs_output_dir / "_analysis.json").write_text(
-        analysis.model_dump_json(indent=2), encoding="utf-8"
-    )
 
-    # ── Phase 1b: Blueprint Design ────────────────────────────────────────
-    design, design_usage = await _phase_design(
-        analysis=analysis,
-        source_content=source_content,
-        url=url,
-        student_level=user_level,
-        model=design_model,
-        output_dir=output_dir,
-    )
-    total_cost += design_usage["cost_usd"]
-    _accum(design_usage)
+    # ── Phase 1a: Analyze (skip if cached) ────────────────────────────────
+    analysis_path = abs_output_dir / "_analysis.json"
+    if analysis_path.exists():
+        _log_step("Phase 1a: Using cached analysis")
+        _emit({"type": "phase", "phase": "analyze"})
+        analysis = Analysis(**json.loads(analysis_path.read_text(encoding="utf-8")))
+        _log(f"Analysis: {len(analysis.key_concepts)} concepts (cached)", _C.DIM)
+    else:
+        analysis, analyze_usage = await _phase_analyze(
+            source_content=source_content,
+            url=url,
+            model=design_model,
+        )
+        total_cost += analyze_usage["cost_usd"]
+        _accum(analyze_usage)
+        analysis_path.write_text(
+            analysis.model_dump_json(indent=2), encoding="utf-8"
+        )
+
+    # ── Phase 1b: Blueprint Design (skip if cached) ───────────────────────
+    blueprint_path = abs_output_dir / "_blueprint.json"
+    if blueprint_path.exists():
+        _log_step("Phase 1b: Using cached Blueprint")
+        _emit({"type": "phase", "phase": "design"})
+        raw = json.loads(blueprint_path.read_text(encoding="utf-8"))
+        design = CurriculumDesign(**raw)
+        _log(f"Blueprint: {len(design.curriculum.modules)} modules (cached)", _C.DIM)
+    else:
+        design, design_usage = await _phase_design(
+            analysis=analysis,
+            source_content=source_content,
+            url=url,
+            student_level=user_level,
+            model=design_model,
+            output_dir=output_dir,
+        )
+        total_cost += design_usage["cost_usd"]
+        _accum(design_usage)
 
     curriculum = design.curriculum
     course_slug = _slugify(curriculum.course_title)
