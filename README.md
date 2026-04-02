@@ -6,28 +6,13 @@ Distill takes expert-level content — deep blog posts, arXiv papers, GitHub rep
 
 https://github.com/user-attachments/assets/53a5ba44-a4a9-434b-914b-2be105dc6901
 
-<table>
-<tr>
-<td width="50%" valign="top">
-
-#### Lesson documents, not summaries
-
-3,000–10,000 word teaching documents with running examples, inline code, comprehension checks, and formula walkthroughs.
+> **Lesson documents, not summaries** — 3,000–10,000 word teaching documents with running examples, inline code, comprehension checks, and formula walkthroughs.
 
 https://github.com/user-attachments/assets/4e1466f1-d883-4351-bbf4-c586f51415bd
 
-</td>
-<td width="50%" valign="top">
-
-#### Exercises you can actually run
-
-Scaffolded `.py` files with TODO blocks, docstrings, and a `__main__` test harness. Solutions included.
+> **Exercises you can actually run** — scaffolded `.py` files with TODO blocks, docstrings, and a `__main__` test harness. Solutions included.
 
 https://github.com/user-attachments/assets/ec7a532d-f290-4788-9c03-1e4564110d75
-
-</td>
-</tr>
-</table>
 
 ## Install
 
