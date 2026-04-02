@@ -735,13 +735,33 @@ function connectSSE(jobId) {
   };
 
   src.onerror = () => {
-    if (generating) {
-      appendLog("connection lost — generation may still be running on the server", "warn");
-    }
     src.close();
-    resetBtn();
+    if (generating) {
+      appendLog("connection lost — reconnecting in 3s...", "warn");
+      setTimeout(function () { connectSSE(jobId); }, 3000);
+    } else {
+      resetBtn();
+    }
   };
 }
+
+/* ── Reconnect to active job on page load ──────────── */
+
+fetch("/api/jobs/active")
+  .then(function (r) { return r.json(); })
+  .then(function (data) {
+    if (data.job_id) {
+      generating = true;
+      goBtn.disabled = true;
+      goBtn.classList.add("generating");
+      goBtn.textContent = "generating...";
+      progressEl.classList.add("active");
+      appendLog("reconnected to running generation", "ok");
+      startElapsedTimer();
+      connectSSE(data.job_id);
+    }
+  })
+  .catch(function () {});
 
 /* ── Log rendering ────────────────────────────────── */
 

@@ -27,6 +27,7 @@ CONFIG_FILE = CONFIG_DIR / "config.json"
 
 # Single-user job storage
 _jobs: dict[str, dict[str, Any]] = {}
+_active_job_id: str | None = None
 
 
 # ── Config ────────────────────────────────────────────────────────────────────
@@ -195,9 +196,11 @@ async def _generate_endpoint(request: Request) -> JSONResponse:
             status_code=400,
         )
 
+    global _active_job_id
     job_id = uuid.uuid4().hex[:8]
     q: queue.Queue[dict | None] = queue.Queue()
     _jobs[job_id] = {"queue": q, "status": "running", "params": body}
+    _active_job_id = job_id
 
     asyncio.get_event_loop().create_task(
         _run_generation(job_id, body, q)
@@ -309,7 +312,9 @@ async def _run_generation(
         emit({"type": "error", "message": safe_msg})
 
     finally:
+        global _active_job_id
         event_queue.put(None)  # sentinel — close the SSE stream
+        _active_job_id = None
         # Cleanup job params after completion (don't retain request data)
         if job_id in _jobs:
             _jobs[job_id].pop("params", None)
@@ -397,6 +402,15 @@ async def _courses_endpoint(request: Request) -> JSONResponse:
             courses.append(course)
 
     return JSONResponse({"courses": courses})
+
+
+async def _active_job_endpoint(request: Request) -> JSONResponse:
+    """Return the currently running job_id, if any."""
+    if _active_job_id and _active_job_id in _jobs:
+        job = _jobs[_active_job_id]
+        if job.get("status") == "running":
+            return JSONResponse({"job_id": _active_job_id})
+    return JSONResponse({"job_id": None})
 
 
 # ── Diagrams setup ───────────────────────────────────────────────────────────
@@ -599,6 +613,7 @@ def create_app() -> Starlette:
         Route("/api/generate", _generate_endpoint, methods=["POST"]),
         Route("/api/events/{job_id}", _events_endpoint),
         Route("/api/courses", _courses_endpoint),
+        Route("/api/jobs/active", _active_job_endpoint),
         # Course reader endpoints
         Route("/api/courses/{name}/detail", _course_detail_endpoint),
         Route("/api/courses/{name}/module/{dir_name}", _module_content_endpoint),
