@@ -133,6 +133,20 @@ Two pipeline paths: **LiteLLM** (multi-provider, requires API key) and **Claude 
 
 **Mock** runs the full pipeline with canned responses for zero-cost end-to-end testing.
 
+## Desktop App (macOS)
+
+A standalone `.app` bundle — no Python install required:
+
+```bash
+git clone https://github.com/TAOGenna/Distill.git
+cd Distill
+uv sync
+./build_app.sh
+cp -R dist/Distill.app /Applications/
+```
+
+Double-click **Distill** from Applications, Launchpad, or Spotlight. It starts the server and opens your browser automatically.
+
 ## Development
 
 ```bash
