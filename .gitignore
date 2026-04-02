@@ -12,3 +12,5 @@ venv/
 .cache/
 *.so
 *.o
+Distill.app/
+*.dmg
