@@ -26,7 +26,7 @@ uv run python -m distill
 cp -R dist/Distill.app /Applications/
 ```
 
-Then launch Distill from Applications, Launchpad, or Spotlight.
+Then launch Distill from Applications, Launchpad, or Spotlight. The app auto-updates on launch (`git pull` + `uv sync`).
 
 ## Usage
 
