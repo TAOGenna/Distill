@@ -24,145 +24,35 @@ https://github.com/user-attachments/assets/ec7a532d-f290-4788-9c03-1e4564110d75
 git clone https://github.com/TAOGenna/Distill.git
 cd Distill
 uv sync
-```
-
-**Run from terminal:**
-
-```bash
 uv run python -m distill
 # → opens http://localhost:8420
 ```
 
-**Or build the macOS desktop app:**
+**macOS desktop app** (optional):
 
 ```bash
 ./build_app.sh
 cp -R dist/Distill.app /Applications/
 ```
 
-Then launch Distill from Applications, Launchpad, or Spotlight. The app auto-updates on launch (`git pull` + `uv sync`).
-
-## Usage
-
-1. Pick a provider (Anthropic, OpenAI, Google, Ollama, OpenRouter, Claude Code) and add your API key
-2. Paste a URL, describe your background, hit generate
-3. Watch the DAG visualization as modules build in real-time
-4. A course appears in your output directory — lesson documents + exercise files
-
-## What Gets Generated
-
-```
-output/aliens_trick_from_exactk_dp_to_ioi_2016/
-├── README.md                          # Course overview + learning path
-├── requirements.txt
-├── module_01_count_dimension/
-│   ├── README.md                      # 3,000-10,000 word lesson document
-│   ├── ex01_exact_k_baseline.py       # Scaffold (student works here)
-│   ├── ex02_penalty_sweep.py
-│   ├── ex03_binary_search.py
-│   └── _solutions/                    # Working solutions (hidden)
-│       ├── ex01_exact_k_baseline.py
-│       ├── ex02_penalty_sweep.py
-│       └── ex03_binary_search.py
-├── module_02_calc_lambda/
-│   └── ...
-└── module_03_ioi_2016/
-    └── ...
-```
-
-### Lesson Documents (not README summaries)
-
-Each module's README is a **self-contained teaching document** — 3,000-10,000 words:
-
-- Learning objectives and table of contents
-- Running example that evolves through the lesson
-- Inline code showing concept → code translation
-- Embedded comprehension checks at points of friction
-- Formula translation: math → plain language → code
-- Analytical questions requiring tradeoff reasoning
-
-### Exercise Files
-
-Each exercise has a **scaffold** (student-facing) and a **solution**:
-
-```python
-def exact_k_dp(arr, k):
-    """Compute maximum sum of exactly k disjoint subarrays.
-
-    Algorithm:
-    1. Track two states per position: 'inside' and 'outside' a subarray
-    2. Transition rules enforce exactly k non-overlapping segments
-
-    Parameters
-    ----------
-    arr : list[int], length n
-    k : int, number of subarrays
-
-    Returns
-    -------
-    max_sum : int
-    """
-    ###########################################################
-    # YOUR CODE HERE - 12-16 lines                            #
-    #                                                         #
-    # Hint: Use dp[i][j][state] where state is 0 (outside)   #
-    # or 1 (inside a subarray). Initialize impossible states  #
-    # to -infinity.                                           #
-    ###########################################################
-    raise NotImplementedError("YOUR CODE HERE")
-    ###########################################################
-
-if __name__ == "__main__":
-    arr = [3, -1, 4, -1, 5, -9, 2, 6]
-    for k in range(1, 5):
-        result = exact_k_dp(arr, k)
-        brute = brute_force_exact_k(arr, k)
-        match = "OK" if result == brute else "MISMATCH"
-        print(f"  k={k}: dp={result}, brute={brute}  [{match}]")
-```
-
-The `__main__` block is always fully provided — run the file, see if your implementation works.
-
 ## How It Works
 
-### Phase 1: Blueprint (2 API calls, design model)
+**Phase 1 — Blueprint.** Reads the full source material and produces a curriculum: module dependencies, scaffold contracts per exercise (what's provided vs what the student writes), key excerpts, and validation criteria.
 
-Reads the full source material and produces a **Blueprint** — a rich contract specifying:
-- Curriculum structure with module dependencies
-- Scaffold contracts per exercise (what's provided vs what student writes, with line counts)
-- Key excerpts: verbatim formulas and algorithms from the source
-- Validation criteria: what correct output looks like
+**Phase 2 — Generate.** Each module gets a multi-turn conversation with the full source. The model writes the lesson first (deep processing), then exercises one at a time. Solutions are executed between turns — real output from exercise 1 feeds into exercise 2's prompt. Modules generate in parallel.
 
-### Phase 2: Generate (multi-turn conversation per module, parallel)
-
-Each module gets its own conversation with the full source material:
-
-1. **Write the lesson** — 3,000-10,000 word markdown document (free-form, not JSON)
-2. **Write exercises one at a time** — scaffold, then solution, one turn each
-3. **Execute solutions** — Python runs each solution, captures output
-4. **Feed results forward** — exercise 2's prompt includes exercise 1's actual output
-
-Modules generate in parallel. The lesson-first approach means the model deeply processes the source material before writing any code.
-
-### Phase 3: Review (pre-flight + LLM review)
-
-Python pre-flight checks (syntax, TODO markers, file length, output patterns) catch structural issues. LLM review checks pedagogical quality and contract compliance. Failed modules are re-generated.
+**Phase 3 — Review.** Pre-flight checks (syntax, TODOs, output patterns) catch structural issues. LLM review checks pedagogical quality and contract compliance. Failed modules are re-generated.
 
 ## Providers
 
-Two pipeline paths: **LiteLLM** (multi-provider, requires API key) and **Claude Code** (standalone, uses your Claude Code CLI auth).
-
-| Provider | Pipeline | Design model default | Generate model default |
-|---|---|---|---|
-| Anthropic | LiteLLM | claude-opus-4-6 | claude-sonnet-4-6 |
-| OpenAI | LiteLLM | gpt-5.4 | gpt-5.4 |
-| Google | LiteLLM | gemini-2.5-pro | gemini-2.5-flash |
-| Ollama | LiteLLM | llama3 | llama3 |
-| OpenRouter | LiteLLM | claude-opus-4-6 | claude-sonnet-4-6 |
-| Claude Code | Agent SDK | claude-opus-4-6 | claude-sonnet-4-6 |
-| Mock | -- | -- | -- |
-
-**Mock** runs the full pipeline with canned responses for zero-cost end-to-end testing.
+| Provider | Design model | Generate model |
+|---|---|---|
+| Anthropic | claude-opus-4-6 | claude-sonnet-4-6 |
+| OpenAI | gpt-5.4 | gpt-5.4 |
+| Google | gemini-2.5-pro | gemini-2.5-flash |
+| Ollama | llama3 | llama3 |
+| OpenRouter | claude-opus-4-6 | claude-sonnet-4-6 |
+| Claude Code | opus | sonnet |
 
 ## Acknowledgments
 
