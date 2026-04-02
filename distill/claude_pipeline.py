@@ -22,9 +22,9 @@ from pathlib import Path
 from typing import Any
 
 import anyio
-from claude_agent_sdk import (
+from claude_code_sdk import (
     AssistantMessage,
-    ClaudeAgentOptions,
+    ClaudeCodeOptions,
     ResultMessage,
     TextBlock,
     ToolUseBlock,
@@ -219,7 +219,7 @@ async def _query_sdk(
     )
     if mcp_servers:
         kwargs["mcp_servers"] = mcp_servers
-    options = ClaudeAgentOptions(**kwargs)
+    options = ClaudeCodeOptions(**kwargs)
 
     messages: list = []
     agg = {"input_tokens": 0, "output_tokens": 0,
