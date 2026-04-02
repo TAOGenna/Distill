@@ -228,26 +228,31 @@ async def _query_sdk(
     agg = {"input_tokens": 0, "output_tokens": 0,
            "cache_creation_input_tokens": 0, "cache_read_input_tokens": 0}
 
-    async for msg in query(prompt=prompt, options=options):
-        messages.append(msg)
+    try:
+        async for msg in query(prompt=prompt, options=options):
+            messages.append(msg)
 
-        if isinstance(msg, AssistantMessage):
-            # Accumulate tokens from each assistant turn
-            if msg.usage:
-                agg["input_tokens"] += msg.usage.get("input_tokens", 0)
-                agg["output_tokens"] += msg.usage.get("output_tokens", 0)
-                agg["cache_creation_input_tokens"] += msg.usage.get("cache_creation_input_tokens", 0)
-                agg["cache_read_input_tokens"] += msg.usage.get("cache_read_input_tokens", 0)
+            if isinstance(msg, AssistantMessage):
+                # Accumulate tokens from each assistant turn
+                if msg.usage:
+                    agg["input_tokens"] += msg.usage.get("input_tokens", 0)
+                    agg["output_tokens"] += msg.usage.get("output_tokens", 0)
+                    agg["cache_creation_input_tokens"] += msg.usage.get("cache_creation_input_tokens", 0)
+                    agg["cache_read_input_tokens"] += msg.usage.get("cache_read_input_tokens", 0)
 
-            # Log tool use for progress tracking
-            for block in msg.content:
-                if isinstance(block, TextBlock) and len(block.text) > 10:
-                    _log(block.text[:120], _C.DIM)
-                elif isinstance(block, ToolUseBlock):
-                    tool_args = ", ".join(
-                        f"{k}={str(v)[:50]}" for k, v in (block.input or {}).items()
-                    )
-                    _log(f"{block.name}({tool_args})", _C.BLUE)
+                # Log tool use for progress tracking
+                for block in msg.content:
+                    if isinstance(block, TextBlock) and len(block.text) > 10:
+                        _log(block.text[:120], _C.DIM)
+                    elif isinstance(block, ToolUseBlock):
+                        tool_args = ", ".join(
+                            f"{k}={str(v)[:50]}" for k, v in (block.input or {}).items()
+                        )
+                        _log(f"{block.name}({tool_args})", _C.BLUE)
+    except Exception as e:
+        # SDK can throw on tool failures (exit code != 0) — recover gracefully
+        # since we may already have enough messages/output to proceed
+        _log(f"SDK query ended with error: {e}", _C.YELLOW)
 
     result = _extract_result(messages)
     model_name = model or "sonnet"
@@ -356,9 +361,9 @@ async def _phase_design(
         system=CURRICULUM_DESIGN_SYSTEM_PROMPT,
         model=model,
         effort="high",  # Blueprint design needs deep thinking
-        max_turns=10,
+        max_turns=15,
         cwd=abs_output,
-        allowed_tools=["Write"],
+        allowed_tools=["Write", "Read", "Bash", "WebFetch", "ToolSearch"],
     )
 
     # Primary: read from the file the model wrote
