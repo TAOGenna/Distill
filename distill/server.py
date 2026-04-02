@@ -749,13 +749,25 @@ def serve(host: str = "127.0.0.1", port: int = 8420, open_browser: bool = True) 
 
     from . import __version__
 
-    # If already running, just open the browser to the existing instance
+    # If already running, kill the old server so we start fresh with latest code
     if _port_in_use(host, port):
-        url = f"http://{host}:{port}"
-        print(f"Distill is already running at {url}")
-        if open_browser and not _is_wsl():
-            webbrowser.open(url)
-        return
+        import signal
+        try:
+            import subprocess
+            pids = subprocess.check_output(
+                ["lsof", "-ti", f":{port}"], text=True
+            ).strip().split()
+            for pid in pids:
+                pid = int(pid)
+                if pid != os.getpid():
+                    os.kill(pid, signal.SIGTERM)
+            # Wait for port to free up
+            for _ in range(20):
+                if not _port_in_use(host, port):
+                    break
+                time.sleep(0.25)
+        except Exception:
+            pass
 
     _apply_config()
 
