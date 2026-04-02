@@ -207,15 +207,18 @@ async def _query_sdk(
     input_tokens, output_tokens, cache_creation_input_tokens,
     cache_read_input_tokens, cost_usd.
     """
+    extra: dict[str, Any] = {}
+    if effort:
+        extra["effort"] = effort
     kwargs: dict[str, Any] = dict(
         system_prompt=system,
         model=model,
-        effort=effort,
         max_turns=max_turns,
         permission_mode="bypassPermissions",
         cwd=str(cwd) if cwd else None,
         allowed_tools=allowed_tools or ["Bash", "Read", "Write", "Edit"],
         add_dirs=[str(d) for d in add_dirs] if add_dirs else [],
+        extra_args=extra,
     )
     if mcp_servers:
         kwargs["mcp_servers"] = mcp_servers
