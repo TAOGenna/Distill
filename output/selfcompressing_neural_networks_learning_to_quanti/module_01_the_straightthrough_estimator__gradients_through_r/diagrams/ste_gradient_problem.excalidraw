@@ -1,0 +1,583 @@
+{
+  "type": "excalidraw",
+  "version": 2,
+  "source": "mcp-excalidraw-server",
+  "elements": [
+    {
+      "id": "mngu0oypgwl7567e48k",
+      "type": "text",
+      "x": 300,
+      "y": 20,
+      "strokeColor": "#1e1e1e",
+      "text": "Why torch.round() Kills Gradients",
+      "fontSize": 22,
+      "fontFamily": 2,
+      "createdAt": "2026-04-02T02:04:43.537Z",
+      "updatedAt": "2026-04-02T02:04:43.537Z",
+      "version": 1
+    },
+    {
+      "id": "mngu0oyqhvkez6km77h",
+      "type": "text",
+      "x": 80,
+      "y": 60,
+      "strokeColor": "#6c6c6c",
+      "text": "FORWARD PASS: staircase function rounds to nearest integer",
+      "fontSize": 14,
+      "fontFamily": 2,
+      "createdAt": "2026-04-02T02:04:43.537Z",
+      "updatedAt": "2026-04-02T02:04:43.537Z",
+      "version": 1
+    },
+    {
+      "id": "plot_bg",
+      "type": "rectangle",
+      "x": 60,
+      "y": 90,
+      "width": 500,
+      "height": 280,
+      "backgroundColor": "#f8f9fa",
+      "strokeColor": "#dee2e6",
+      "roughness": 0,
+      "createdAt": "2026-04-02T02:04:43.537Z",
+      "updatedAt": "2026-04-02T02:04:43.537Z",
+      "version": 1
+    },
+    {
+      "id": "mngu0oyq62qhrm0lafh",
+      "type": "text",
+      "x": 70,
+      "y": 100,
+      "strokeColor": "#1971c2",
+      "text": "y = round(x)",
+      "fontSize": 14,
+      "fontFamily": 3,
+      "createdAt": "2026-04-02T02:04:43.538Z",
+      "updatedAt": "2026-04-02T02:04:43.538Z",
+      "version": 1
+    },
+    {
+      "id": "mngu0oyqw0shess2x5",
+      "type": "line",
+      "x": 80,
+      "y": 340,
+      "width": 460,
+      "height": 0,
+      "strokeColor": "#1e1e1e",
+      "strokeWidth": 2,
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          460,
+          0
+        ]
+      ],
+      "createdAt": "2026-04-02T02:04:43.538Z",
+      "updatedAt": "2026-04-02T02:04:43.538Z",
+      "version": 1
+    },
+    {
+      "id": "mngu0oyqohqcbyxzn7o",
+      "type": "line",
+      "x": 310,
+      "y": 100,
+      "width": 0,
+      "height": 240,
+      "strokeColor": "#1e1e1e",
+      "strokeWidth": 2,
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          0,
+          240
+        ]
+      ],
+      "createdAt": "2026-04-02T02:04:43.539Z",
+      "updatedAt": "2026-04-02T02:04:43.539Z",
+      "version": 1
+    },
+    {
+      "id": "mngu0oyq7rws8z6hfth",
+      "type": "text",
+      "x": 545,
+      "y": 333,
+      "strokeColor": "#1e1e1e",
+      "text": "x (weight)",
+      "fontSize": 13,
+      "fontFamily": 2,
+      "createdAt": "2026-04-02T02:04:43.539Z",
+      "updatedAt": "2026-04-02T02:04:43.539Z",
+      "version": 1
+    },
+    {
+      "id": "mngu0oyqmg0yir4xtm",
+      "type": "text",
+      "x": 315,
+      "y": 95,
+      "strokeColor": "#1e1e1e",
+      "text": "round(x)",
+      "fontSize": 13,
+      "fontFamily": 2,
+      "createdAt": "2026-04-02T02:04:43.539Z",
+      "updatedAt": "2026-04-02T02:04:43.539Z",
+      "version": 1
+    },
+    {
+      "id": "mngu0oyqlgpdit6iaun",
+      "type": "line",
+      "x": 80,
+      "y": 290,
+      "width": 115,
+      "height": 0,
+      "strokeColor": "#1971c2",
+      "strokeWidth": 3,
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          115,
+          0
+        ]
+      ],
+      "createdAt": "2026-04-02T02:04:43.539Z",
+      "updatedAt": "2026-04-02T02:04:43.539Z",
+      "version": 1
+    },
+    {
+      "id": "mngu0oyq90r95u6d126",
+      "type": "line",
+      "x": 195,
+      "y": 240,
+      "width": 115,
+      "height": 0,
+      "strokeColor": "#1971c2",
+      "strokeWidth": 3,
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          115,
+          0
+        ]
+      ],
+      "createdAt": "2026-04-02T02:04:43.539Z",
+      "updatedAt": "2026-04-02T02:04:43.539Z",
+      "version": 1
+    },
+    {
+      "id": "mngu0oyqbadmbks60j",
+      "type": "line",
+      "x": 310,
+      "y": 190,
+      "width": 115,
+      "height": 0,
+      "strokeColor": "#1971c2",
+      "strokeWidth": 3,
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          115,
+          0
+        ]
+      ],
+      "createdAt": "2026-04-02T02:04:43.539Z",
+      "updatedAt": "2026-04-02T02:04:43.539Z",
+      "version": 1
+    },
+    {
+      "id": "mngu0oyqsrnh7qdmfer",
+      "type": "line",
+      "x": 425,
+      "y": 140,
+      "width": 115,
+      "height": 0,
+      "strokeColor": "#1971c2",
+      "strokeWidth": 3,
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          115,
+          0
+        ]
+      ],
+      "createdAt": "2026-04-02T02:04:43.539Z",
+      "updatedAt": "2026-04-02T02:04:43.539Z",
+      "version": 1
+    },
+    {
+      "id": "mngu0oyq76zcp5qid9e",
+      "type": "ellipse",
+      "x": 190,
+      "y": 285,
+      "width": 10,
+      "height": 10,
+      "backgroundColor": "#ffffff",
+      "strokeColor": "#1971c2",
+      "strokeWidth": 2,
+      "createdAt": "2026-04-02T02:04:43.539Z",
+      "updatedAt": "2026-04-02T02:04:43.539Z",
+      "version": 1
+    },
+    {
+      "id": "mngu0oyqkuhaoknkyx",
+      "type": "ellipse",
+      "x": 192,
+      "y": 235,
+      "width": 10,
+      "height": 10,
+      "backgroundColor": "#1971c2",
+      "strokeColor": "#1971c2",
+      "strokeWidth": 2,
+      "createdAt": "2026-04-02T02:04:43.539Z",
+      "updatedAt": "2026-04-02T02:04:43.539Z",
+      "version": 1
+    },
+    {
+      "id": "mngu0oyqrssbyeux8xb",
+      "type": "ellipse",
+      "x": 305,
+      "y": 235,
+      "width": 10,
+      "height": 10,
+      "backgroundColor": "#ffffff",
+      "strokeColor": "#1971c2",
+      "strokeWidth": 2,
+      "createdAt": "2026-04-02T02:04:43.539Z",
+      "updatedAt": "2026-04-02T02:04:43.539Z",
+      "version": 1
+    },
+    {
+      "id": "mngu0oyqxzsxskzv05",
+      "type": "ellipse",
+      "x": 307,
+      "y": 185,
+      "width": 10,
+      "height": 10,
+      "backgroundColor": "#1971c2",
+      "strokeColor": "#1971c2",
+      "strokeWidth": 2,
+      "createdAt": "2026-04-02T02:04:43.539Z",
+      "updatedAt": "2026-04-02T02:04:43.539Z",
+      "version": 1
+    },
+    {
+      "id": "mngu0oyqd3gctj7jd5e",
+      "type": "ellipse",
+      "x": 420,
+      "y": 185,
+      "width": 10,
+      "height": 10,
+      "backgroundColor": "#ffffff",
+      "strokeColor": "#1971c2",
+      "strokeWidth": 2,
+      "createdAt": "2026-04-02T02:04:43.539Z",
+      "updatedAt": "2026-04-02T02:04:43.539Z",
+      "version": 1
+    },
+    {
+      "id": "mngu0oyq4dk81wdaayt",
+      "type": "ellipse",
+      "x": 422,
+      "y": 135,
+      "width": 10,
+      "height": 10,
+      "backgroundColor": "#1971c2",
+      "strokeColor": "#1971c2",
+      "strokeWidth": 2,
+      "createdAt": "2026-04-02T02:04:43.539Z",
+      "updatedAt": "2026-04-02T02:04:43.539Z",
+      "version": 1
+    },
+    {
+      "id": "mngu0oyqau11j0njqmq",
+      "type": "text",
+      "x": 100,
+      "y": 300,
+      "strokeColor": "#6c6c6c",
+      "text": "−1",
+      "fontSize": 12,
+      "fontFamily": 2,
+      "createdAt": "2026-04-02T02:04:43.539Z",
+      "updatedAt": "2026-04-02T02:04:43.539Z",
+      "version": 1
+    },
+    {
+      "id": "mngu0oyqd43bokvczk",
+      "type": "text",
+      "x": 215,
+      "y": 250,
+      "strokeColor": "#6c6c6c",
+      "text": "0",
+      "fontSize": 12,
+      "fontFamily": 2,
+      "createdAt": "2026-04-02T02:04:43.539Z",
+      "updatedAt": "2026-04-02T02:04:43.539Z",
+      "version": 1
+    },
+    {
+      "id": "mngu0oyqpxl0dknn43p",
+      "type": "text",
+      "x": 330,
+      "y": 200,
+      "strokeColor": "#6c6c6c",
+      "text": "1",
+      "fontSize": 12,
+      "fontFamily": 2,
+      "createdAt": "2026-04-02T02:04:43.539Z",
+      "updatedAt": "2026-04-02T02:04:43.539Z",
+      "version": 1
+    },
+    {
+      "id": "mngu0oyqrjggve3kq28",
+      "type": "text",
+      "x": 445,
+      "y": 150,
+      "strokeColor": "#6c6c6c",
+      "text": "2",
+      "fontSize": 12,
+      "fontFamily": 2,
+      "createdAt": "2026-04-02T02:04:43.540Z",
+      "updatedAt": "2026-04-02T02:04:43.540Z",
+      "version": 1
+    },
+    {
+      "id": "zero_grad_box",
+      "type": "rectangle",
+      "x": 620,
+      "y": 90,
+      "width": 280,
+      "height": 140,
+      "backgroundColor": "#ffc9c9",
+      "strokeColor": "#e03131",
+      "roughness": 0,
+      "createdAt": "2026-04-02T02:04:43.540Z",
+      "updatedAt": "2026-04-02T02:04:43.540Z",
+      "version": 1
+    },
+    {
+      "id": "mngu0oyqx0w15b7t2k",
+      "type": "text",
+      "x": 630,
+      "y": 100,
+      "strokeColor": "#e03131",
+      "text": "BACKWARD PASS",
+      "fontSize": 15,
+      "fontFamily": 2,
+      "createdAt": "2026-04-02T02:04:43.540Z",
+      "updatedAt": "2026-04-02T02:04:43.540Z",
+      "version": 1
+    },
+    {
+      "id": "mngu0oyqtohamg37qfd",
+      "type": "text",
+      "x": 630,
+      "y": 125,
+      "strokeColor": "#1e1e1e",
+      "text": "Gradient of round(x):",
+      "fontSize": 13,
+      "fontFamily": 2,
+      "createdAt": "2026-04-02T02:04:43.540Z",
+      "updatedAt": "2026-04-02T02:04:43.540Z",
+      "version": 1
+    },
+    {
+      "id": "mngu0oyqxn9ci0d1v1",
+      "type": "text",
+      "x": 630,
+      "y": 148,
+      "strokeColor": "#e03131",
+      "text": "d/dx[round(x)] = 0",
+      "fontSize": 15,
+      "fontFamily": 3,
+      "createdAt": "2026-04-02T02:04:43.541Z",
+      "updatedAt": "2026-04-02T02:04:43.541Z",
+      "version": 1
+    },
+    {
+      "id": "mngu0oyqz5tm8s3zguj",
+      "type": "text",
+      "x": 630,
+      "y": 175,
+      "strokeColor": "#1e1e1e",
+      "text": "almost everywhere",
+      "fontSize": 13,
+      "fontFamily": 2,
+      "createdAt": "2026-04-02T02:04:43.541Z",
+      "updatedAt": "2026-04-02T02:04:43.541Z",
+      "version": 1
+    },
+    {
+      "id": "mngu0oyqt9md9g2jn4",
+      "type": "text",
+      "x": 630,
+      "y": 198,
+      "strokeColor": "#e03131",
+      "text": "⇒ weight.grad = 0",
+      "fontSize": 14,
+      "fontFamily": 3,
+      "createdAt": "2026-04-02T02:04:43.541Z",
+      "updatedAt": "2026-04-02T02:04:43.541Z",
+      "version": 1
+    },
+    {
+      "id": "consequence_box",
+      "type": "rectangle",
+      "x": 620,
+      "y": 250,
+      "width": 280,
+      "height": 120,
+      "backgroundColor": "#ffec99",
+      "strokeColor": "#f08c00",
+      "roughness": 0,
+      "createdAt": "2026-04-02T02:04:43.541Z",
+      "updatedAt": "2026-04-02T02:04:43.541Z",
+      "version": 1
+    },
+    {
+      "id": "mngu0oyqdbd0zkfxzao",
+      "type": "text",
+      "x": 630,
+      "y": 260,
+      "strokeColor": "#f08c00",
+      "text": "CONSEQUENCE",
+      "fontSize": 15,
+      "fontFamily": 2,
+      "createdAt": "2026-04-02T02:04:43.541Z",
+      "updatedAt": "2026-04-02T02:04:43.541Z",
+      "version": 1
+    },
+    {
+      "id": "mngu0oyqqvai5n4msad",
+      "type": "text",
+      "x": 630,
+      "y": 285,
+      "strokeColor": "#1e1e1e",
+      "text": "• Optimizer sees grad=0",
+      "fontSize": 13,
+      "fontFamily": 2,
+      "createdAt": "2026-04-02T02:04:43.542Z",
+      "updatedAt": "2026-04-02T02:04:43.542Z",
+      "version": 1
+    },
+    {
+      "id": "mngu0oyq3a5n3tc6ety",
+      "type": "text",
+      "x": 630,
+      "y": 305,
+      "strokeColor": "#1e1e1e",
+      "text": "• Weights never update",
+      "fontSize": 13,
+      "fontFamily": 2,
+      "createdAt": "2026-04-02T02:04:43.542Z",
+      "updatedAt": "2026-04-02T02:04:43.542Z",
+      "version": 1
+    },
+    {
+      "id": "mngu0oyqg6lxsdbfhgf",
+      "type": "text",
+      "x": 630,
+      "y": 325,
+      "strokeColor": "#1e1e1e",
+      "text": "• Loss stays constant",
+      "fontSize": 13,
+      "fontFamily": 2,
+      "createdAt": "2026-04-02T02:04:43.542Z",
+      "updatedAt": "2026-04-02T02:04:43.542Z",
+      "version": 1
+    },
+    {
+      "id": "mngu0oyq0vd5xatnnwd",
+      "type": "text",
+      "x": 630,
+      "y": 345,
+      "strokeColor": "#1e1e1e",
+      "text": "• Training fails entirely",
+      "fontSize": 13,
+      "fontFamily": 2,
+      "createdAt": "2026-04-02T02:04:43.542Z",
+      "updatedAt": "2026-04-02T02:04:43.542Z",
+      "version": 1
+    },
+    {
+      "id": "mngu0oyqcjfaals5yz",
+      "type": "text",
+      "x": 80,
+      "y": 390,
+      "strokeColor": "#e03131",
+      "text": "Slope = 0 between every step — derivative of a staircase is always zero",
+      "fontSize": 13,
+      "fontFamily": 2,
+      "createdAt": "2026-04-02T02:04:43.542Z",
+      "updatedAt": "2026-04-02T02:04:43.542Z",
+      "version": 1
+    },
+    {
+      "id": "mngu0oyq3em532qrqr5",
+      "type": "arrow",
+      "x": 560,
+      "y": 130,
+      "width": 55,
+      "height": 0,
+      "strokeColor": "#e03131",
+      "strokeWidth": 2,
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          55,
+          0
+        ]
+      ],
+      "endArrowhead": "arrow",
+      "createdAt": "2026-04-02T02:04:43.542Z",
+      "updatedAt": "2026-04-02T02:04:43.542Z",
+      "version": 1
+    },
+    {
+      "id": "mngu0oyqexbv9hvf5z",
+      "type": "arrow",
+      "x": 560,
+      "y": 295,
+      "width": 55,
+      "height": 0,
+      "strokeColor": "#f08c00",
+      "strokeWidth": 2,
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          55,
+          0
+        ]
+      ],
+      "endArrowhead": "arrow",
+      "createdAt": "2026-04-02T02:04:43.542Z",
+      "updatedAt": "2026-04-02T02:04:43.542Z",
+      "version": 1
+    }
+  ],
+  "appState": {
+    "viewBackgroundColor": "#ffffff",
+    "gridSize": null
+  }
+}

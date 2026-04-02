@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -25 1180 567" width="800" height="384" style="background: white;">
+  <defs>
+    <filter id="handdrawn" x="-5%" y="-5%" width="110%" height="110%">
+      <feTurbulence type="turbulence" baseFrequency="0.02" numOctaves="3"
+                    result="noise" seed="2"/>
+      <feDisplacementMap in="SourceGraphic" in2="noise" scale="1.2"
+                         xChannelSelector="R" yChannelSelector="G"/>
+    </filter>
+    <marker id="ah-1971c2" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#1971c2"/>
+    </marker>
+    <marker id="ah-9c36b5" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#9c36b5"/>
+    </marker>
+    <marker id="ah-f08c00" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#f08c00"/>
+    </marker>
+  </defs>
+  <text x="200" y="39.0" font-size="20" font-family="Helvetica, Arial, sans-serif" fill="#1e1e1e" text-anchor="start">Quantized Weight Computation Graph with STE</text>
+  <rect x="40" y="80" width="100" height="50" rx="0" fill="#a5d8ff" stroke="#1971c2" stroke-width="2" opacity="1.0" filter="url(#handdrawn)"/>
+  <text x="55" y="111.2" font-size="11" font-family="Helvetica, Arial, sans-serif" fill="#1e1e1e" text-anchor="start">weight w</text>
+  <text x="55" y="124.4" font-size="11" font-family="Helvetica, Arial, sans-serif" fill="#1e1e1e" text-anchor="start">(learnable)</text>
+  <rect x="40" y="180" width="100" height="50" rx="0" fill="#a5d8ff" stroke="#1971c2" stroke-width="2" opacity="1.0" filter="url(#handdrawn)"/>
+  <text x="60" y="211.2" font-size="11" font-family="Helvetica, Arial, sans-serif" fill="#1e1e1e" text-anchor="start">exponent e</text>
+  <text x="60" y="224.4" font-size="11" font-family="Helvetica, Arial, sans-serif" fill="#1e1e1e" text-anchor="start">(learnable)</text>
+  <rect x="40" y="280" width="100" height="50" rx="0" fill="#a5d8ff" stroke="#1971c2" stroke-width="2" opacity="1.0" filter="url(#handdrawn)"/>
+  <text x="58" y="311.2" font-size="11" font-family="Helvetica, Arial, sans-serif" fill="#1e1e1e" text-anchor="start">bit-width b</text>
+  <text x="58" y="324.4" font-size="11" font-family="Helvetica, Arial, sans-serif" fill="#1e1e1e" text-anchor="start">(learnable)</text>
+  <rect x="220" y="80" width="120" height="50" rx="0" fill="#ffec99" stroke="#f08c00" stroke-width="2" opacity="1.0" filter="url(#handdrawn)"/>
+  <text x="232" y="106.2" font-size="11" font-family="Helvetica, Arial, sans-serif" fill="#1e1e1e" text-anchor="start">scale down</text>
+  <text x="232" y="119.4" font-size="11" font-family="Helvetica, Arial, sans-serif" fill="#1e1e1e" text-anchor="start">2^(-e) * w</text>
+  <rect x="220" y="280" width="120" height="50" rx="0" fill="#ffec99" stroke="#f08c00" stroke-width="2" opacity="1.0" filter="url(#handdrawn)"/>
+  <text x="242" y="306.2" font-size="11" font-family="Helvetica, Arial, sans-serif" fill="#1e1e1e" text-anchor="start">relu(b)</text>
+  <text x="242" y="319.4" font-size="11" font-family="Helvetica, Arial, sans-serif" fill="#1e1e1e" text-anchor="start">range guard</text>
+  <rect x="420" y="160" width="120" height="50" rx="0" fill="#ffec99" stroke="#f08c00" stroke-width="2" opacity="1.0" filter="url(#handdrawn)"/>
+  <text x="432" y="185.0" font-size="10" font-family="Helvetica, Arial, sans-serif" fill="#1e1e1e" text-anchor="start">clamp(qw,</text>
+  <text x="432" y="197.0" font-size="10" font-family="Helvetica, Arial, sans-serif" fill="#1e1e1e" text-anchor="start">-2^(b-1), 2^(b-1)-1)</text>
+  <rect x="620" y="160" width="140" height="50" rx="0" fill="#d0bfff" stroke="#9c36b5" stroke-width="2" opacity="1.0" filter="url(#handdrawn)"/>
+  <text x="630" y="185.6" font-size="13" font-family="Helvetica, Arial, sans-serif" fill="#9c36b5" text-anchor="start">STE ROUND</text>
+  <text x="628" y="200.8" font-size="9" font-family="Cascadia Code, Fira Code, monospace" fill="#1e1e1e" text-anchor="start">(q.round()-q).detach()+q</text>
+  <rect x="840" y="160" width="120" height="50" rx="0" fill="#ffec99" stroke="#f08c00" stroke-width="2" opacity="1.0" filter="url(#handdrawn)"/>
+  <text x="852" y="186.2" font-size="11" font-family="Helvetica, Arial, sans-serif" fill="#1e1e1e" text-anchor="start">dequantize</text>
+  <text x="852" y="199.4" font-size="11" font-family="Helvetica, Arial, sans-serif" fill="#1e1e1e" text-anchor="start">2^e * rounded</text>
+  <rect x="1040" y="160" width="100" height="50" rx="0" fill="#b2f2bb" stroke="#2f9e44" stroke-width="2" opacity="1.0" filter="url(#handdrawn)"/>
+  <text x="1055" y="191.2" font-size="11" font-family="Helvetica, Arial, sans-serif" fill="#1e1e1e" text-anchor="start">conv2d</text>
+  <text x="1055" y="204.4" font-size="11" font-family="Helvetica, Arial, sans-serif" fill="#1e1e1e" text-anchor="start">output</text>
+  <path d="M 140.0 105.0 L 215.0 105.0" fill="none" stroke="#1971c2" stroke-width="2" marker-end="url(#ah-1971c2)" filter="url(#handdrawn)"/>
+  <path d="M 90.0 205.0 L 220.0 115.0" fill="none" stroke="#1971c2" stroke-width="2" marker-end="url(#ah-1971c2)" filter="url(#handdrawn)"/>
+  <path d="M 140.0 205.0 L 420.0 205.0" fill="none" stroke="#1971c2" stroke-width="2" marker-end="url(#ah-1971c2)" filter="url(#handdrawn)"/>
+  <path d="M 140.0 305.0 L 215.0 305.0" fill="none" stroke="#1971c2" stroke-width="2" marker-end="url(#ah-1971c2)" filter="url(#handdrawn)"/>
+  <path d="M 340.0 105.0 L 415.0 165.0" fill="none" stroke="#f08c00" stroke-width="2" marker-end="url(#ah-f08c00)" filter="url(#handdrawn)"/>
+  <path d="M 340.0 305.0 L 415.0 215.0" fill="none" stroke="#f08c00" stroke-width="2" marker-end="url(#ah-f08c00)" filter="url(#handdrawn)"/>
+  <path d="M 540.0 185.0 L 615.0 185.0" fill="none" stroke="#f08c00" stroke-width="2" marker-end="url(#ah-f08c00)" filter="url(#handdrawn)"/>
+  <path d="M 760.0 185.0 L 835.0 185.0" fill="none" stroke="#9c36b5" stroke-width="2" marker-end="url(#ah-9c36b5)" filter="url(#handdrawn)"/>
+  <path d="M 960.0 185.0 L 1035.0 185.0" fill="none" stroke="#f08c00" stroke-width="2" marker-end="url(#ah-f08c00)" filter="url(#handdrawn)"/>
+  <text x="40" y="396.8" font-size="14" font-family="Helvetica, Arial, sans-serif" fill="#e03131" text-anchor="start">GRADIENT FLOW (backward)</text>
+  <text x="40" y="419.4" font-size="12" font-family="Helvetica, Arial, sans-serif" fill="#1e1e1e" text-anchor="start">conv → deq (normal, chain rule through 2^e)</text>
+  <text x="40" y="439.4" font-size="12" font-family="Helvetica, Arial, sans-serif" fill="#9c36b5" text-anchor="start">deq → STE round (IDENTITY — STE passes grad through unchanged)</text>
+  <text x="40" y="459.4" font-size="12" font-family="Helvetica, Arial, sans-serif" fill="#1e1e1e" text-anchor="start">STE → clamp (zero outside bounds, identity inside)</text>
+  <text x="40" y="479.4" font-size="12" font-family="Helvetica, Arial, sans-serif" fill="#1e1e1e" text-anchor="start">clamp → scale (chain rule through 2^(-e))</text>
+  <text x="40" y="499.4" font-size="12" font-family="Helvetica, Arial, sans-serif" fill="#2f9e44" text-anchor="start">⇒ both w (weight) and e (exponent) receive nonzero gradients!</text>
+  <rect x="620" y="90" width="20" height="15" rx="0" fill="#d0bfff" stroke="#9c36b5" stroke-width="2" opacity="1.0" filter="url(#handdrawn)"/>
+  <text x="648" y="106.2" font-size="11" font-family="Helvetica, Arial, sans-serif" fill="#1e1e1e" text-anchor="start">STE operation (non-differentiable, fixed by STE)</text>
+  <rect x="620" y="115" width="20" height="15" rx="0" fill="#a5d8ff" stroke="#1971c2" stroke-width="2" opacity="1.0" filter="url(#handdrawn)"/>
+  <text x="648" y="131.2" font-size="11" font-family="Helvetica, Arial, sans-serif" fill="#1e1e1e" text-anchor="start">Learnable parameters</text>
+  <rect x="620" y="140" width="20" height="15" rx="0" fill="#ffec99" stroke="#f08c00" stroke-width="2" opacity="1.0" filter="url(#handdrawn)"/>
+  <text x="648" y="156.2" font-size="11" font-family="Helvetica, Arial, sans-serif" fill="#1e1e1e" text-anchor="start">Differentiable operations</text>
+</svg>

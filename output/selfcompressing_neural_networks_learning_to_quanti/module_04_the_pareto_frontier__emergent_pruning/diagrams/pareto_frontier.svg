@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="20 -20 1078 580" width="800" height="430" style="background: white;">
+  <defs>
+    <filter id="handdrawn" x="-5%" y="-5%" width="110%" height="110%">
+      <feTurbulence type="turbulence" baseFrequency="0.02" numOctaves="3"
+                    result="noise" seed="2"/>
+      <feDisplacementMap in="SourceGraphic" in2="noise" scale="1.2"
+                         xChannelSelector="R" yChannelSelector="G"/>
+    </filter>
+    <marker id="ah-f08c00" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#f08c00"/>
+    </marker>
+  </defs>
+  <text x="280" y="44.0" font-size="20" font-family="Helvetica, Arial, sans-serif" fill="#1e1e1e" text-anchor="start">The Pareto Frontier: Size vs. Accuracy Tradeoff</text>
+  <text x="360" y="64.8" font-size="14" font-family="Helvetica, Arial, sans-serif" fill="#555555" text-anchor="start">Each point = one value of λ (compression strength)</text>
+  <rect x="100" y="80" width="680" height="400" rx="0" fill="#f8f9fa" stroke="#aaaaaa" stroke-width="2" opacity="1.0" filter="url(#handdrawn)"/>
+  <text x="60" y="281.8" font-size="14" font-family="Helvetica, Arial, sans-serif" fill="#1e1e1e" text-anchor="start">Accuracy</text>
+  <text x="60" y="298.6" font-size="14" font-family="Helvetica, Arial, sans-serif" fill="#1e1e1e" text-anchor="start">(%)</text>
+  <text x="390" y="516.8" font-size="14" font-family="Helvetica, Arial, sans-serif" fill="#1e1e1e" text-anchor="start">Model Size (bytes) →</text>
+  <text x="108" y="98.4" font-size="12" font-family="Virgil, Segoe Print, Comic Sans MS, cursive" fill="#555555" text-anchor="start">100%</text>
+  <text x="108" y="188.4" font-size="12" font-family="Virgil, Segoe Print, Comic Sans MS, cursive" fill="#555555" text-anchor="start">98%</text>
+  <text x="108" y="278.4" font-size="12" font-family="Virgil, Segoe Print, Comic Sans MS, cursive" fill="#555555" text-anchor="start">95%</text>
+  <text x="108" y="368.4" font-size="12" font-family="Virgil, Segoe Print, Comic Sans MS, cursive" fill="#555555" text-anchor="start">90%</text>
+  <text x="108" y="458.4" font-size="12" font-family="Virgil, Segoe Print, Comic Sans MS, cursive" fill="#555555" text-anchor="start">80%</text>
+  <text x="148" y="482.4" font-size="12" font-family="Virgil, Segoe Print, Comic Sans MS, cursive" fill="#555555" text-anchor="start">7K</text>
+  <text x="248" y="482.4" font-size="12" font-family="Virgil, Segoe Print, Comic Sans MS, cursive" fill="#555555" text-anchor="start">12K</text>
+  <text x="360" y="482.4" font-size="12" font-family="Virgil, Segoe Print, Comic Sans MS, cursive" fill="#555555" text-anchor="start">18K</text>
+  <text x="470" y="482.4" font-size="12" font-family="Virgil, Segoe Print, Comic Sans MS, cursive" fill="#555555" text-anchor="start">25K</text>
+  <text x="580" y="482.4" font-size="12" font-family="Virgil, Segoe Print, Comic Sans MS, cursive" fill="#555555" text-anchor="start">35K</text>
+  <text x="680" y="482.4" font-size="12" font-family="Virgil, Segoe Print, Comic Sans MS, cursive" fill="#555555" text-anchor="start">45K</text>
+  <ellipse cx="649.0" cy="94.0" rx="9.0" ry="9.0" fill="#1971c2" stroke="#1971c2" stroke-width="2" filter="url(#handdrawn)"/>
+  <ellipse cx="539.0" cy="101.0" rx="9.0" ry="9.0" fill="#1971c2" stroke="#1971c2" stroke-width="2" filter="url(#handdrawn)"/>
+  <ellipse cx="424.0" cy="109.0" rx="9.0" ry="9.0" fill="#1971c2" stroke="#1971c2" stroke-width="2" filter="url(#handdrawn)"/>
+  <ellipse cx="339.0" cy="119.0" rx="9.0" ry="9.0" fill="#e03131" stroke="#e03131" stroke-width="2" filter="url(#handdrawn)"/>
+  <ellipse cx="254.0" cy="194.0" rx="9.0" ry="9.0" fill="#1971c2" stroke="#1971c2" stroke-width="2" filter="url(#handdrawn)"/>
+  <ellipse cx="189.0" cy="299.0" rx="9.0" ry="9.0" fill="#1971c2" stroke="#1971c2" stroke-width="2" filter="url(#handdrawn)"/>
+  <ellipse cx="157.0" cy="409.0" rx="9.0" ry="9.0" fill="#1971c2" stroke="#1971c2" stroke-width="2" filter="url(#handdrawn)"/>
+  <path d="M 649.0 94.0 L 749.0 102.0 L 834.0 110.0 L 903.0 195.0 L 968.0 290.0 L 1030.0 400.0 L 1058.0 409.0" fill="none" stroke="#1971c2" stroke-width="2" filter="url(#handdrawn)"/>
+  <text x="665" y="93.2" font-size="11" font-family="Virgil, Segoe Print, Comic Sans MS, cursive" fill="#1971c2" text-anchor="start">λ=0.001</text>
+  <text x="665" y="106.4" font-size="11" font-family="Virgil, Segoe Print, Comic Sans MS, cursive" fill="#1971c2" text-anchor="start">~35K bytes</text>
+  <text x="665" y="119.6" font-size="11" font-family="Virgil, Segoe Print, Comic Sans MS, cursive" fill="#1971c2" text-anchor="start">98.5%</text>
+  <text x="555" y="100.2" font-size="11" font-family="Virgil, Segoe Print, Comic Sans MS, cursive" fill="#1971c2" text-anchor="start">λ=0.005</text>
+  <text x="555" y="113.4" font-size="11" font-family="Virgil, Segoe Print, Comic Sans MS, cursive" fill="#1971c2" text-anchor="start">~25K bytes</text>
+  <text x="555" y="126.6" font-size="11" font-family="Virgil, Segoe Print, Comic Sans MS, cursive" fill="#1971c2" text-anchor="start">98.3%</text>
+  <text x="438" y="103.2" font-size="11" font-family="Virgil, Segoe Print, Comic Sans MS, cursive" fill="#1971c2" text-anchor="start">λ=0.02</text>
+  <text x="438" y="116.4" font-size="11" font-family="Virgil, Segoe Print, Comic Sans MS, cursive" fill="#1971c2" text-anchor="start">~20K</text>
+  <text x="438" y="129.6" font-size="11" font-family="Virgil, Segoe Print, Comic Sans MS, cursive" fill="#1971c2" text-anchor="start">98.1%</text>
+  <text x="295" y="110.6" font-size="13" font-family="Virgil, Segoe Print, Comic Sans MS, cursive" fill="#e03131" text-anchor="start">λ=0.05 ★</text>
+  <text x="282" y="124.2" font-size="11" font-family="Virgil, Segoe Print, Comic Sans MS, cursive" fill="#e03131" text-anchor="start">18K · 98.2%</text>
+  <text x="270" y="189.2" font-size="11" font-family="Virgil, Segoe Print, Comic Sans MS, cursive" fill="#1971c2" text-anchor="start">λ=0.10</text>
+  <text x="270" y="202.4" font-size="11" font-family="Virgil, Segoe Print, Comic Sans MS, cursive" fill="#1971c2" text-anchor="start">14K · 96.5%</text>
+  <text x="132" y="291.2" font-size="11" font-family="Virgil, Segoe Print, Comic Sans MS, cursive" fill="#1971c2" text-anchor="start">λ=0.20</text>
+  <text x="132" y="304.4" font-size="11" font-family="Virgil, Segoe Print, Comic Sans MS, cursive" fill="#1971c2" text-anchor="start">10K</text>
+  <text x="132" y="317.6" font-size="11" font-family="Virgil, Segoe Print, Comic Sans MS, cursive" fill="#1971c2" text-anchor="start">93%</text>
+  <text x="120" y="401.2" font-size="11" font-family="Virgil, Segoe Print, Comic Sans MS, cursive" fill="#1971c2" text-anchor="start">λ=0.32</text>
+  <text x="120" y="414.4" font-size="11" font-family="Virgil, Segoe Print, Comic Sans MS, cursive" fill="#1971c2" text-anchor="start">7K · 85%</text>
+  <rect x="355" y="82" width="14" height="14" rx="0" fill="#ffec99" stroke="#f08c00" stroke-width="2" opacity="1.0" filter="url(#handdrawn)"/>
+  <text x="240" y="73.6" font-size="13" font-family="Helvetica, Arial, sans-serif" fill="#f08c00" text-anchor="start">← 'Knee' of the curve</text>
+  <path d="M 325.0 66.0 L 355.0 112.0" fill="none" stroke="#f08c00" stroke-width="2" marker-end="url(#ah-f08c00)" filter="url(#handdrawn)"/>
+  <rect x="420" y="355" width="230" height="90" rx="0" fill="#b2f2bb" stroke="#2f9e44" stroke-width="2" opacity="1.0" filter="url(#handdrawn)"/>
+  <text x="430" y="379.4" font-size="12" font-family="Helvetica, Arial, sans-serif" fill="#2f9e44" text-anchor="start">All blue points are Pareto-optimal:</text>
+  <text x="430" y="393.8" font-size="12" font-family="Helvetica, Arial, sans-serif" fill="#2f9e44" text-anchor="start">no other point has BOTH</text>
+  <text x="430" y="408.2" font-size="12" font-family="Helvetica, Arial, sans-serif" fill="#2f9e44" text-anchor="start">smaller size AND higher accuracy</text>
+  <rect x="420" y="258" width="180" height="80" rx="0" fill="#ffc9c9" stroke="#e03131" stroke-width="2" opacity="1.0" filter="url(#handdrawn)"/>
+  <text x="430" y="282.4" font-size="12" font-family="Helvetica, Arial, sans-serif" fill="#e03131" text-anchor="start">★ Reference result:</text>
+  <text x="430" y="296.8" font-size="12" font-family="Helvetica, Arial, sans-serif" fill="#e03131" text-anchor="start">  λ=0.05 → 18KB, 98.2%</text>
+  <text x="430" y="311.2" font-size="12" font-family="Helvetica, Arial, sans-serif" fill="#e03131" text-anchor="start">  20× compression</text>
+</svg>

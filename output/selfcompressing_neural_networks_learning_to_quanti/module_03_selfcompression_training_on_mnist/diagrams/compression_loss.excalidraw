@@ -1,0 +1,384 @@
+{
+  "type": "excalidraw",
+  "version": 2,
+  "source": "mcp-excalidraw-server",
+  "elements": [
+    {
+      "id": "mngvicdg6jv08d05jqw",
+      "type": "text",
+      "x": 300,
+      "y": 20,
+      "strokeColor": "#1e1e1e",
+      "text": "Self-Compression Training Loss",
+      "fontSize": 22,
+      "fontFamily": 2,
+      "createdAt": "2026-04-02T02:46:26.644Z",
+      "updatedAt": "2026-04-02T02:46:26.644Z",
+      "version": 1
+    },
+    {
+      "id": "mngvicdijzu280y8kkp",
+      "type": "text",
+      "x": 260,
+      "y": 55,
+      "strokeColor": "#1971c2",
+      "text": "L = L_task + λ · Q    (λ = 0.05)",
+      "fontSize": 16,
+      "fontFamily": 3,
+      "createdAt": "2026-04-02T02:46:26.644Z",
+      "updatedAt": "2026-04-02T02:46:26.644Z",
+      "version": 1
+    },
+    {
+      "id": "task_box",
+      "type": "rectangle",
+      "x": 80,
+      "y": 120,
+      "width": 200,
+      "height": 80,
+      "backgroundColor": "#a5d8ff",
+      "strokeColor": "#1971c2",
+      "strokeWidth": 2,
+      "roughness": 1,
+      "createdAt": "2026-04-02T02:46:26.645Z",
+      "updatedAt": "2026-04-02T02:46:26.645Z",
+      "version": 1
+    },
+    {
+      "id": "mngvicdi35j3hrluxpj",
+      "type": "text",
+      "x": 96,
+      "y": 140,
+      "strokeColor": "#1971c2",
+      "text": "L_task",
+      "fontSize": 18,
+      "fontFamily": 2,
+      "createdAt": "2026-04-02T02:46:26.645Z",
+      "updatedAt": "2026-04-02T02:46:26.645Z",
+      "version": 1
+    },
+    {
+      "id": "mngvicdi21p8g5ewm5d",
+      "type": "text",
+      "x": 90,
+      "y": 162,
+      "strokeColor": "#1971c2",
+      "text": "CrossEntropy(logits, y)",
+      "fontSize": 12,
+      "fontFamily": 3,
+      "createdAt": "2026-04-02T02:46:26.645Z",
+      "updatedAt": "2026-04-02T02:46:26.645Z",
+      "version": 1
+    },
+    {
+      "id": "comp_box",
+      "type": "rectangle",
+      "x": 360,
+      "y": 120,
+      "width": 200,
+      "height": 80,
+      "backgroundColor": "#ffc9c9",
+      "strokeColor": "#e03131",
+      "strokeWidth": 2,
+      "roughness": 1,
+      "createdAt": "2026-04-02T02:46:26.645Z",
+      "updatedAt": "2026-04-02T02:46:26.645Z",
+      "version": 1
+    },
+    {
+      "id": "mngvicdit3srd4lpyr",
+      "type": "text",
+      "x": 400,
+      "y": 140,
+      "strokeColor": "#e03131",
+      "text": "λ · Q",
+      "fontSize": 18,
+      "fontFamily": 2,
+      "createdAt": "2026-04-02T02:46:26.645Z",
+      "updatedAt": "2026-04-02T02:46:26.645Z",
+      "version": 1
+    },
+    {
+      "id": "mngvicdimgzuen5hlm",
+      "type": "text",
+      "x": 370,
+      "y": 162,
+      "strokeColor": "#e03131",
+      "text": "0.05 × avg_bits_per_weight",
+      "fontSize": 12,
+      "fontFamily": 3,
+      "createdAt": "2026-04-02T02:46:26.645Z",
+      "updatedAt": "2026-04-02T02:46:26.645Z",
+      "version": 1
+    },
+    {
+      "id": "total_box",
+      "type": "rectangle",
+      "x": 220,
+      "y": 280,
+      "width": 200,
+      "height": 80,
+      "backgroundColor": "#d0bfff",
+      "strokeColor": "#9c36b5",
+      "strokeWidth": 2,
+      "roughness": 1,
+      "createdAt": "2026-04-02T02:46:26.646Z",
+      "updatedAt": "2026-04-02T02:46:26.646Z",
+      "version": 1
+    },
+    {
+      "id": "mngvicdixzt0eark4w",
+      "type": "text",
+      "x": 265,
+      "y": 300,
+      "strokeColor": "#9c36b5",
+      "text": "Total Loss L",
+      "fontSize": 18,
+      "fontFamily": 2,
+      "createdAt": "2026-04-02T02:46:26.646Z",
+      "updatedAt": "2026-04-02T02:46:26.646Z",
+      "version": 1
+    },
+    {
+      "id": "mngvicdik0huy0cdli9",
+      "type": "text",
+      "x": 238,
+      "y": 324,
+      "strokeColor": "#9c36b5",
+      "text": "minimized by Adam optimizer",
+      "fontSize": 12,
+      "fontFamily": 3,
+      "createdAt": "2026-04-02T02:46:26.646Z",
+      "updatedAt": "2026-04-02T02:46:26.646Z",
+      "version": 1
+    },
+    {
+      "id": "mngvicdj771vx9topz2",
+      "type": "arrow",
+      "x": 220.26803686294815,
+      "y": 206.02061355765503,
+      "width": 0,
+      "height": 80,
+      "strokeColor": "#1971c2",
+      "strokeWidth": 2,
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          59.46392627410373,
+          67.95877288468998
+        ]
+      ],
+      "start": {
+        "id": "task_box"
+      },
+      "end": {
+        "id": "total_box"
+      },
+      "createdAt": "2026-04-02T02:46:26.647Z",
+      "updatedAt": "2026-04-02T02:46:26.647Z",
+      "version": 1
+    },
+    {
+      "id": "mngvicdjz60smwkx9a",
+      "type": "arrow",
+      "x": 419.7319631370519,
+      "y": 206.02061355765503,
+      "width": 0,
+      "height": 80,
+      "strokeColor": "#e03131",
+      "strokeWidth": 2,
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          -59.463926274103756,
+          67.95877288468998
+        ]
+      ],
+      "start": {
+        "id": "comp_box"
+      },
+      "end": {
+        "id": "total_box"
+      },
+      "createdAt": "2026-04-02T02:46:26.647Z",
+      "updatedAt": "2026-04-02T02:46:26.647Z",
+      "version": 1
+    },
+    {
+      "id": "weight_update",
+      "type": "rectangle",
+      "x": 80,
+      "y": 430,
+      "width": 180,
+      "height": 70,
+      "backgroundColor": "#b2f2bb",
+      "strokeColor": "#2f9e44",
+      "strokeWidth": 2,
+      "roughness": 1,
+      "createdAt": "2026-04-02T02:46:26.647Z",
+      "updatedAt": "2026-04-02T02:46:26.647Z",
+      "version": 1
+    },
+    {
+      "id": "mngvicdja9m3z4jjiy9",
+      "type": "text",
+      "x": 100,
+      "y": 448,
+      "strokeColor": "#2f9e44",
+      "text": "Weight gradient",
+      "fontSize": 14,
+      "fontFamily": 2,
+      "createdAt": "2026-04-02T02:46:26.647Z",
+      "updatedAt": "2026-04-02T02:46:26.647Z",
+      "version": 1
+    },
+    {
+      "id": "mngvicdjxxuqvc9r1d",
+      "type": "text",
+      "x": 90,
+      "y": 470,
+      "strokeColor": "#2f9e44",
+      "text": "↑ better accuracy",
+      "fontSize": 12,
+      "fontFamily": 3,
+      "createdAt": "2026-04-02T02:46:26.647Z",
+      "updatedAt": "2026-04-02T02:46:26.647Z",
+      "version": 1
+    },
+    {
+      "id": "b_update",
+      "type": "rectangle",
+      "x": 380,
+      "y": 430,
+      "width": 180,
+      "height": 70,
+      "backgroundColor": "#ffec99",
+      "strokeColor": "#f08c00",
+      "strokeWidth": 2,
+      "roughness": 1,
+      "createdAt": "2026-04-02T02:46:26.647Z",
+      "updatedAt": "2026-04-02T02:46:26.647Z",
+      "version": 1
+    },
+    {
+      "id": "mngvicdjzflt8pvuq4q",
+      "type": "text",
+      "x": 400,
+      "y": 448,
+      "strokeColor": "#f08c00",
+      "text": "b gradient",
+      "fontSize": 14,
+      "fontFamily": 2,
+      "createdAt": "2026-04-02T02:46:26.647Z",
+      "updatedAt": "2026-04-02T02:46:26.647Z",
+      "version": 1
+    },
+    {
+      "id": "mngvicdjknwypza6irl",
+      "type": "text",
+      "x": 385,
+      "y": 470,
+      "strokeColor": "#f08c00",
+      "text": "↓ lower bits (compression)",
+      "fontSize": 12,
+      "fontFamily": 3,
+      "createdAt": "2026-04-02T02:46:26.647Z",
+      "updatedAt": "2026-04-02T02:46:26.647Z",
+      "version": 1
+    },
+    {
+      "id": "mngvicdjkf6v1jm4bw",
+      "type": "arrow",
+      "x": 272.86878264677955,
+      "y": 365.5601767747798,
+      "width": -100,
+      "height": 70,
+      "strokeColor": "#2f9e44",
+      "strokeWidth": 2,
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          -60.90997908666253,
+          58.87964645044042
+        ]
+      ],
+      "start": {
+        "id": "total_box"
+      },
+      "end": {
+        "id": "weight_update"
+      },
+      "createdAt": "2026-04-02T02:46:26.647Z",
+      "updatedAt": "2026-04-02T02:46:26.647Z",
+      "version": 1
+    },
+    {
+      "id": "mngvicdj9npsbm1dwo5",
+      "type": "arrow",
+      "x": 367.13121735322045,
+      "y": 365.5601767747798,
+      "width": 100,
+      "height": 70,
+      "strokeColor": "#f08c00",
+      "strokeWidth": 2,
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          60.90997908666253,
+          58.87964645044042
+        ]
+      ],
+      "start": {
+        "id": "total_box"
+      },
+      "end": {
+        "id": "b_update"
+      },
+      "createdAt": "2026-04-02T02:46:26.647Z",
+      "updatedAt": "2026-04-02T02:46:26.647Z",
+      "version": 1
+    },
+    {
+      "id": "mngvicdjnwm8opyc9nd",
+      "type": "text",
+      "x": 240,
+      "y": 530,
+      "strokeColor": "#1e1e1e",
+      "text": "Equilibrium: channel earns its bits when",
+      "fontSize": 13,
+      "fontFamily": 2,
+      "createdAt": "2026-04-02T02:46:26.647Z",
+      "updatedAt": "2026-04-02T02:46:26.647Z",
+      "version": 1
+    },
+    {
+      "id": "mngvicdjbuqh467ud7b",
+      "type": "text",
+      "x": 215,
+      "y": 550,
+      "strokeColor": "#9c36b5",
+      "text": "∂L_task/∂b = -λ · fan_in / N_weights",
+      "fontSize": 13,
+      "fontFamily": 3,
+      "createdAt": "2026-04-02T02:46:26.647Z",
+      "updatedAt": "2026-04-02T02:46:26.647Z",
+      "version": 1
+    }
+  ],
+  "appState": {
+    "viewBackgroundColor": "#ffffff",
+    "gridSize": null
+  }
+}

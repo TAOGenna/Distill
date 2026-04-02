@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -25 988 585" width="800" height="474" style="background: white;">
+  <defs>
+    <filter id="handdrawn" x="-5%" y="-5%" width="110%" height="110%">
+      <feTurbulence type="turbulence" baseFrequency="0.02" numOctaves="3"
+                    result="noise" seed="2"/>
+      <feDisplacementMap in="SourceGraphic" in2="noise" scale="1.2"
+                         xChannelSelector="R" yChannelSelector="G"/>
+    </filter>
+    <marker id="ah-2f9e44" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#2f9e44"/>
+    </marker>
+    <marker id="ah-e03131" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#e03131"/>
+    </marker>
+  </defs>
+  <text x="200" y="37.8" font-size="19" font-family="Helvetica, Arial, sans-serif" fill="#1e1e1e" text-anchor="start">QAT (Self-Compression) vs. Post-Training Quantization (PTQ)</text>
+  <text x="230" y="58.6" font-size="13" font-family="Helvetica, Arial, sans-serif" fill="#555555" text-anchor="start">Why the model that learns its own compression beats the model that gets compressed afterward</text>
+  <rect x="40" y="80" width="330" height="360" rx="0" fill="#ffc9c9" stroke="#e03131" stroke-width="2" opacity="1.0" filter="url(#handdrawn)"/>
+  <text x="120" y="107.2" font-size="16" font-family="Helvetica, Arial, sans-serif" fill="#e03131" text-anchor="start">Post-Training Quantization (PTQ)</text>
+  <rect x="60" y="115" width="290" height="48" rx="0" fill="#ffffff" stroke="#aaaaaa" stroke-width="2" opacity="1.0" filter="url(#handdrawn)"/>
+  <text x="70" y="137.6" font-size="13" font-family="Helvetica, Arial, sans-serif" fill="#333333" text-anchor="start">Step 1: Train full-precision model</text>
+  <text x="70" y="153.2" font-size="13" font-family="Helvetica, Arial, sans-serif" fill="#333333" text-anchor="start">(weights optimized for float32)</text>
+  <path d="M 200.0 163.0 L 200.0 193.0" fill="none" stroke="#e03131" stroke-width="2" marker-end="url(#ah-e03131)" filter="url(#handdrawn)"/>
+  <rect x="60" y="193" width="290" height="48" rx="0" fill="#ffffff" stroke="#aaaaaa" stroke-width="2" opacity="1.0" filter="url(#handdrawn)"/>
+  <text x="70" y="215.6" font-size="13" font-family="Helvetica, Arial, sans-serif" fill="#333333" text-anchor="start">Step 2: Quantize weights post-hoc</text>
+  <text x="70" y="231.2" font-size="13" font-family="Helvetica, Arial, sans-serif" fill="#333333" text-anchor="start">(uniform bit-width, per-layer scale)</text>
+  <path d="M 200.0 241.0 L 200.0 271.0" fill="none" stroke="#e03131" stroke-width="2" marker-end="url(#ah-e03131)" filter="url(#handdrawn)"/>
+  <rect x="60" y="271" width="290" height="48" rx="0" fill="#ffffff" stroke="#aaaaaa" stroke-width="2" opacity="1.0" filter="url(#handdrawn)"/>
+  <text x="70" y="293.6" font-size="13" font-family="Helvetica, Arial, sans-serif" fill="#333333" text-anchor="start">Step 3: Evaluate quantized model</text>
+  <text x="70" y="309.2" font-size="13" font-family="Helvetica, Arial, sans-serif" fill="#333333" text-anchor="start">(weights displaced from optimum)</text>
+  <rect x="60" y="335" width="290" height="80" rx="0" fill="#ffec99" stroke="#f08c00" stroke-width="2" opacity="1.0" filter="url(#handdrawn)"/>
+  <text x="70" y="356.4" font-size="12" font-family="Helvetica, Arial, sans-serif" fill="#c05e00" text-anchor="start">Problem: weights optimized for</text>
+  <text x="70" y="370.8" font-size="12" font-family="Helvetica, Arial, sans-serif" fill="#c05e00" text-anchor="start">continuous float arithmetic.</text>
+  <text x="70" y="385.2" font-size="12" font-family="Helvetica, Arial, sans-serif" fill="#c05e00" text-anchor="start">At 2-bit: 4 levels per weight.</text>
+  <text x="70" y="399.6" font-size="12" font-family="Helvetica, Arial, sans-serif" fill="#c05e00" text-anchor="start">Accuracy: 85-92% (10-13pp gap!)</text>
+  <rect x="430" y="80" width="380" height="360" rx="0" fill="#b2f2bb" stroke="#2f9e44" stroke-width="2" opacity="1.0" filter="url(#handdrawn)"/>
+  <text x="490" y="107.2" font-size="16" font-family="Helvetica, Arial, sans-serif" fill="#2f9e44" text-anchor="start">Self-Compression QAT</text>
+  <rect x="450" y="115" width="340" height="48" rx="0" fill="#ffffff" stroke="#aaaaaa" stroke-width="2" opacity="1.0" filter="url(#handdrawn)"/>
+  <text x="460" y="134.6" font-size="13" font-family="Helvetica, Arial, sans-serif" fill="#333333" text-anchor="start">Step 1: Random init + learnable b, e per channel</text>
+  <text x="460" y="150.2" font-size="13" font-family="Helvetica, Arial, sans-serif" fill="#333333" text-anchor="start">(e₀=-8.0, b₀=2.0 for all channels)</text>
+  <path d="M 620.0 163.0 L 620.0 193.0" fill="none" stroke="#2f9e44" stroke-width="2" marker-end="url(#ah-2f9e44)" filter="url(#handdrawn)"/>
+  <rect x="450" y="193" width="340" height="55" rx="0" fill="#ffffff" stroke="#aaaaaa" stroke-width="2" opacity="1.0" filter="url(#handdrawn)"/>
+  <text x="460" y="212.6" font-size="13" font-family="Helvetica, Arial, sans-serif" fill="#333333" text-anchor="start">Step 2: Train with joint loss:</text>
+  <text x="460" y="228.2" font-size="13" font-family="Helvetica, Arial, sans-serif" fill="#333333" text-anchor="start">L = L_task + λ·Q</text>
+  <text x="460" y="243.8" font-size="13" font-family="Helvetica, Arial, sans-serif" fill="#333333" text-anchor="start">(STE enables gradients through rounding)</text>
+  <path d="M 620.0 248.0 L 620.0 278.0" fill="none" stroke="#2f9e44" stroke-width="2" marker-end="url(#ah-2f9e44)" filter="url(#handdrawn)"/>
+  <rect x="450" y="278" width="340" height="48" rx="0" fill="#ffffff" stroke="#aaaaaa" stroke-width="2" opacity="1.0" filter="url(#handdrawn)"/>
+  <text x="460" y="297.6" font-size="13" font-family="Helvetica, Arial, sans-serif" fill="#333333" text-anchor="start">Step 3: Network ADAPTS to quantization:</text>
+  <text x="460" y="313.2" font-size="13" font-family="Helvetica, Arial, sans-serif" fill="#333333" text-anchor="start">weights cluster near grid points</text>
+  <rect x="450" y="335" width="340" height="80" rx="0" fill="#d0bfff" stroke="#9c36b5" stroke-width="2" opacity="1.0" filter="url(#handdrawn)"/>
+  <text x="460" y="356.4" font-size="12" font-family="Helvetica, Arial, sans-serif" fill="#6a3f8a" text-anchor="start">Result: 3 advantages over PTQ:</text>
+  <text x="460" y="370.8" font-size="12" font-family="Helvetica, Arial, sans-serif" fill="#6a3f8a" text-anchor="start">1) Weights adapted to quantization error</text>
+  <text x="460" y="385.2" font-size="12" font-family="Helvetica, Arial, sans-serif" fill="#6a3f8a" text-anchor="start">2) Network learns non-uniform allocation</text>
+  <text x="460" y="399.6" font-size="12" font-family="Helvetica, Arial, sans-serif" fill="#6a3f8a" text-anchor="start">3) Low-value channels emerge as pruned</text>
+  <text x="460" y="414.0" font-size="12" font-family="Helvetica, Arial, sans-serif" fill="#6a3f8a" text-anchor="start">Accuracy: ~98.2% at same model size!</text>
+  <rect x="180" y="460" width="500" height="60" rx="0" fill="#a5d8ff" stroke="#1971c2" stroke-width="2" opacity="1.0" filter="url(#handdrawn)"/>
+  <text x="200" y="485.6" font-size="13" font-family="Helvetica, Arial, sans-serif" fill="#1971c2" text-anchor="start">Gap at 2-bit avg: ~10-13 percentage points in accuracy.</text>
+  <text x="200" y="501.2" font-size="13" font-family="Helvetica, Arial, sans-serif" fill="#1971c2" text-anchor="start">QAT learns WHICH channels need bits. PTQ allocates uniformly.</text>
+</svg>

@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-10 -30 818 530" width="800" height="519" style="background: white;">
+  <defs>
+    <filter id="handdrawn" x="-5%" y="-5%" width="110%" height="110%">
+      <feTurbulence type="turbulence" baseFrequency="0.02" numOctaves="3"
+                    result="noise" seed="2"/>
+      <feDisplacementMap in="SourceGraphic" in2="noise" scale="1.2"
+                         xChannelSelector="R" yChannelSelector="G"/>
+    </filter>
+    <marker id="ah-1e1e1e" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#1e1e1e"/>
+    </marker>
+  </defs>
+  <text x="300" y="34.0" font-size="20" font-family="Helvetica, Arial, sans-serif" fill="#1e1e1e" text-anchor="start">SelfCompressingCNN Architecture (MNIST)</text>
+  <rect x="30" y="60" width="100" height="60" rx="0" fill="#99e9f2" stroke="#0c8599" stroke-width="2" opacity="1.0" filter="url(#handdrawn)"/>
+  <text x="40" y="91.8" font-size="14" font-family="Helvetica, Arial, sans-serif" fill="#0c8599" text-anchor="start">Input</text>
+  <text x="36" y="111.4" font-size="12" font-family="Cascadia Code, Fira Code, monospace" fill="#0c8599" text-anchor="start">1x28x28</text>
+  <rect x="170" y="60" width="130" height="60" rx="0" fill="#a5d8ff" stroke="#1971c2" stroke-width="2" opacity="1.0" filter="url(#handdrawn)"/>
+  <text x="185" y="88.8" font-size="14" font-family="Helvetica, Arial, sans-serif" fill="#1971c2" text-anchor="start">QConv2d</text>
+  <text x="178" y="104.4" font-size="12" font-family="Cascadia Code, Fira Code, monospace" fill="#1971c2" text-anchor="start">1→32, k=5</text>
+  <text x="176" y="121.2" font-size="11" font-family="Cascadia Code, Fira Code, monospace" fill="#1971c2" text-anchor="start">800 weights</text>
+  <rect x="340" y="60" width="130" height="60" rx="0" fill="#a5d8ff" stroke="#1971c2" stroke-width="2" opacity="1.0" filter="url(#handdrawn)"/>
+  <text x="355" y="88.8" font-size="14" font-family="Helvetica, Arial, sans-serif" fill="#1971c2" text-anchor="start">QConv2d</text>
+  <text x="348" y="104.4" font-size="12" font-family="Cascadia Code, Fira Code, monospace" fill="#1971c2" text-anchor="start">32→32, k=5</text>
+  <text x="346" y="121.2" font-size="11" font-family="Cascadia Code, Fira Code, monospace" fill="#1971c2" text-anchor="start">25,600 weights</text>
+  <rect x="510" y="60" width="110" height="60" rx="0" fill="#b2f2bb" stroke="#2f9e44" stroke-width="2" opacity="1.0" filter="url(#handdrawn)"/>
+  <text x="525" y="89.6" font-size="13" font-family="Helvetica, Arial, sans-serif" fill="#2f9e44" text-anchor="start">BN + ReLU</text>
+  <text x="520" y="110.4" font-size="12" font-family="Cascadia Code, Fira Code, monospace" fill="#2f9e44" text-anchor="start">MaxPool(2)</text>
+  <rect x="30" y="190" width="130" height="60" rx="0" fill="#d0bfff" stroke="#9c36b5" stroke-width="2" opacity="1.0" filter="url(#handdrawn)"/>
+  <text x="45" y="218.8" font-size="14" font-family="Helvetica, Arial, sans-serif" fill="#9c36b5" text-anchor="start">QConv2d</text>
+  <text x="38" y="234.4" font-size="12" font-family="Cascadia Code, Fira Code, monospace" fill="#9c36b5" text-anchor="start">32→64, k=3</text>
+  <text x="36" y="251.2" font-size="11" font-family="Cascadia Code, Fira Code, monospace" fill="#9c36b5" text-anchor="start">18,432 weights</text>
+  <rect x="200" y="190" width="130" height="60" rx="0" fill="#d0bfff" stroke="#9c36b5" stroke-width="2" opacity="1.0" filter="url(#handdrawn)"/>
+  <text x="215" y="218.8" font-size="14" font-family="Helvetica, Arial, sans-serif" fill="#9c36b5" text-anchor="start">QConv2d</text>
+  <text x="208" y="234.4" font-size="12" font-family="Cascadia Code, Fira Code, monospace" fill="#9c36b5" text-anchor="start">64→64, k=3</text>
+  <text x="206" y="251.2" font-size="11" font-family="Cascadia Code, Fira Code, monospace" fill="#9c36b5" text-anchor="start">36,864 weights</text>
+  <rect x="370" y="190" width="110" height="60" rx="0" fill="#b2f2bb" stroke="#2f9e44" stroke-width="2" opacity="1.0" filter="url(#handdrawn)"/>
+  <text x="385" y="219.6" font-size="13" font-family="Helvetica, Arial, sans-serif" fill="#2f9e44" text-anchor="start">BN + ReLU</text>
+  <text x="380" y="240.4" font-size="12" font-family="Cascadia Code, Fira Code, monospace" fill="#2f9e44" text-anchor="start">MaxPool(2)</text>
+  <rect x="520" y="190" width="110" height="60" rx="0" fill="#ffec99" stroke="#f08c00" stroke-width="2" opacity="1.0" filter="url(#handdrawn)"/>
+  <text x="540" y="220.8" font-size="14" font-family="Helvetica, Arial, sans-serif" fill="#f08c00" text-anchor="start">Reshape</text>
+  <text x="525" y="236.4" font-size="12" font-family="Cascadia Code, Fira Code, monospace" fill="#f08c00" text-anchor="start">B,64,3,3→</text>
+  <text x="525" y="252.4" font-size="12" font-family="Cascadia Code, Fira Code, monospace" fill="#f08c00" text-anchor="start">B,576,1,1</text>
+  <rect x="30" y="320" width="130" height="60" rx="0" fill="#ffc9c9" stroke="#e03131" stroke-width="2" opacity="1.0" filter="url(#handdrawn)"/>
+  <text x="45" y="348.8" font-size="14" font-family="Helvetica, Arial, sans-serif" fill="#e03131" text-anchor="start">QConv2d</text>
+  <text x="38" y="364.4" font-size="12" font-family="Cascadia Code, Fira Code, monospace" fill="#e03131" text-anchor="start">576→10, k=1</text>
+  <text x="36" y="381.2" font-size="11" font-family="Cascadia Code, Fira Code, monospace" fill="#e03131" text-anchor="start">5,760 weights</text>
+  <rect x="210" y="320" width="100" height="60" rx="0" fill="#99e9f2" stroke="#0c8599" stroke-width="2" opacity="1.0" filter="url(#handdrawn)"/>
+  <text x="230" y="354.8" font-size="14" font-family="Helvetica, Arial, sans-serif" fill="#0c8599" text-anchor="start">Logits</text>
+  <text x="225" y="372.4" font-size="12" font-family="Cascadia Code, Fira Code, monospace" fill="#0c8599" text-anchor="start">B x 10</text>
+  <path d="M 138.0 90.0 L 162.0 90.0" fill="none" stroke="#1e1e1e" stroke-width="2" marker-end="url(#ah-1e1e1e)" filter="url(#handdrawn)"/>
+  <path d="M 308.0 90.0 L 332.0 90.0" fill="none" stroke="#1e1e1e" stroke-width="2" marker-end="url(#ah-1e1e1e)" filter="url(#handdrawn)"/>
+  <path d="M 478.0 90.0 L 502.0 90.0" fill="none" stroke="#1e1e1e" stroke-width="2" marker-end="url(#ah-1e1e1e)" filter="url(#handdrawn)"/>
+  <path d="M 502.3 107.3 L 167.7 199.9" fill="none" stroke="#1e1e1e" stroke-width="2" marker-end="url(#ah-1e1e1e)" filter="url(#handdrawn)"/>
+  <path d="M 168.0 220.0 L 192.0 220.0" fill="none" stroke="#1e1e1e" stroke-width="2" marker-end="url(#ah-1e1e1e)" filter="url(#handdrawn)"/>
+  <path d="M 338.0 220.0 L 362.0 220.0" fill="none" stroke="#1e1e1e" stroke-width="2" marker-end="url(#ah-1e1e1e)" filter="url(#handdrawn)"/>
+  <path d="M 488.0 220.0 L 512.0 220.0" fill="none" stroke="#1e1e1e" stroke-width="2" marker-end="url(#ah-1e1e1e)" filter="url(#handdrawn)"/>
+  <path d="M 512.3 237.0 L 167.7 330.3" fill="none" stroke="#1e1e1e" stroke-width="2" marker-end="url(#ah-1e1e1e)" filter="url(#handdrawn)"/>
+  <path d="M 168.0 350.0 L 202.0 350.0" fill="none" stroke="#1e1e1e" stroke-width="2" marker-end="url(#ah-1e1e1e)" filter="url(#handdrawn)"/>
+  <text x="30" y="436.8" font-size="14" font-family="Helvetica, Arial, sans-serif" fill="#1e1e1e" text-anchor="start">Total: 87,456 weight parameters</text>
+  <text x="30" y="457.6" font-size="13" font-family="Helvetica, Arial, sans-serif" fill="#e03131" text-anchor="start">At 32-bit floats: ~342 KB   |   After self-compression: ~18 KB</text>
+</svg>

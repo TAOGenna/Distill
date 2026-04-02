@@ -1,0 +1,13 @@
+{
+  "url": "https://github.com/geohot/ai-notebooks/blob/master/mnist_self_compression.ipynb",
+  "type": "github_file",
+  "repo": "geohot/ai-notebooks",
+  "branch": "master",
+  "path": "mnist_self_compression.ipynb",
+  "fetched_at": "2026-04-02T00:27:45.798697+00:00",
+  "artifacts": [
+    "mnist_self_compression.ipynb"
+  ],
+  "errors": [],
+  "filename": "mnist_self_compression.ipynb"
+}

@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-10 -28 964 585" width="800" height="485" style="background: white;">
+  <defs>
+    <filter id="handdrawn" x="-5%" y="-5%" width="110%" height="110%">
+      <feTurbulence type="turbulence" baseFrequency="0.02" numOctaves="3"
+                    result="noise" seed="2"/>
+      <feDisplacementMap in="SourceGraphic" in2="noise" scale="1.2"
+                         xChannelSelector="R" yChannelSelector="G"/>
+    </filter>
+  </defs>
+  <text x="180" y="36.0" font-size="20" font-family="Helvetica, Arial, sans-serif" fill="#1e1e1e" text-anchor="start">Emergent Channel Pruning: Learned b-values Across Layers</text>
+  <text x="220" y="55.6" font-size="13" font-family="Helvetica, Arial, sans-serif" fill="#555555" text-anchor="start">After 20K training steps, some channels have b ≈ -0.009 → relu(b)=0 → structurally pruned</text>
+  <rect x="30" y="70" width="200" height="30" rx="0" fill="#a5d8ff" stroke="#1971c2" stroke-width="2" opacity="1.0" filter="url(#handdrawn)"/>
+  <text x="80" y="93.6" font-size="13" font-family="Helvetica, Arial, sans-serif" fill="#1971c2" text-anchor="start">conv1 (32 channels)</text>
+  <rect x="30" y="108" width="158" height="28" rx="0" fill="#b2f2bb" stroke="#2f9e44" stroke-width="2" opacity="1.0" filter="url(#handdrawn)"/>
+  <rect x="188" y="108" width="42" height="28" rx="0" fill="#e03131" stroke="#e03131" stroke-width="2" opacity="1.0" filter="url(#handdrawn)"/>
+  <text x="35" y="128.2" font-size="11" font-family="Helvetica, Arial, sans-serif" fill="#1a6b1a" text-anchor="start">30 active channels (b≈2.3-3.5 bits)</text>
+  <text x="192" y="128.2" font-size="11" font-family="Helvetica, Arial, sans-serif" fill="#ffffff" text-anchor="start">2 pr.</text>
+  <rect x="30" y="155" width="200" height="30" rx="0" fill="#a5d8ff" stroke="#1971c2" stroke-width="2" opacity="1.0" filter="url(#handdrawn)"/>
+  <text x="80" y="178.6" font-size="13" font-family="Helvetica, Arial, sans-serif" fill="#1971c2" text-anchor="start">conv2 (32 channels)</text>
+  <rect x="30" y="193" width="131" height="28" rx="0" fill="#b2f2bb" stroke="#2f9e44" stroke-width="2" opacity="1.0" filter="url(#handdrawn)"/>
+  <rect x="161" y="193" width="69" height="28" rx="0" fill="#e03131" stroke="#e03131" stroke-width="2" opacity="1.0" filter="url(#handdrawn)"/>
+  <text x="35" y="213.2" font-size="11" font-family="Helvetica, Arial, sans-serif" fill="#1a6b1a" text-anchor="start">25 active channels</text>
+  <text x="163" y="213.2" font-size="11" font-family="Helvetica, Arial, sans-serif" fill="#ffffff" text-anchor="start">7 pruned (b&lt;0)</text>
+  <rect x="30" y="240" width="200" height="30" rx="0" fill="#a5d8ff" stroke="#1971c2" stroke-width="2" opacity="1.0" filter="url(#handdrawn)"/>
+  <text x="80" y="263.6" font-size="13" font-family="Helvetica, Arial, sans-serif" fill="#1971c2" text-anchor="start">conv3 (64 channels)</text>
+  <rect x="30" y="278" width="160" height="28" rx="0" fill="#b2f2bb" stroke="#2f9e44" stroke-width="2" opacity="1.0" filter="url(#handdrawn)"/>
+  <rect x="190" y="278" width="40" height="28" rx="0" fill="#e03131" stroke="#e03131" stroke-width="2" opacity="1.0" filter="url(#handdrawn)"/>
+  <text x="35" y="298.2" font-size="11" font-family="Helvetica, Arial, sans-serif" fill="#1a6b1a" text-anchor="start">51 active channels (~2.3-3.5 bits)</text>
+  <text x="192" y="298.2" font-size="11" font-family="Helvetica, Arial, sans-serif" fill="#ffffff" text-anchor="start">13</text>
+  <rect x="30" y="325" width="200" height="30" rx="0" fill="#a5d8ff" stroke="#1971c2" stroke-width="2" opacity="1.0" filter="url(#handdrawn)"/>
+  <text x="80" y="348.6" font-size="13" font-family="Helvetica, Arial, sans-serif" fill="#1971c2" text-anchor="start">conv4 (64 channels)</text>
+  <rect x="30" y="363" width="168" height="28" rx="0" fill="#b2f2bb" stroke="#2f9e44" stroke-width="2" opacity="1.0" filter="url(#handdrawn)"/>
+  <rect x="198" y="363" width="32" height="28" rx="0" fill="#e03131" stroke="#e03131" stroke-width="2" opacity="1.0" filter="url(#handdrawn)"/>
+  <text x="35" y="383.2" font-size="11" font-family="Helvetica, Arial, sans-serif" fill="#1a6b1a" text-anchor="start">54 active channels</text>
+  <text x="200" y="383.2" font-size="11" font-family="Helvetica, Arial, sans-serif" fill="#ffffff" text-anchor="start">10</text>
+  <rect x="30" y="410" width="200" height="30" rx="0" fill="#a5d8ff" stroke="#1971c2" stroke-width="2" opacity="1.0" filter="url(#handdrawn)"/>
+  <text x="65" y="433.6" font-size="13" font-family="Helvetica, Arial, sans-serif" fill="#1971c2" text-anchor="start">conv5/head (10 channels)</text>
+  <rect x="30" y="448" width="198" height="28" rx="0" fill="#b2f2bb" stroke="#2f9e44" stroke-width="2" opacity="1.0" filter="url(#handdrawn)"/>
+  <rect x="228" y="448" width="2" height="28" rx="0" fill="#e03131" stroke="#e03131" stroke-width="2" opacity="1.0" filter="url(#handdrawn)"/>
+  <text x="35" y="468.2" font-size="11" font-family="Helvetica, Arial, sans-serif" fill="#1a6b1a" text-anchor="start">10 active (3.7-4.1 bits — high precision!)</text>
+  <rect x="280" y="70" width="280" height="430" rx="0" fill="#f8f9fa" stroke="#aaaaaa" stroke-width="2" opacity="1.0" filter="url(#handdrawn)"/>
+  <text x="310" y="94.8" font-size="14" font-family="Helvetica, Arial, sans-serif" fill="#333333" text-anchor="start">Actual b values from reference run:</text>
+  <text x="290" y="114.4" font-size="12" font-family="Cascadia Code, Fira Code, monospace" fill="#555555" text-anchor="start">conv2.b[:10]:</text>
+  <text x="290" y="131.2" font-size="11" font-family="Cascadia Code, Fira Code, monospace" fill="#2f9e44" text-anchor="start"> 2.398  2.323  2.325  -0.009  -0.007</text>
+  <text x="290" y="147.2" font-size="11" font-family="Cascadia Code, Fira Code, monospace" fill="#2f9e44" text-anchor="start"> 2.327  2.312  -0.007  -0.009  2.810</text>
+  <text x="290" y="169.4" font-size="12" font-family="Cascadia Code, Fira Code, monospace" fill="#e03131" text-anchor="start">                   ↑ b &lt; 0 → pruned!</text>
+  <text x="290" y="189.4" font-size="12" font-family="Cascadia Code, Fira Code, monospace" fill="#555555" text-anchor="start">conv3.b[:10]:</text>
+  <text x="290" y="206.2" font-size="11" font-family="Cascadia Code, Fira Code, monospace" fill="#2f9e44" text-anchor="start"> 2.329  3.532  2.810  -0.006  -0.008</text>
+  <text x="290" y="222.2" font-size="11" font-family="Cascadia Code, Fira Code, monospace" fill="#2f9e44" text-anchor="start"> -0.006  1.582  2.323  -0.003  3.233</text>
+  <text x="290" y="244.4" font-size="12" font-family="Cascadia Code, Fira Code, monospace" fill="#555555" text-anchor="start">conv5.b[:5]:</text>
+  <text x="290" y="261.2" font-size="11" font-family="Cascadia Code, Fira Code, monospace" fill="#9c36b5" text-anchor="start"> 3.717  0.748  4.084  4.088  4.086</text>
+  <text x="290" y="279.4" font-size="12" font-family="Cascadia Code, Fira Code, monospace" fill="#9c36b5" text-anchor="start">  ↑ all active, highest bits of any layer!</text>
+  <rect x="290" y="305" width="260" height="80" rx="0" fill="#ffec99" stroke="#f08c00" stroke-width="2" opacity="1.0" filter="url(#handdrawn)"/>
+  <text x="300" y="327.4" font-size="12" font-family="Cascadia Code, Fira Code, monospace" fill="#c05e00" text-anchor="start">Why b &lt; 0 means pruned:</text>
+  <text x="300" y="341.8" font-size="12" font-family="Cascadia Code, Fira Code, monospace" fill="#c05e00" text-anchor="start">relu(b) = 0 → clamp range = [-0.5, -0.5]</text>
+  <text x="300" y="356.2" font-size="12" font-family="Cascadia Code, Fira Code, monospace" fill="#c05e00" text-anchor="start">round(-0.5) = 0 (banker's rounding)</text>
+  <text x="300" y="370.6" font-size="12" font-family="Cascadia Code, Fira Code, monospace" fill="#c05e00" text-anchor="start">dequantized weight = 2^e * 0 = 0</text>
+  <rect x="290" y="400" width="260" height="85" rx="0" fill="#d0bfff" stroke="#9c36b5" stroke-width="2" opacity="1.0" filter="url(#handdrawn)"/>
+  <text x="300" y="424.4" font-size="12" font-family="Helvetica, Arial, sans-serif" fill="#6a3f8a" text-anchor="start">Structured vs unstructured pruning:</text>
+  <text x="300" y="438.8" font-size="12" font-family="Helvetica, Arial, sans-serif" fill="#6a3f8a" text-anchor="start">Zero-bit channels → entire output removed.</text>
+  <text x="300" y="453.2" font-size="12" font-family="Helvetica, Arial, sans-serif" fill="#6a3f8a" text-anchor="start">Not sparse weights — sparse channels.</text>
+  <text x="300" y="467.6" font-size="12" font-family="Helvetica, Arial, sans-serif" fill="#6a3f8a" text-anchor="start">Can physically shrink the architecture!</text>
+  <rect x="30" y="495" width="120" height="20" rx="0" fill="#b2f2bb" stroke="#2f9e44" stroke-width="2" opacity="1.0" filter="url(#handdrawn)"/>
+  <text x="35" y="514.4" font-size="12" font-family="Helvetica, Arial, sans-serif" fill="#2f9e44" text-anchor="start">Active (relu(b) &gt; 0)</text>
+  <rect x="165" y="495" width="120" height="20" rx="0" fill="#e03131" stroke="#e03131" stroke-width="2" opacity="1.0" filter="url(#handdrawn)"/>
+  <text x="170" y="514.4" font-size="12" font-family="Helvetica, Arial, sans-serif" fill="#ffffff" text-anchor="start">Pruned (relu(b) = 0)</text>
+</svg>

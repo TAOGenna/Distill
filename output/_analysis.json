@@ -1,298 +1,205 @@
 {
-  "title": "TurboQuant: Online Vector Quantization with Near-optimal Distortion Rate",
-  "summary": "TurboQuant is a data-oblivious vector quantization algorithm that achieves near-optimal distortion rates (within ~2.7× of information-theoretic lower bounds) for both MSE and inner product metrics. The core technique randomly rotates input vectors to induce a concentrated Beta distribution on coordinates, then applies precomputed optimal scalar (Lloyd-Max) quantizers per coordinate. For unbiased inner product estimation, a two-stage approach applies an MSE quantizer followed by a 1-bit QJL transform on the residual. The paper proves matching information-theoretic lower bounds via Shannon's source coding theorem and Yao's minimax principle. Applications include KV cache compression (quality-neutral at 3.5 bits, 4× compression) and nearest neighbor search (outperforms product quantization with near-zero indexing time).",
-  "domain": "vector quantization / model compression / information theory",
+  "title": "Self-Compressing Neural Networks",
+  "summary": "This paper introduces Self-Compressing Neural Networks, where the network learns its own compression during training by making quantization bit-widths differentiable per-channel parameters. Each convolutional layer has learnable exponent (e) and bit-width (b) parameters alongside standard weights. A compression regularization term (λ·Q) is added to the task loss, creating a smooth tradeoff between model accuracy and model size. The straight-through estimator enables gradient flow through the non-differentiable rounding operation. During training, some channels have their bit-widths driven to near zero (effective pruning), while others maintain 2-4 bits. The reference implementation demonstrates this on MNIST, achieving ~98.2% test accuracy with ~18KB model size from an original 87,860 parameters.",
+  "domain": "Neural Network Compression / Quantization-Aware Training",
   "content_type": "ml_research",
   "overall_difficulty": "advanced",
   "key_concepts": [
     {
-      "name": "Vector Quantization Problem Formulation",
-      "description": "The formal setup: design a quantization map Q: R^d → {0,1}^B and inverse Q^{-1}: {0,1}^B → R^d that minimizes expected distortion (MSE or inner product error) for worst-case input vectors at a given bit-width b = B/d. The quantizer is randomized, so distortion is measured in expectation over the quantizer's randomness.",
+      "name": "Self-Compression via Learnable Bit-Widths",
+      "description": "The core idea: each output channel in a convolutional layer has a learnable bit-width parameter (b) that determines how many bits are used to represent the weights in that channel. During training, the network jointly optimizes task performance and its own compression by making b a differentiable parameter optimized via gradient descent. Channels that are not useful get their bit-widths driven toward zero, effectively pruning them.",
+      "importance": "core",
+      "difficulty": "advanced",
+      "source": "focus",
+      "priority": "essential",
+      "priority_rationale": "This IS the paper. Without understanding learnable bit-widths, the entire self-compression mechanism is opaque. Must have exercises where students implement the b parameter, its ReLU activation, and observe channels being pruned."
+    },
+    {
+      "name": "Straight-Through Estimator (STE)",
+      "description": "A technique for passing gradients through non-differentiable operations like rounding. In the forward pass, weights are quantized via rounding: qw.round(). In the backward pass, the gradient flows through as if rounding never happened. Implemented as: (qw.round() - qw).detach() + qw, which equals qw.round() in the forward pass but has gradient equal to the gradient of qw in the backward pass.",
+      "importance": "core",
+      "difficulty": "advanced",
+      "source": "focus",
+      "priority": "essential",
+      "priority_rationale": "The STE is the mathematical trick that makes the entire approach work. Without it, gradients cannot flow through the quantization operation, and the bit-width parameters cannot be learned. Students must implement this pattern and understand why .detach() is critical."
+    },
+    {
+      "name": "Quantized Weight Representation",
+      "description": "Weights are quantized using two per-channel parameters: exponent e (scale) and bit-width b. The quantized weight is computed as: clip(2^(-e) * w, -2^(b-1), 2^(b-1)-1), then the dequantized weight used in convolution is 2^e * round(quantized_weight). The exponent e controls the scale/resolution of the quantization grid, while b controls the range (number of distinct values).",
+      "importance": "core",
+      "difficulty": "advanced",
+      "source": "focus",
+      "priority": "essential",
+      "priority_rationale": "Understanding the quantization formula is necessary to implement self-compression. Students need to work through the math of how e and b interact to define a quantization grid, and how this maps continuous weights to discrete values."
+    },
+    {
+      "name": "Compression-Accuracy Tradeoff via Regularization",
+      "description": "The training loss combines task loss (cross-entropy) with a compression penalty: L = L_task + λ·Q, where Q is the average bits per weight across all layers. The hyperparameter λ (0.05 in the implementation) controls the tradeoff — higher λ produces smaller models with potentially lower accuracy. Q is computed as the sum of relu(b) * fan_in for each channel, divided by total weight count.",
       "importance": "core",
       "difficulty": "intermediate",
       "source": "focus",
       "priority": "essential",
-      "priority_rationale": "This is the problem definition itself. Without understanding what Q, Q^{-1}, bit-width b, and distortion metrics mean, nothing else in the paper makes sense. Students must formalize this before implementing anything."
+      "priority_rationale": "The regularization term is what drives self-compression. Without it, bit-widths would never decrease. Students must implement Q computation and experiment with different λ values to see the Pareto frontier of size vs. accuracy."
     },
     {
-      "name": "Random Rotation for Data-Oblivious Quantization",
-      "description": "Multiplying worst-case input vectors by a random orthogonal matrix Π transforms them into uniformly random points on the unit hypersphere S^{d-1}. This is the key technique that makes the quantizer data-oblivious (online): regardless of the input, the rotated vector has known statistical properties. The rotation preserves L2 norms and inner products, so distortion analysis transfers back to the original space.",
+      "name": "Per-Channel Quantization Parameters",
+      "description": "Unlike uniform quantization where all weights share the same precision, self-compression assigns independent (e, b) parameters to each output channel. This enables mixed-precision: important channels retain higher bit-widths while unimportant channels are quantized to near-zero bits. In the reference implementation, e is initialized to -8.0 and b to 2.0 per channel.",
       "importance": "core",
       "difficulty": "intermediate",
       "source": "focus",
       "priority": "essential",
-      "priority_rationale": "This is TurboQuant's foundational insight — the random rotation is what enables the entire pipeline. Without it, optimal scalar quantizers cannot be applied because coordinate distributions are unknown. Must have exercises."
+      "priority_rationale": "Per-channel granularity is what makes self-compression adaptive. Students need to understand why per-channel is better than per-layer or per-network quantization, and observe the learned bit-width distribution across channels."
     },
     {
-      "name": "Beta Distribution of Hypersphere Coordinates",
-      "description": "Each coordinate of a uniformly random point on S^{d-1} follows the distribution f_X(x) = Γ(d/2) / (√π · Γ((d-1)/2)) · (1-x²)^{(d-3)/2} on [-1,1]. In high dimensions, this converges to N(0, 1/d) by concentration of measure and CLT. Furthermore, distinct coordinates become nearly independent in high d, justifying independent scalar quantization.",
-      "importance": "core",
-      "difficulty": "advanced",
-      "source": "focus",
-      "priority": "essential",
-      "priority_rationale": "This distribution is what the Lloyd-Max quantizer is designed to optimize against. The convergence to Gaussian explains why precomputed codebooks work across all inputs. Students need to verify this computationally and understand why near-independence enables per-coordinate quantization."
-    },
-    {
-      "name": "Lloyd-Max Optimal Scalar Quantization",
-      "description": "Given the known Beta distribution f_X on coordinates, the optimal b-bit scalar quantizer solves a continuous 1D k-means problem: partition [-1,1] into 2^b buckets to minimize expected squared error ∫|x - c_i|² f_X(x) dx over Voronoi cells. The optimal codebook satisfies: boundaries are midpoints between consecutive centroids, and centroids are conditional means within each cell. Solved iteratively (Lloyd's algorithm) and precomputed for practical bit-widths.",
-      "importance": "core",
-      "difficulty": "advanced",
-      "source": "focus",
-      "priority": "essential",
-      "priority_rationale": "This is the core computational engine of TurboQuant_mse. The codebook construction is what students must implement — it directly determines the distortion. The continuous k-means formulation connects information theory to a concrete optimization problem."
-    },
-    {
-      "name": "MSE Distortion Bound",
-      "description": "TurboQuant_mse achieves D_mse ≤ (√3π/2) · 1/4^b for b-bit quantization of unit-norm vectors. For specific bit-widths b=1,2,3,4, the distortion values are approximately 0.36, 0.117, 0.03, 0.009. The proof decomposes D_mse = d · C(f_X, b) where C(f_X, b) is the optimal scalar k-means cost, using the Panter-Dite high-resolution formula for b > 4.",
-      "importance": "core",
-      "difficulty": "advanced",
-      "source": "focus",
-      "priority": "essential",
-      "priority_rationale": "This is TurboQuant's primary theoretical result. The 1/4^b scaling is the key rate — it means each additional bit reduces distortion by 4×. Students must derive this bound and verify it empirically to understand why the method works."
-    },
-    {
-      "name": "QJL (Quantized Johnson-Lindenstrauss) Transform",
-      "description": "A 1-bit inner product quantizer: Q_qjl(x) = sign(S·x) where S is a random Gaussian matrix. Dequantization: Q_qjl^{-1}(z) = √(π/2)/d · S^T · z. This provides unbiased inner product estimates with variance ≤ (π/2d)·‖y‖² per query vector y. It's the building block for the residual quantization stage.",
-      "importance": "core",
-      "difficulty": "advanced",
-      "source": "https://arxiv.org/abs/2406.03482",
-      "priority": "essential",
-      "priority_rationale": "QJL is the critical component that enables unbiased inner product estimation. Without understanding QJL, the two-stage TurboQuant_prod algorithm cannot be understood. Students need to implement QJL and verify its unbiasedness."
-    },
-    {
-      "name": "MSE-Optimal Quantizers are Biased for Inner Products",
-      "description": "At 1-bit width, TurboQuant_mse produces Q_mse(x) = sign(Π·x) with dequantization scaled by √(2/(πd)). The inner product estimator has multiplicative bias 2/π ≈ 0.637. This bias decreases with higher bit-widths but never fully vanishes, motivating the two-stage approach for inner product applications.",
-      "importance": "core",
-      "difficulty": "advanced",
-      "source": "focus",
-      "priority": "essential",
-      "priority_rationale": "This observation is the key motivation for TurboQuant_prod. Understanding why MSE-optimal ≠ inner-product-optimal is essential to the paper's contribution. Students must demonstrate this bias empirically before understanding why the two-stage fix works."
-    },
-    {
-      "name": "Two-Stage Inner Product Quantizer (TurboQuant_prod)",
-      "description": "Apply (b-1)-bit TurboQuant_mse to get the MSE reconstruction, compute the residual r = x - Q_mse^{-1}(Q_mse(x)), then apply QJL to this residual using the remaining 1 bit. The combined estimator is unbiased because QJL provides unbiased estimates of ⟨y, r⟩, and ⟨y, x⟩ = ⟨y, x̃_mse⟩ + ⟨y, r⟩. Inner product distortion D_prod ≤ (√3 π² ‖y‖²/d) · 1/4^b.",
-      "importance": "core",
-      "difficulty": "advanced",
-      "source": "focus",
-      "priority": "essential",
-      "priority_rationale": "This is TurboQuant's second main algorithm. The residual-based composition is the paper's key architectural insight — it shows how to combine an MSE-optimal quantizer with a 1-bit unbiased quantizer to get the best of both worlds."
-    },
-    {
-      "name": "Information-Theoretic Lower Bounds (Shannon + Yao)",
-      "description": "Any randomized b-bit quantizer Q must have D_mse ≥ 1/4^b for some worst-case input (MSE lower bound) and D_prod ≥ ‖y‖²/(d·4^b) for inner products. The proof uses Yao's minimax principle to reduce from randomized algorithms on worst-case inputs to deterministic algorithms on random inputs (uniform on S^{d-1}), then applies Shannon's Lower Bound on the distortion-rate function: D(B) ≥ (d/2πe)·2^{(2/d)(h(x)-B)}.",
-      "importance": "core",
-      "difficulty": "expert",
-      "source": "focus",
-      "priority": "essential",
-      "priority_rationale": "The lower bounds prove TurboQuant's near-optimality — the gap is only ~2.7× for MSE and ~2.7π for inner products. Without the lower bounds, TurboQuant's theoretical significance is unclear. Students must work through the Shannon Lower Bound to appreciate what 'near-optimal' means."
-    },
-    {
-      "name": "Near-Independence of Rotated Coordinates in High Dimensions",
-      "description": "For a uniformly random point on S^{d-1}, any two distinct coordinates x_i and x_j are not only uncorrelated but nearly independent as d grows. This deeper result (beyond pairwise decorrelation) justifies treating each coordinate's quantization independently without paying a significant penalty, enabling the per-coordinate scalar quantization approach.",
-      "importance": "supporting",
-      "difficulty": "expert",
-      "source": "focus",
-      "priority": "supporting",
-      "priority_rationale": "While this justifies the per-coordinate approach, students can understand and implement TurboQuant assuming independence without proving this result formally. It deepens understanding but isn't needed for the core implementation."
-    },
-    {
-      "name": "KV Cache Quantization in Transformer Models",
-      "description": "Decoder-based transformers store key/value embeddings from all previous tokens in a KV cache that scales with context length × model size. Quantizing KV embeddings (keys and values) reduces memory footprint and speeds up inference by reducing data movement between HBM and SRAM. TurboQuant achieves quality-neutral performance at 3.5 bits per channel (>4× compression) and marginal degradation at 2.5 bits.",
+      "name": "Emergent Channel Pruning",
+      "description": "When the learned bit-width b for a channel approaches zero (via ReLU ensuring non-negative bits), that channel is effectively pruned from the network. This is an emergent property — the network decides which channels to prune without explicit pruning algorithms. The reference implementation shows some channels with b ≈ -0.009 (effectively 0 after ReLU).",
       "importance": "supporting",
       "difficulty": "intermediate",
-      "source": "focus",
+      "source": "https://github.com/geohot/ai-notebooks/blob/master/mnist_self_compression.ipynb",
       "priority": "supporting",
-      "priority_rationale": "KV cache quantization is the paper's primary application domain and provides concrete motivation. Students need to understand why quantization matters for LLM serving, but the core algorithmic contributions are independent of this specific application."
+      "priority_rationale": "While not the central algorithm, emergent pruning is a key insight that connects self-compression to structured pruning literature. Students should analyze learned b values and identify pruned channels, but don't need separate exercises on pruning itself."
     },
     {
-      "name": "Panter-Dite High-Resolution Formula",
-      "description": "For a fixed-rate scalar quantizer with distribution f_X, the optimal MSE at bit-width b satisfies C(f_X, b) ≤ (1/12)·(∫f_X(x)^{1/3} dx)³ · 1/4^b for large b. Applied to the Beta distribution, this yields C(f_X, b) ≤ (√3 π)/(2d) · 1/4^b, giving the asymptotic MSE bound for TurboQuant.",
-      "importance": "supporting",
-      "difficulty": "expert",
-      "source": "focus",
-      "priority": "supporting",
-      "priority_rationale": "This formula bridges numerical (small b) and analytical (large b) distortion bounds. Students don't need to derive it but should understand how it provides the general asymptotic scaling."
+      "name": "QConv2d Layer Implementation",
+      "description": "A custom convolutional layer that wraps standard Conv2d with quantization. Stores weight, e (exponent), and b (bit-width) tensors. The forward pass: (1) compute quantized weights via clamping, (2) apply STE via round-detach trick, (3) apply convolution with dequantized weights. The qbits() method reports the effective number of bits used.",
+      "importance": "core",
+      "difficulty": "advanced",
+      "source": "https://github.com/geohot/ai-notebooks/blob/master/mnist_self_compression.ipynb",
+      "priority": "essential",
+      "priority_rationale": "This is the concrete implementation that students must build. The reference implementation provides the exact code pattern: weight initialization, qweight() computation, STE application, and bits counting. Students should reproduce this layer."
     },
     {
-      "name": "Yao's Minimax Principle",
-      "description": "A fundamental tool from computational complexity: the expected cost of the best randomized algorithm on worst-case inputs equals the expected cost of the best deterministic algorithm on the hardest input distribution. Used to convert the problem of bounding randomized quantizers on worst-case vectors into bounding deterministic quantizers on uniformly random sphere vectors.",
-      "importance": "supporting",
-      "difficulty": "expert",
-      "source": "focus",
-      "priority": "supporting",
-      "priority_rationale": "This is a proof technique for the lower bound, not part of the algorithm itself. Students should understand the conceptual reduction (randomized worst-case → deterministic average-case) but don't need to prove it."
-    },
-    {
-      "name": "Shannon Distortion-Rate Function and Shannon Lower Bound",
-      "description": "Shannon's lossy source coding theorem establishes that for a source with distribution p_X, the minimum achievable MSE at mutual information budget B bits is D(p_X, B) ≥ (d/2πe)·2^{(2/d)(h(x)-B)}. For uniform distribution on the hypersphere, this simplifies to D(B) ≥ 2^{-2B/d} = 1/4^b using Stirling's approximation for the sphere's surface area.",
-      "importance": "supporting",
-      "difficulty": "expert",
-      "source": "focus",
-      "priority": "supporting",
-      "priority_rationale": "This is the information-theoretic foundation for the lower bounds. Students should understand this at a conceptual level (fundamental compression limits exist) and see the key result D ≥ 1/4^b, but deriving it requires deep information theory background."
-    },
-    {
-      "name": "Product Quantization for Nearest Neighbor Search",
-      "description": "Traditional approach to NN search: partition the vector space into subspaces, build k-means codebooks per subspace, and use lookup tables for fast distance computation. Requires expensive preprocessing (codebook training via k-means). TurboQuant outperforms PQ in recall while reducing indexing time from hundreds/thousands of seconds to ~0.002s because no codebook training is needed.",
+      "name": "Convolutional Neural Network Architecture",
+      "description": "The demonstration model is a CNN for MNIST with 5 QConv2d layers (1→32→32→64→64→10 channels), BatchNorm, max pooling, and ReLU activations. The final layer reshapes flattened features through a 1x1 QConv2d for classification. Total of 87,860 weight parameters.",
       "importance": "supporting",
       "difficulty": "intermediate",
-      "source": "focus",
+      "source": "https://github.com/geohot/ai-notebooks/blob/master/mnist_self_compression.ipynb",
       "priority": "supporting",
-      "priority_rationale": "NN search is a secondary application that demonstrates TurboQuant's versatility. Understanding PQ as a baseline helps contextualize TurboQuant's advantage (data-oblivious vs data-dependent), but it's not central to the algorithm design."
+      "priority_rationale": "The architecture is the vehicle for demonstrating self-compression but is not novel. Students need to understand it to reproduce results, but the focus should be on the quantization mechanism, not CNN design."
     },
     {
-      "name": "Outlier Channel Handling for Non-Integer Bit-Widths",
-      "description": "In practice, KV cache channels have varying importance. TurboQuant splits channels into outlier and non-outlier sets, applying separate quantizer instances with different bit-widths. For example, 2.5-bit: 32 outlier channels at 3 bits + 96 regular channels at 2 bits = (32×3 + 96×2)/128 = 2.5 effective bits.",
+      "name": "Model Size Measurement",
+      "description": "Model size is measured in bytes by converting the average bits-per-weight (Q) to bytes: model_bytes = Q/8 * weight_count. The reference achieves ~18,075 bytes from 87,860 parameters, representing roughly 1.64 bits per weight on average — a ~20x compression from 32-bit floats.",
       "importance": "supporting",
-      "difficulty": "intermediate",
-      "source": "focus",
+      "difficulty": "beginner",
+      "source": "https://github.com/geohot/ai-notebooks/blob/master/mnist_self_compression.ipynb",
       "priority": "supporting",
-      "priority_rationale": "This is a practical engineering detail that enables the strong KV cache results. It belongs in exercises as a practical extension but isn't part of the theoretical core."
+      "priority_rationale": "Understanding how to measure compression is necessary for evaluating results, but the calculation itself is straightforward. Should appear in exercises as a metric computation step."
     },
     {
-      "name": "Entropy Encoding of Codebook Indices",
-      "description": "The probability of each codeword index can be computed analytically from the Beta distribution. Optimal prefix coding reduces the average bit-width to near the entropy of the index distribution. For b=4, the entropy is ~3.8 (5% reduction). The authors note this optimization was not incorporated to maintain simplicity and speed.",
+      "name": "Training Dynamics Visualization",
+      "description": "The reference implementation tracks test accuracy and model size (bytes) over 20,000 training steps. The dual-axis plot shows accuracy rising to ~98.2% while model size drops from ~22KB to ~18KB, illustrating the convergence behavior of joint optimization.",
+      "importance": "supporting",
+      "difficulty": "beginner",
+      "source": "https://github.com/geohot/ai-notebooks/blob/master/mnist_self_compression.ipynb",
+      "priority": "supporting",
+      "priority_rationale": "Visualization helps students verify their implementation is working correctly and understand training dynamics. Should be a milestone in exercises but not a separate teaching concept."
+    },
+    {
+      "name": "Uniform vs. Non-Uniform Quantization",
+      "description": "Self-compression produces non-uniform quantization across channels — the bit-width distribution is learned and varies. This contrasts with traditional approaches that apply uniform bit-widths across all layers or the entire network. The learned distribution reveals which parts of the network need more precision.",
       "importance": "supporting",
       "difficulty": "intermediate",
       "source": "focus",
       "priority": "contextual",
-      "priority_rationale": "This is a lossless compression optimization that was explicitly not used in the final system. It's interesting for understanding rate-distortion theory but not needed for the core algorithm."
+      "priority_rationale": "While this distinction provides theoretical context, students can understand the core algorithm without comparing to uniform quantization in depth. Appropriate for a 'What's Next' discussion of quantization landscape."
     },
     {
-      "name": "PolarQuant: Polar Coordinate Quantization",
-      "description": "An alternative KV cache quantization approach that transforms vectors into polar coordinates via a recursive algorithm after random preconditioning, then quantizes angles. The angles have concentrated, analytically computable distributions after preconditioning. Achieves >4.2× KV cache compression. PolarQuant and TurboQuant share the random rotation insight but differ in how coordinates are quantized.",
-      "importance": "supporting",
-      "difficulty": "advanced",
-      "source": "https://arxiv.org/abs/2502.02617",
-      "priority": "contextual",
-      "priority_rationale": "PolarQuant is a related method from some of the same authors. Understanding it provides context for the design space of rotation-based quantizers, but it's a different algorithm and belongs in 'What's Next' discussion."
-    },
-    {
-      "name": "Online vs Offline Quantization Paradigm",
-      "description": "Online (data-oblivious) quantizers apply instantly without calibration data or preprocessing — essential for dynamic settings like KV cache quantization during inference. Offline (data-dependent) methods like GPTQ, SqueezeLLM, and AWQ use Hessian or calibration data, requiring expensive preprocessing. TurboQuant is strictly online.",
+      "name": "Post-Training Quantization vs. Quantization-Aware Training",
+      "description": "Self-compression is a form of quantization-aware training (QAT), where quantization is integrated into the training loop. This contrasts with post-training quantization (PTQ), which quantizes a pre-trained model. QAT generally achieves better accuracy at the same compression level because the model adapts to quantization errors during training.",
       "importance": "supporting",
       "difficulty": "intermediate",
       "source": "focus",
-      "priority": "supporting",
-      "priority_rationale": "This distinction frames TurboQuant's practical advantage. Students need to understand why data-oblivious matters for real-time serving, but it's a design constraint rather than a core algorithm concept."
-    },
-    {
-      "name": "RaBitQ Relationship and Controversy",
-      "description": "RaBitQ uses similar techniques (random rotation / JL transform followed by scalar quantization) for nearest neighbor search. The TurboQuant paper's description of RaBitQ was criticized for being incomplete (omitting the random rotation step), making unsupported claims about RaBitQ's theoretical guarantees being 'suboptimal', and running RaBitQ on CPU while TurboQuant ran on GPU in comparisons. A reviewer and the RaBitQ authors raised these concerns publicly.",
-      "importance": "tangential",
-      "difficulty": "intermediate",
-      "source": "https://openreview.net/forum?id=tO3ASKZlok",
       "priority": "contextual",
-      "priority_rationale": "This controversy is about academic integrity and proper attribution, not about the algorithm itself. Students should be aware that related work exists (RaBitQ) with similar techniques, but the technical disputes don't affect learning the algorithm."
+      "priority_rationale": "This comparison provides broader context for where self-compression fits in the model compression landscape, but is not needed to understand or implement the core algorithm. Belongs in introductory or concluding material."
     }
   ],
   "prerequisites": [
     {
-      "name": "Linear Algebra (Orthogonal Matrices, Inner Products, Norms)",
-      "why_needed": "Random rotation matrices Π, QR decomposition, inner product preservation under orthogonal transforms, and L2 norms are used throughout. The core insight (Π·x is uniform on S^{d-1}) requires understanding orthogonal matrices.",
+      "name": "Deep Learning Fundamentals",
+      "why_needed": "Understanding neural network training (forward pass, backpropagation, loss functions, gradient descent) is essential since self-compression modifies the training loop with custom quantization and regularization.",
       "difficulty": "intermediate"
     },
     {
-      "name": "Probability and Statistics (Expected Value, Variance, Distributions)",
-      "why_needed": "All distortion measures are expectations. The Beta distribution, Gaussian distribution, variance bounds, and law of total expectation are essential for understanding both the algorithm design and the proofs.",
+      "name": "Convolutional Neural Networks",
+      "why_needed": "The paper and reference implementation use CNNs as the demonstration architecture. Students need to understand Conv2d operations, channels, kernel sizes, and feature maps to implement QConv2d.",
       "difficulty": "intermediate"
     },
     {
-      "name": "Information Theory Basics (Entropy, Mutual Information, Rate-Distortion)",
-      "why_needed": "Shannon's Lower Bound uses differential entropy h(x) and mutual information I(x;y). The distortion-rate function D(B) is the central object in the lower bound proof. Understanding that compression has fundamental limits is key.",
-      "difficulty": "advanced"
-    },
-    {
-      "name": "Optimization (k-means, Lloyd's Algorithm)",
-      "why_needed": "The optimal scalar quantizer is formulated as a continuous 1D k-means problem solved by Lloyd-Max iteration. Students must understand the alternating optimization (assign to nearest centroid, update centroid to conditional mean).",
+      "name": "PyTorch or Tinygrad Tensor Operations",
+      "why_needed": "The implementation requires tensor operations including broadcasting, clamping, rounding, and detach(). Students must be comfortable with autograd mechanics, especially how .detach() affects gradient computation.",
       "difficulty": "intermediate"
     },
     {
-      "name": "Python / NumPy for Numerical Computing",
-      "why_needed": "Implementing random rotations (QR decomposition), Beta distribution sampling, Lloyd-Max iteration, sign-bit quantization, and distortion measurement all require fluent NumPy usage.",
+      "name": "Binary Number Representation",
+      "why_needed": "Understanding how bit-widths map to representable value ranges (e.g., b bits can represent 2^b distinct values) is needed to understand the quantization formula and why b controls precision.",
+      "difficulty": "beginner"
+    },
+    {
+      "name": "Regularization in Machine Learning",
+      "why_needed": "The compression penalty λ·Q is a regularization term. Students should understand L1/L2 regularization as analogies for how adding a penalty to the loss drives parameters toward certain values.",
       "difficulty": "intermediate"
     },
     {
-      "name": "Transformer Architecture and Attention Mechanism",
-      "why_needed": "The KV cache application requires understanding how key/value embeddings are stored and used in self-attention (softmax(K·q/√d)·V). Without this, the practical motivation for vector quantization in LLMs is unclear.",
+      "name": "Basic Calculus (Chain Rule)",
+      "why_needed": "Understanding why rounding blocks gradient flow and why the straight-through estimator works requires knowing the chain rule and the concept of a gradient being zero for piecewise-constant functions.",
       "difficulty": "intermediate"
-    },
-    {
-      "name": "Special Functions (Gamma Function, Stirling's Approximation)",
-      "why_needed": "The Beta distribution on hypersphere coordinates involves Gamma functions. The lower bound proof uses Stirling's approximation to simplify the sphere's surface area. These appear in key formulas throughout.",
-      "difficulty": "advanced"
     }
   ],
   "code_patterns": [
     {
-      "description": "Random rotation matrix generation via QR decomposition of Gaussian matrix: Π, _ = np.linalg.qr(np.random.randn(d, d)). This is the first step of both Quant_mse and Quant_prod.",
+      "description": "Straight-Through Estimator pattern: (qw.round() - qw).detach() + qw. In the forward pass this equals qw.round(), but in the backward pass gradients flow through qw directly, bypassing the non-differentiable rounding operation.",
       "language": "python",
       "concepts_demonstrated": [
-        "Random Rotation for Data-Oblivious Quantization",
-        "Vector Quantization Problem Formulation"
+        "Straight-Through Estimator (STE)",
+        "Gradient flow through non-differentiable operations",
+        "Tensor detach semantics"
       ]
     },
     {
-      "description": "Lloyd-Max scalar quantizer: iteratively compute Voronoi boundaries as midpoints of consecutive centroids, then update centroids as conditional expectations ∫x·f_X(x)dx / ∫f_X(x)dx within each cell. Requires numerical integration against the Beta distribution.",
+      "description": "Per-channel quantization with learnable parameters: self.e and self.b are tensors shaped (out_channels, 1, 1, 1) that broadcast over weights. The quantized weight is: clip(2^(-e) * w, -2^(relu(b)-1), 2^(relu(b)-1) - 1).",
       "language": "python",
       "concepts_demonstrated": [
-        "Lloyd-Max Optimal Scalar Quantization",
-        "Beta Distribution of Hypersphere Coordinates"
+        "Quantized Weight Representation",
+        "Per-Channel Quantization Parameters",
+        "Broadcasting in tensor operations"
       ]
     },
     {
-      "description": "MSE quantization: y = Π @ x; idx = np.argmin(np.abs(y[:, None] - centroids[None, :]), axis=1). Dequantization: x_hat = Π.T @ centroids[idx]. Vectorized nearest-centroid lookup over all d coordinates.",
+      "description": "Compression regularization in training loop: Q = sum(layer.qbits()) / weight_count computes average bits per weight, then loss = task_loss + lambda * Q penalizes high bit-widths during training.",
       "language": "python",
       "concepts_demonstrated": [
-        "Vector Quantization Problem Formulation",
-        "Random Rotation for Data-Oblivious Quantization",
-        "Lloyd-Max Optimal Scalar Quantization"
+        "Compression-Accuracy Tradeoff via Regularization",
+        "Self-Compression via Learnable Bit-Widths",
+        "Custom loss function composition"
       ]
     },
     {
-      "description": "QJL quantization and inner product estimation: S = np.random.randn(d, d); qjl = np.sign(S @ x); estimate = np.sqrt(np.pi/2)/d * (S.T @ qjl). The sign-bit quantization followed by linear dequantization.",
+      "description": "Bits counting per layer: qbits() = relu(b).sum() * fan_in, where fan_in = product of weight dimensions except output channels. ReLU ensures non-negative bit-widths; channels with b ≤ 0 contribute zero bits.",
       "language": "python",
       "concepts_demonstrated": [
-        "QJL (Quantized Johnson-Lindenstrauss) Transform"
+        "Model Size Measurement",
+        "Emergent Channel Pruning",
+        "ReLU as non-negativity constraint on learned parameters"
       ]
     },
     {
-      "description": "Two-stage inner product quantizer: (1) idx = quant_mse(x, b-1); x_mse = dequant_mse(idx); (2) r = x - x_mse; gamma = np.linalg.norm(r); qjl = np.sign(S @ (r/gamma)); (3) estimate = y @ x_mse + gamma * np.sqrt(np.pi/2)/d * y @ S.T @ qjl.",
+      "description": "Custom quantized convolution layer (QConv2d) with __init__ setting up weight, e, b parameters; qweight() computing quantized weights; and __call__ applying STE + convolution. The pattern of wrapping a standard operation with learnable quantization is reusable.",
       "language": "python",
       "concepts_demonstrated": [
-        "Two-Stage Inner Product Quantizer (TurboQuant_prod)",
-        "MSE-Optimal Quantizers are Biased for Inner Products",
-        "QJL (Quantized Johnson-Lindenstrauss) Transform"
-      ]
-    },
-    {
-      "description": "Empirical distortion measurement: compute pairwise inner products between query vectors and quantized training vectors, compare with true inner products, measure bias (mean error) and variance across the dataset. Plot error distributions as histograms per bit-width.",
-      "language": "python",
-      "concepts_demonstrated": [
-        "MSE Distortion Bound",
-        "MSE-Optimal Quantizers are Biased for Inner Products",
-        "Information-Theoretic Lower Bounds (Shannon + Yao)"
-      ]
-    },
-    {
-      "description": "Beta distribution PDF evaluation: f_X(x) = gamma(d/2) / (sqrt(pi) * gamma((d-1)/2)) * (1 - x**2)**((d-3)/2). Numerical integration via scipy.integrate.quad for codebook optimization and probability mass computation.",
-      "language": "python",
-      "concepts_demonstrated": [
-        "Beta Distribution of Hypersphere Coordinates",
-        "Lloyd-Max Optimal Scalar Quantization"
+        "QConv2d Layer Implementation",
+        "Self-Compression via Learnable Bit-Widths",
+        "Custom neural network layer design"
       ]
     }
   ],
   "learning_goals": [
-    "Formalize the vector quantization problem: define quantization/dequantization maps, bit-width, MSE distortion, and inner product distortion as precise mathematical optimization objectives",
-    "Implement random rotation as a data-oblivious preprocessing step and verify empirically that rotated coordinates follow the predicted Beta distribution converging to N(0, 1/d)",
-    "Build an optimal scalar quantizer by solving the continuous 1D k-means problem (Lloyd-Max algorithm) for the Beta distribution, and precompute codebooks for bit-widths 1 through 4",
-    "Implement the full TurboQuant_mse pipeline (rotate → quantize per coordinate → dequantize → rotate back) and measure MSE distortion, verifying it matches the theoretical bound of ~2.7/4^b",
-    "Implement QJL (sign-bit quantization via random Gaussian projection) and verify its unbiasedness and variance bound for inner product estimation",
-    "Demonstrate empirically that MSE-optimal quantizers produce biased inner product estimates (2/π bias at b=1) and explain why minimizing reconstruction error does not preserve inner product structure",
-    "Implement the two-stage TurboQuant_prod algorithm (MSE quantizer on b-1 bits + QJL on residual) and verify it produces unbiased inner product estimates with distortion matching the theoretical bound",
-    "Understand and verify the information-theoretic lower bound D_mse ≥ 1/4^b by computing Shannon's distortion-rate function for the uniform distribution on S^{d-1}",
-    "Compare TurboQuant against naive uniform quantization and product quantization baselines on a real embedding dataset (e.g., 1536-dim OpenAI embeddings), measuring recall@k for nearest neighbor search",
-    "Apply TurboQuant to KV cache quantization in a simplified attention computation, measuring the effect of bit-width on attention score accuracy and output quality"
+    "Understand how self-compressing neural networks learn their own quantization by making bit-widths differentiable per-channel parameters",
+    "Implement the straight-through estimator (STE) to enable gradient flow through rounding operations and explain why it works mathematically",
+    "Build a QConv2d layer with learnable exponent (e) and bit-width (b) parameters that quantizes weights during the forward pass",
+    "Design a training loop that jointly optimizes task performance and model compression via a regularization term λ·Q",
+    "Analyze learned bit-width distributions across channels to identify emergent pruning behavior and explain which channels are retained vs. pruned",
+    "Measure model compression ratios and reproduce the ~20x compression on MNIST while maintaining >98% test accuracy",
+    "Experiment with the compression coefficient λ to map the Pareto frontier of model size vs. accuracy"
   ]
 }

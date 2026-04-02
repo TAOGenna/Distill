@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-20 -25 1040 473" width="800" height="364" style="background: white;">
+  <defs>
+    <filter id="handdrawn" x="-5%" y="-5%" width="110%" height="110%">
+      <feTurbulence type="turbulence" baseFrequency="0.02" numOctaves="3"
+                    result="noise" seed="2"/>
+      <feDisplacementMap in="SourceGraphic" in2="noise" scale="1.2"
+                         xChannelSelector="R" yChannelSelector="G"/>
+    </filter>
+  </defs>
+  <text x="200" y="39.0" font-size="20" font-family="Virgil, Segoe Print, Comic Sans MS, cursive" fill="#1e1e1e" text-anchor="start">Exponent e as Zoom Control: Same b=3 Bits, Different e</text>
+  <text x="20" y="75.6" font-size="13" font-family="Virgil, Segoe Print, Comic Sans MS, cursive" fill="#1971c2" text-anchor="start">Weight distribution</text>
+  <text x="20" y="91.2" font-size="13" font-family="Virgil, Segoe Print, Comic Sans MS, cursive" fill="#1971c2" text-anchor="start">(Kaiming init, std≈0.18)</text>
+  <rect x="180" y="55" width="700" height="30" rx="0" fill="#a5d8ff" stroke="#1971c2" stroke-width="2" opacity="1.0" filter="url(#handdrawn)"/>
+  <text x="185" y="76.4" font-size="12" font-family="Virgil, Segoe Print, Comic Sans MS, cursive" fill="#1971c2" text-anchor="start">-0.3</text>
+  <text x="523" y="76.4" font-size="12" font-family="Virgil, Segoe Print, Comic Sans MS, cursive" fill="#1971c2" text-anchor="start">0</text>
+  <text x="840" y="76.4" font-size="12" font-family="Virgil, Segoe Print, Comic Sans MS, cursive" fill="#1971c2" text-anchor="start">+0.3</text>
+  <text x="20" y="130.6" font-size="13" font-family="Virgil, Segoe Print, Comic Sans MS, cursive" fill="#e03131" text-anchor="start">e = -8</text>
+  <text x="20" y="146.2" font-size="13" font-family="Virgil, Segoe Print, Comic Sans MS, cursive" fill="#e03131" text-anchor="start">step=0.0039</text>
+  <text x="20" y="161.8" font-size="13" font-family="Virgil, Segoe Print, Comic Sans MS, cursive" fill="#e03131" text-anchor="start">span=0.031</text>
+  <text x="20" y="177.4" font-size="13" font-family="Virgil, Segoe Print, Comic Sans MS, cursive" fill="#e03131" text-anchor="start">(TOO FINE)</text>
+  <text x="20" y="193.0" font-size="13" font-family="Virgil, Segoe Print, Comic Sans MS, cursive" fill="#e03131" text-anchor="start">Most weights</text>
+  <text x="20" y="208.6" font-size="13" font-family="Virgil, Segoe Print, Comic Sans MS, cursive" fill="#e03131" text-anchor="start">clamped!</text>
+  <rect x="500" y="108" width="40" height="50" rx="0" fill="#ffc9c9" stroke="#e03131" stroke-width="2" opacity="1.0" filter="url(#handdrawn)"/>
+  <text x="430" y="177.4" font-size="12" font-family="Virgil, Segoe Print, Comic Sans MS, cursive" fill="#e03131" text-anchor="start">Only covers [-0.016, 0.012]</text>
+  <rect x="180" y="115" width="320" height="36" rx="0" fill="#ffc9c9" stroke="#e03131" stroke-width="2" opacity="0.4" filter="url(#handdrawn)"/>
+  <text x="290" y="140.4" font-size="12" font-family="Virgil, Segoe Print, Comic Sans MS, cursive" fill="#e03131" text-anchor="start">CLIPPED (saturated)</text>
+  <rect x="540" y="115" width="340" height="36" rx="0" fill="#ffc9c9" stroke="#e03131" stroke-width="2" opacity="0.4" filter="url(#handdrawn)"/>
+  <text x="650" y="140.4" font-size="12" font-family="Virgil, Segoe Print, Comic Sans MS, cursive" fill="#e03131" text-anchor="start">CLIPPED (saturated)</text>
+  <text x="20" y="210.6" font-size="13" font-family="Virgil, Segoe Print, Comic Sans MS, cursive" fill="#2f9e44" text-anchor="start">e = -3</text>
+  <text x="20" y="226.2" font-size="13" font-family="Virgil, Segoe Print, Comic Sans MS, cursive" fill="#2f9e44" text-anchor="start">step=0.125</text>
+  <text x="20" y="241.8" font-size="13" font-family="Virgil, Segoe Print, Comic Sans MS, cursive" fill="#2f9e44" text-anchor="start">span=1.0</text>
+  <text x="20" y="257.4" font-size="13" font-family="Virgil, Segoe Print, Comic Sans MS, cursive" fill="#2f9e44" text-anchor="start">(OPTIMAL)</text>
+  <text x="20" y="273.0" font-size="13" font-family="Virgil, Segoe Print, Comic Sans MS, cursive" fill="#2f9e44" text-anchor="start">Covers weight</text>
+  <text x="20" y="288.6" font-size="13" font-family="Virgil, Segoe Print, Comic Sans MS, cursive" fill="#2f9e44" text-anchor="start">distribution!</text>
+  <rect x="180" y="188" width="87" height="40" rx="0" fill="#b2f2bb" stroke="#2f9e44" stroke-width="2" opacity="1.0" filter="url(#handdrawn)"/>
+  <rect x="267" y="188" width="88" height="40" rx="0" fill="#b2f2bb" stroke="#2f9e44" stroke-width="2" opacity="1.0" filter="url(#handdrawn)"/>
+  <rect x="355" y="188" width="88" height="40" rx="0" fill="#b2f2bb" stroke="#2f9e44" stroke-width="2" opacity="1.0" filter="url(#handdrawn)"/>
+  <rect x="443" y="188" width="88" height="40" rx="0" fill="#b2f2bb" stroke="#2f9e44" stroke-width="2" opacity="1.0" filter="url(#handdrawn)"/>
+  <rect x="531" y="188" width="87" height="40" rx="0" fill="#ffec99" stroke="#2f9e44" stroke-width="2" opacity="1.0" filter="url(#handdrawn)"/>
+  <rect x="618" y="188" width="88" height="40" rx="0" fill="#b2f2bb" stroke="#2f9e44" stroke-width="2" opacity="1.0" filter="url(#handdrawn)"/>
+  <rect x="706" y="188" width="87" height="40" rx="0" fill="#b2f2bb" stroke="#2f9e44" stroke-width="2" opacity="1.0" filter="url(#handdrawn)"/>
+  <rect x="793" y="188" width="87" height="40" rx="0" fill="#b2f2bb" stroke="#2f9e44" stroke-width="2" opacity="1.0" filter="url(#handdrawn)"/>
+  <text x="350" y="249.4" font-size="12" font-family="Virgil, Segoe Print, Comic Sans MS, cursive" fill="#2f9e44" text-anchor="start">Good fit! 8 levels cover the weight spread uniformly</text>
+  <text x="20" y="295.6" font-size="13" font-family="Virgil, Segoe Print, Comic Sans MS, cursive" fill="#f08c00" text-anchor="start">e = 0</text>
+  <text x="20" y="311.2" font-size="13" font-family="Virgil, Segoe Print, Comic Sans MS, cursive" fill="#f08c00" text-anchor="start">step=1.0</text>
+  <text x="20" y="326.8" font-size="13" font-family="Virgil, Segoe Print, Comic Sans MS, cursive" fill="#f08c00" text-anchor="start">span=8</text>
+  <text x="20" y="342.4" font-size="13" font-family="Virgil, Segoe Print, Comic Sans MS, cursive" fill="#f08c00" text-anchor="start">(TOO COARSE)</text>
+  <text x="20" y="358.0" font-size="13" font-family="Virgil, Segoe Print, Comic Sans MS, cursive" fill="#f08c00" text-anchor="start">All weights</text>
+  <text x="20" y="373.6" font-size="13" font-family="Virgil, Segoe Print, Comic Sans MS, cursive" fill="#f08c00" text-anchor="start">map to 0!</text>
+  <rect x="180" y="272" width="700" height="40" rx="0" fill="#ffec99" stroke="#f08c00" stroke-width="2" opacity="1.0" filter="url(#handdrawn)"/>
+  <text x="508" y="299.4" font-size="12" font-family="Virgil, Segoe Print, Comic Sans MS, cursive" fill="#f08c00" text-anchor="start">int=0 → 0.0</text>
+  <text x="508" y="313.8" font-size="12" font-family="Virgil, Segoe Print, Comic Sans MS, cursive" fill="#f08c00" text-anchor="start">(everything rounds here)</text>
+  <text x="200" y="346.8" font-size="14" font-family="Virgil, Segoe Print, Comic Sans MS, cursive" fill="#1e1e1e" text-anchor="start">The MSE tradeoff as e varies (b=3 fixed):</text>
+  <text x="40" y="370.6" font-size="13" font-family="Virgil, Segoe Print, Comic Sans MS, cursive" fill="#e03131" text-anchor="start">e too small  ←── Clipping error dominates</text>
+  <text x="430" y="370.6" font-size="13" font-family="Virgil, Segoe Print, Comic Sans MS, cursive" fill="#2f9e44" text-anchor="start">◀ OPTIMAL e ▶</text>
+  <text x="660" y="370.6" font-size="13" font-family="Virgil, Segoe Print, Comic Sans MS, cursive" fill="#f08c00" text-anchor="start">Rounding error dominates ──▶  e too large</text>
+  <text x="200" y="405.6" font-size="13" font-family="Virgil, Segoe Print, Comic Sans MS, cursive" fill="#9c36b5" text-anchor="start">Paper initializes e=-8 (very fine) — network LEARNS e via gradient descent toward optimal</text>
+</svg>

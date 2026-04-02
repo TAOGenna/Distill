@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -28 1118 578" width="800" height="413" style="background: white;">
+  <defs>
+    <filter id="handdrawn" x="-5%" y="-5%" width="110%" height="110%">
+      <feTurbulence type="turbulence" baseFrequency="0.02" numOctaves="3"
+                    result="noise" seed="2"/>
+      <feDisplacementMap in="SourceGraphic" in2="noise" scale="1.2"
+                         xChannelSelector="R" yChannelSelector="G"/>
+    </filter>
+  </defs>
+  <text x="200" y="36.0" font-size="20" font-family="Helvetica, Arial, sans-serif" fill="#1e1e1e" text-anchor="start">How e and b Control the Quantization Grid</text>
+  <text x="40" y="66.8" font-size="14" font-family="Helvetica, Arial, sans-serif" fill="#1971c2" text-anchor="start">Exponent e controls grid spacing (step size = 2^e)</text>
+  <rect x="40" y="75" width="440" height="100" rx="0" fill="#f8f9fa" stroke="#dee2e6" stroke-width="2" opacity="1.0" filter="url(#handdrawn)"/>
+  <text x="50" y="97.4" font-size="12" font-family="Cascadia Code, Fira Code, monospace" fill="#1971c2" text-anchor="start">e = -2  (fine grid, step = 0.25)</text>
+  <path d="M 60.0 140.0 L 60.0 165.0" fill="none" stroke="#1971c2" stroke-width="2" filter="url(#handdrawn)"/>
+  <path d="M 85.0 140.0 L 85.0 165.0" fill="none" stroke="#1971c2" stroke-width="2" filter="url(#handdrawn)"/>
+  <path d="M 110.0 140.0 L 110.0 165.0" fill="none" stroke="#1971c2" stroke-width="2" filter="url(#handdrawn)"/>
+  <path d="M 135.0 140.0 L 135.0 165.0" fill="none" stroke="#1971c2" stroke-width="2" filter="url(#handdrawn)"/>
+  <path d="M 160.0 140.0 L 160.0 165.0" fill="none" stroke="#1971c2" stroke-width="2" filter="url(#handdrawn)"/>
+  <path d="M 185.0 140.0 L 185.0 165.0" fill="none" stroke="#1971c2" stroke-width="2" filter="url(#handdrawn)"/>
+  <path d="M 210.0 140.0 L 210.0 165.0" fill="none" stroke="#1971c2" stroke-width="2" filter="url(#handdrawn)"/>
+  <path d="M 235.0 140.0 L 235.0 165.0" fill="none" stroke="#1971c2" stroke-width="2" filter="url(#handdrawn)"/>
+  <path d="M 260.0 140.0 L 260.0 165.0" fill="none" stroke="#1971c2" stroke-width="2" filter="url(#handdrawn)"/>
+  <path d="M 285.0 140.0 L 285.0 165.0" fill="none" stroke="#1971c2" stroke-width="2" filter="url(#handdrawn)"/>
+  <path d="M 310.0 140.0 L 310.0 165.0" fill="none" stroke="#1971c2" stroke-width="2" filter="url(#handdrawn)"/>
+  <path d="M 335.0 140.0 L 335.0 165.0" fill="none" stroke="#1971c2" stroke-width="2" filter="url(#handdrawn)"/>
+  <path d="M 360.0 140.0 L 360.0 165.0" fill="none" stroke="#1971c2" stroke-width="2" filter="url(#handdrawn)"/>
+  <path d="M 385.0 140.0 L 385.0 165.0" fill="none" stroke="#1971c2" stroke-width="2" filter="url(#handdrawn)"/>
+  <path d="M 410.0 140.0 L 410.0 165.0" fill="none" stroke="#1971c2" stroke-width="2" filter="url(#handdrawn)"/>
+  <path d="M 435.0 140.0 L 435.0 165.0" fill="none" stroke="#1971c2" stroke-width="2" filter="url(#handdrawn)"/>
+  <path d="M 60.0 155.0 L 475.0 155.0" fill="none" stroke="#1971c2" stroke-width="1" filter="url(#handdrawn)"/>
+  <rect x="40" y="195" width="440" height="100" rx="0" fill="#f8f9fa" stroke="#dee2e6" stroke-width="2" opacity="1.0" filter="url(#handdrawn)"/>
+  <text x="50" y="217.4" font-size="12" font-family="Cascadia Code, Fira Code, monospace" fill="#f08c00" text-anchor="start">e = 0   (medium grid, step = 1.0)</text>
+  <path d="M 60.0 260.0 L 60.0 285.0" fill="none" stroke="#f08c00" stroke-width="2" filter="url(#handdrawn)"/>
+  <path d="M 160.0 260.0 L 160.0 285.0" fill="none" stroke="#f08c00" stroke-width="2" filter="url(#handdrawn)"/>
+  <path d="M 260.0 260.0 L 260.0 285.0" fill="none" stroke="#f08c00" stroke-width="2" filter="url(#handdrawn)"/>
+  <path d="M 360.0 260.0 L 360.0 285.0" fill="none" stroke="#f08c00" stroke-width="2" filter="url(#handdrawn)"/>
+  <path d="M 460.0 260.0 L 460.0 285.0" fill="none" stroke="#f08c00" stroke-width="2" filter="url(#handdrawn)"/>
+  <path d="M 60.0 275.0 L 475.0 275.0" fill="none" stroke="#f08c00" stroke-width="1" filter="url(#handdrawn)"/>
+  <rect x="40" y="315" width="440" height="100" rx="0" fill="#f8f9fa" stroke="#dee2e6" stroke-width="2" opacity="1.0" filter="url(#handdrawn)"/>
+  <text x="50" y="337.4" font-size="12" font-family="Cascadia Code, Fira Code, monospace" fill="#e03131" text-anchor="start">e = 2   (coarse grid, step = 4.0)</text>
+  <path d="M 60.0 380.0 L 60.0 405.0" fill="none" stroke="#e03131" stroke-width="2" filter="url(#handdrawn)"/>
+  <path d="M 460.0 380.0 L 460.0 405.0" fill="none" stroke="#e03131" stroke-width="2" filter="url(#handdrawn)"/>
+  <path d="M 60.0 395.0 L 475.0 395.0" fill="none" stroke="#e03131" stroke-width="1" filter="url(#handdrawn)"/>
+  <text x="50" y="444.4" font-size="12" font-family="Helvetica, Arial, sans-serif" fill="#6c6c6c" text-anchor="start">Smaller e = more grid lines = finer precision = more bits needed</text>
+  <text x="200" y="66.8" font-size="14" font-family="Helvetica, Arial, sans-serif" fill="#9c36b5" text-anchor="start">Bit-width b controls number of distinct values (range = 2^b)</text>
+  <rect x="560" y="75" width="420" height="100" rx="0" fill="#f8f9fa" stroke="#dee2e6" stroke-width="2" opacity="1.0" filter="url(#handdrawn)"/>
+  <text x="570" y="97.4" font-size="12" font-family="Cascadia Code, Fira Code, monospace" fill="#9c36b5" text-anchor="start">b = 1  (2 values: {-1, 0})</text>
+  <ellipse cx="638.0" cy="138.0" rx="8.0" ry="8.0" fill="#9c36b5" stroke="#9c36b5" stroke-width="2" filter="url(#handdrawn)"/>
+  <ellipse cx="828.0" cy="138.0" rx="8.0" ry="8.0" fill="#9c36b5" stroke="#9c36b5" stroke-width="2" filter="url(#handdrawn)"/>
+  <path d="M 580.0 142.0 L 990.0 142.0" fill="none" stroke="#9c36b5" stroke-width="1" filter="url(#handdrawn)"/>
+  <rect x="560" y="195" width="420" height="100" rx="0" fill="#f8f9fa" stroke="#dee2e6" stroke-width="2" opacity="1.0" filter="url(#handdrawn)"/>
+  <text x="570" y="217.4" font-size="12" font-family="Cascadia Code, Fira Code, monospace" fill="#9c36b5" text-anchor="start">b = 2  (4 values: {-2,-1,0,1})</text>
+  <ellipse cx="614.0" cy="257.0" rx="7.0" ry="7.0" fill="#9c36b5" stroke="#9c36b5" stroke-width="2" filter="url(#handdrawn)"/>
+  <ellipse cx="707.0" cy="257.0" rx="7.0" ry="7.0" fill="#9c36b5" stroke="#9c36b5" stroke-width="2" filter="url(#handdrawn)"/>
+  <ellipse cx="800.0" cy="257.0" rx="7.0" ry="7.0" fill="#9c36b5" stroke="#9c36b5" stroke-width="2" filter="url(#handdrawn)"/>
+  <ellipse cx="893.0" cy="257.0" rx="7.0" ry="7.0" fill="#9c36b5" stroke="#9c36b5" stroke-width="2" filter="url(#handdrawn)"/>
+  <path d="M 580.0 257.0 L 990.0 257.0" fill="none" stroke="#9c36b5" stroke-width="1" filter="url(#handdrawn)"/>
+  <rect x="560" y="315" width="420" height="100" rx="0" fill="#f8f9fa" stroke="#dee2e6" stroke-width="2" opacity="1.0" filter="url(#handdrawn)"/>
+  <text x="570" y="337.4" font-size="12" font-family="Cascadia Code, Fira Code, monospace" fill="#9c36b5" text-anchor="start">b = 4  (16 values: {-8..7})</text>
+  <ellipse cx="580.0" cy="370.0" rx="5.0" ry="5.0" fill="#9c36b5" stroke="#9c36b5" stroke-width="2" filter="url(#handdrawn)"/>
+  <ellipse cx="605.0" cy="370.0" rx="5.0" ry="5.0" fill="#9c36b5" stroke="#9c36b5" stroke-width="2" filter="url(#handdrawn)"/>
+  <ellipse cx="630.0" cy="370.0" rx="5.0" ry="5.0" fill="#9c36b5" stroke="#9c36b5" stroke-width="2" filter="url(#handdrawn)"/>
+  <ellipse cx="655.0" cy="370.0" rx="5.0" ry="5.0" fill="#9c36b5" stroke="#9c36b5" stroke-width="2" filter="url(#handdrawn)"/>
+  <ellipse cx="680.0" cy="370.0" rx="5.0" ry="5.0" fill="#9c36b5" stroke="#9c36b5" stroke-width="2" filter="url(#handdrawn)"/>
+  <ellipse cx="705.0" cy="370.0" rx="5.0" ry="5.0" fill="#9c36b5" stroke="#9c36b5" stroke-width="2" filter="url(#handdrawn)"/>
+  <ellipse cx="730.0" cy="370.0" rx="5.0" ry="5.0" fill="#9c36b5" stroke="#9c36b5" stroke-width="2" filter="url(#handdrawn)"/>
+  <ellipse cx="755.0" cy="370.0" rx="5.0" ry="5.0" fill="#9c36b5" stroke="#9c36b5" stroke-width="2" filter="url(#handdrawn)"/>
+  <ellipse cx="780.0" cy="370.0" rx="5.0" ry="5.0" fill="#9c36b5" stroke="#9c36b5" stroke-width="2" filter="url(#handdrawn)"/>
+  <ellipse cx="805.0" cy="370.0" rx="5.0" ry="5.0" fill="#9c36b5" stroke="#9c36b5" stroke-width="2" filter="url(#handdrawn)"/>
+  <ellipse cx="830.0" cy="370.0" rx="5.0" ry="5.0" fill="#9c36b5" stroke="#9c36b5" stroke-width="2" filter="url(#handdrawn)"/>
+  <ellipse cx="855.0" cy="370.0" rx="5.0" ry="5.0" fill="#9c36b5" stroke="#9c36b5" stroke-width="2" filter="url(#handdrawn)"/>
+  <ellipse cx="880.0" cy="370.0" rx="5.0" ry="5.0" fill="#9c36b5" stroke="#9c36b5" stroke-width="2" filter="url(#handdrawn)"/>
+  <ellipse cx="905.0" cy="370.0" rx="5.0" ry="5.0" fill="#9c36b5" stroke="#9c36b5" stroke-width="2" filter="url(#handdrawn)"/>
+  <ellipse cx="930.0" cy="370.0" rx="5.0" ry="5.0" fill="#9c36b5" stroke="#9c36b5" stroke-width="2" filter="url(#handdrawn)"/>
+  <ellipse cx="955.0" cy="370.0" rx="5.0" ry="5.0" fill="#9c36b5" stroke="#9c36b5" stroke-width="2" filter="url(#handdrawn)"/>
+  <path d="M 580.0 372.0 L 970.0 372.0" fill="none" stroke="#9c36b5" stroke-width="1" filter="url(#handdrawn)"/>
+  <text x="560" y="444.4" font-size="12" font-family="Helvetica, Arial, sans-serif" fill="#6c6c6c" text-anchor="start">Larger b = more distinct values = wider range = more bits = bigger model</text>
+  <rect x="200" y="455" width="600" height="55" rx="0" fill="#d0bfff" stroke="#9c36b5" stroke-width="2" opacity="1.0" filter="url(#handdrawn)"/>
+  <text x="215" y="483.6" font-size="13" font-family="Helvetica, Arial, sans-serif" fill="#1e1e1e" text-anchor="start">Self-compression goal: learn the (e, b) per channel that minimizes task loss + compression penalty.</text>
+  <text x="215" y="505.6" font-size="13" font-family="Helvetica, Arial, sans-serif" fill="#1e1e1e" text-anchor="start">STE makes both e and b differentiable → gradient descent finds the optimal grid per channel.</text>
+</svg>

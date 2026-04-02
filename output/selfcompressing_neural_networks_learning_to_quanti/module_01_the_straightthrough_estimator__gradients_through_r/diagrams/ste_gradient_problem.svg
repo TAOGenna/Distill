@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="20 -20 920 468" width="800" height="407" style="background: white;">
+  <defs>
+    <filter id="handdrawn" x="-5%" y="-5%" width="110%" height="110%">
+      <feTurbulence type="turbulence" baseFrequency="0.02" numOctaves="3"
+                    result="noise" seed="2"/>
+      <feDisplacementMap in="SourceGraphic" in2="noise" scale="1.2"
+                         xChannelSelector="R" yChannelSelector="G"/>
+    </filter>
+    <marker id="ah-e03131" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#e03131"/>
+    </marker>
+    <marker id="ah-f08c00" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#f08c00"/>
+    </marker>
+  </defs>
+  <text x="300" y="46.4" font-size="22" font-family="Helvetica, Arial, sans-serif" fill="#1e1e1e" text-anchor="start">Why torch.round() Kills Gradients</text>
+  <text x="80" y="76.8" font-size="14" font-family="Helvetica, Arial, sans-serif" fill="#6c6c6c" text-anchor="start">FORWARD PASS: staircase function rounds to nearest integer</text>
+  <rect x="60" y="90" width="500" height="280" rx="0" fill="#f8f9fa" stroke="#dee2e6" stroke-width="2" opacity="1.0" filter="url(#handdrawn)"/>
+  <text x="70" y="116.8" font-size="14" font-family="Cascadia Code, Fira Code, monospace" fill="#1971c2" text-anchor="start">y = round(x)</text>
+  <path d="M 80.0 340.0 L 540.0 340.0" fill="none" stroke="#1e1e1e" stroke-width="2" filter="url(#handdrawn)"/>
+  <path d="M 310.0 100.0 L 310.0 340.0" fill="none" stroke="#1e1e1e" stroke-width="2" filter="url(#handdrawn)"/>
+  <text x="545" y="348.6" font-size="13" font-family="Helvetica, Arial, sans-serif" fill="#1e1e1e" text-anchor="start">x (weight)</text>
+  <text x="315" y="110.6" font-size="13" font-family="Helvetica, Arial, sans-serif" fill="#1e1e1e" text-anchor="start">round(x)</text>
+  <path d="M 80.0 290.0 L 195.0 290.0" fill="none" stroke="#1971c2" stroke-width="3" filter="url(#handdrawn)"/>
+  <path d="M 195.0 240.0 L 310.0 240.0" fill="none" stroke="#1971c2" stroke-width="3" filter="url(#handdrawn)"/>
+  <path d="M 310.0 190.0 L 425.0 190.0" fill="none" stroke="#1971c2" stroke-width="3" filter="url(#handdrawn)"/>
+  <path d="M 425.0 140.0 L 540.0 140.0" fill="none" stroke="#1971c2" stroke-width="3" filter="url(#handdrawn)"/>
+  <ellipse cx="195.0" cy="290.0" rx="5.0" ry="5.0" fill="#ffffff" stroke="#1971c2" stroke-width="2" filter="url(#handdrawn)"/>
+  <ellipse cx="197.0" cy="240.0" rx="5.0" ry="5.0" fill="#1971c2" stroke="#1971c2" stroke-width="2" filter="url(#handdrawn)"/>
+  <ellipse cx="310.0" cy="240.0" rx="5.0" ry="5.0" fill="#ffffff" stroke="#1971c2" stroke-width="2" filter="url(#handdrawn)"/>
+  <ellipse cx="312.0" cy="190.0" rx="5.0" ry="5.0" fill="#1971c2" stroke="#1971c2" stroke-width="2" filter="url(#handdrawn)"/>
+  <ellipse cx="425.0" cy="190.0" rx="5.0" ry="5.0" fill="#ffffff" stroke="#1971c2" stroke-width="2" filter="url(#handdrawn)"/>
+  <ellipse cx="427.0" cy="140.0" rx="5.0" ry="5.0" fill="#1971c2" stroke="#1971c2" stroke-width="2" filter="url(#handdrawn)"/>
+  <text x="100" y="314.4" font-size="12" font-family="Helvetica, Arial, sans-serif" fill="#6c6c6c" text-anchor="start">−1</text>
+  <text x="215" y="264.4" font-size="12" font-family="Helvetica, Arial, sans-serif" fill="#6c6c6c" text-anchor="start">0</text>
+  <text x="330" y="214.4" font-size="12" font-family="Helvetica, Arial, sans-serif" fill="#6c6c6c" text-anchor="start">1</text>
+  <text x="445" y="164.4" font-size="12" font-family="Helvetica, Arial, sans-serif" fill="#6c6c6c" text-anchor="start">2</text>
+  <rect x="620" y="90" width="280" height="140" rx="0" fill="#ffc9c9" stroke="#e03131" stroke-width="2" opacity="1.0" filter="url(#handdrawn)"/>
+  <text x="630" y="118.0" font-size="15" font-family="Helvetica, Arial, sans-serif" fill="#e03131" text-anchor="start">BACKWARD PASS</text>
+  <text x="630" y="140.6" font-size="13" font-family="Helvetica, Arial, sans-serif" fill="#1e1e1e" text-anchor="start">Gradient of round(x):</text>
+  <text x="630" y="166.0" font-size="15" font-family="Cascadia Code, Fira Code, monospace" fill="#e03131" text-anchor="start">d/dx[round(x)] = 0</text>
+  <text x="630" y="190.6" font-size="13" font-family="Helvetica, Arial, sans-serif" fill="#1e1e1e" text-anchor="start">almost everywhere</text>
+  <text x="630" y="214.8" font-size="14" font-family="Cascadia Code, Fira Code, monospace" fill="#e03131" text-anchor="start">⇒ weight.grad = 0</text>
+  <rect x="620" y="250" width="280" height="120" rx="0" fill="#ffec99" stroke="#f08c00" stroke-width="2" opacity="1.0" filter="url(#handdrawn)"/>
+  <text x="630" y="278.0" font-size="15" font-family="Helvetica, Arial, sans-serif" fill="#f08c00" text-anchor="start">CONSEQUENCE</text>
+  <text x="630" y="300.6" font-size="13" font-family="Helvetica, Arial, sans-serif" fill="#1e1e1e" text-anchor="start">• Optimizer sees grad=0</text>
+  <text x="630" y="320.6" font-size="13" font-family="Helvetica, Arial, sans-serif" fill="#1e1e1e" text-anchor="start">• Weights never update</text>
+  <text x="630" y="340.6" font-size="13" font-family="Helvetica, Arial, sans-serif" fill="#1e1e1e" text-anchor="start">• Loss stays constant</text>
+  <text x="630" y="360.6" font-size="13" font-family="Helvetica, Arial, sans-serif" fill="#1e1e1e" text-anchor="start">• Training fails entirely</text>
+  <text x="80" y="405.6" font-size="13" font-family="Helvetica, Arial, sans-serif" fill="#e03131" text-anchor="start">Slope = 0 between every step — derivative of a staircase is always zero</text>
+  <path d="M 560.0 130.0 L 615.0 130.0" fill="none" stroke="#e03131" stroke-width="2" marker-end="url(#ah-e03131)" filter="url(#handdrawn)"/>
+  <path d="M 560.0 295.0 L 615.0 295.0" fill="none" stroke="#f08c00" stroke-width="2" marker-end="url(#ah-f08c00)" filter="url(#handdrawn)"/>
+</svg>

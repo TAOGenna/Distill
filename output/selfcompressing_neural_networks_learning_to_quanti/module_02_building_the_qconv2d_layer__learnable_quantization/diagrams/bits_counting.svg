@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-10 -25 785 625" width="785" height="625" style="background: white;">
+  <defs>
+    <filter id="handdrawn" x="-5%" y="-5%" width="110%" height="110%">
+      <feTurbulence type="turbulence" baseFrequency="0.02" numOctaves="3"
+                    result="noise" seed="2"/>
+      <feDisplacementMap in="SourceGraphic" in2="noise" scale="1.2"
+                         xChannelSelector="R" yChannelSelector="G"/>
+    </filter>
+    <marker id="ah-1e1e1e" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#1e1e1e"/>
+    </marker>
+    <marker id="ah-2f9e44" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#2f9e44"/>
+    </marker>
+  </defs>
+  <text x="220" y="41.4" font-size="22" font-family="Helvetica, Arial, sans-serif" fill="#1e1e1e" text-anchor="start">qbits() — Counting the Compression Cost</text>
+  <text x="30" y="76.8" font-size="14" font-family="Helvetica, Arial, sans-serif" fill="#1e1e1e" text-anchor="start">Example: QConv2d(1, 32, 5)   fan_in = 1 × 5 × 5 = 25   At init: b = 2.0 per channel</text>
+  <rect x="30" y="100" width="120" height="90" rx="0" fill="#b2f2bb" stroke="#2f9e44" stroke-width="2" opacity="1.0" filter="url(#handdrawn)"/>
+  <text x="42" y="125.6" font-size="13" font-family="Helvetica, Arial, sans-serif" fill="#2f9e44" text-anchor="start">channel 0</text>
+  <text x="42" y="141.2" font-size="13" font-family="Helvetica, Arial, sans-serif" fill="#2f9e44" text-anchor="start">b=2.0</text>
+  <text x="42" y="156.8" font-size="13" font-family="Helvetica, Arial, sans-serif" fill="#2f9e44" text-anchor="start">fan_in=25</text>
+  <text x="42" y="172.4" font-size="13" font-family="Helvetica, Arial, sans-serif" fill="#2f9e44" text-anchor="start">bits=50</text>
+  <rect x="165" y="100" width="120" height="90" rx="0" fill="#b2f2bb" stroke="#2f9e44" stroke-width="2" opacity="1.0" filter="url(#handdrawn)"/>
+  <text x="177" y="125.6" font-size="13" font-family="Helvetica, Arial, sans-serif" fill="#2f9e44" text-anchor="start">channel 1</text>
+  <text x="177" y="141.2" font-size="13" font-family="Helvetica, Arial, sans-serif" fill="#2f9e44" text-anchor="start">b=2.0</text>
+  <text x="177" y="156.8" font-size="13" font-family="Helvetica, Arial, sans-serif" fill="#2f9e44" text-anchor="start">fan_in=25</text>
+  <text x="177" y="172.4" font-size="13" font-family="Helvetica, Arial, sans-serif" fill="#2f9e44" text-anchor="start">bits=50</text>
+  <text x="305" y="154.8" font-size="14" font-family="Helvetica, Arial, sans-serif" fill="#1e1e1e" text-anchor="start">  ···  (32 channels)</text>
+  <rect x="480" y="100" width="120" height="90" rx="0" fill="#b2f2bb" stroke="#2f9e44" stroke-width="2" opacity="1.0" filter="url(#handdrawn)"/>
+  <text x="488" y="125.6" font-size="13" font-family="Helvetica, Arial, sans-serif" fill="#2f9e44" text-anchor="start">channel 31</text>
+  <text x="488" y="141.2" font-size="13" font-family="Helvetica, Arial, sans-serif" fill="#2f9e44" text-anchor="start">b=2.0</text>
+  <text x="488" y="156.8" font-size="13" font-family="Helvetica, Arial, sans-serif" fill="#2f9e44" text-anchor="start">fan_in=25</text>
+  <text x="488" y="172.4" font-size="13" font-family="Helvetica, Arial, sans-serif" fill="#2f9e44" text-anchor="start">bits=50</text>
+  <rect x="200" y="240" width="250" height="60" rx="0" fill="#ffec99" stroke="#f08c00" stroke-width="2" opacity="1.0" filter="url(#handdrawn)"/>
+  <text x="215" y="270.6" font-size="13" font-family="Helvetica, Arial, sans-serif" fill="#f08c00" text-anchor="start">sum(relu(b)) × fan_in</text>
+  <text x="215" y="286.2" font-size="13" font-family="Helvetica, Arial, sans-serif" fill="#f08c00" text-anchor="start">= 32 × 2.0 × 25 = 1600 bits</text>
+  <path d="M 157.1 180.7 L 261.5 236.2" fill="none" stroke="#2f9e44" stroke-width="2" marker-end="url(#ah-2f9e44)" filter="url(#handdrawn)"/>
+  <path d="M 266.0 196.2 L 296.0 233.8" fill="none" stroke="#2f9e44" stroke-width="2" marker-end="url(#ah-2f9e44)" filter="url(#handdrawn)"/>
+  <path d="M 473.1 183.9 L 383.5 236.0" fill="none" stroke="#2f9e44" stroke-width="2" marker-end="url(#ah-2f9e44)" filter="url(#handdrawn)"/>
+  <text x="30" y="351.8" font-size="14" font-family="Helvetica, Arial, sans-serif" fill="#1e1e1e" text-anchor="start">After pruning channel 2 (b₂ = -0.009, relu(b₂) = 0):</text>
+  <rect x="30" y="370" width="110" height="80" rx="0" fill="#b2f2bb" stroke="#2f9e44" stroke-width="2" opacity="1.0" filter="url(#handdrawn)"/>
+  <text x="42" y="396.4" font-size="12" font-family="Helvetica, Arial, sans-serif" fill="#2f9e44" text-anchor="start">ch 0</text>
+  <text x="42" y="410.8" font-size="12" font-family="Helvetica, Arial, sans-serif" fill="#2f9e44" text-anchor="start">b=2.5</text>
+  <text x="42" y="425.2" font-size="12" font-family="Helvetica, Arial, sans-serif" fill="#2f9e44" text-anchor="start">bits=62.5</text>
+  <rect x="155" y="370" width="110" height="80" rx="0" fill="#b2f2bb" stroke="#2f9e44" stroke-width="2" opacity="1.0" filter="url(#handdrawn)"/>
+  <text x="167" y="396.4" font-size="12" font-family="Helvetica, Arial, sans-serif" fill="#2f9e44" text-anchor="start">ch 1</text>
+  <text x="167" y="410.8" font-size="12" font-family="Helvetica, Arial, sans-serif" fill="#2f9e44" text-anchor="start">b=2.3</text>
+  <text x="167" y="425.2" font-size="12" font-family="Helvetica, Arial, sans-serif" fill="#2f9e44" text-anchor="start">bits=57.5</text>
+  <rect x="280" y="370" width="110" height="80" rx="0" fill="#ffc9c9" stroke="#e03131" stroke-width="2" opacity="1.0" filter="url(#handdrawn)"/>
+  <text x="292" y="392.4" font-size="12" font-family="Helvetica, Arial, sans-serif" fill="#e03131" text-anchor="start">ch 2</text>
+  <text x="292" y="406.8" font-size="12" font-family="Helvetica, Arial, sans-serif" fill="#e03131" text-anchor="start">b=-0.009</text>
+  <text x="292" y="421.2" font-size="12" font-family="Helvetica, Arial, sans-serif" fill="#e03131" text-anchor="start">relu=0</text>
+  <text x="292" y="435.6" font-size="12" font-family="Helvetica, Arial, sans-serif" fill="#e03131" text-anchor="start">bits=0 ✓</text>
+  <rect x="405" y="370" width="110" height="80" rx="0" fill="#b2f2bb" stroke="#2f9e44" stroke-width="2" opacity="1.0" filter="url(#handdrawn)"/>
+  <text x="417" y="396.4" font-size="12" font-family="Helvetica, Arial, sans-serif" fill="#2f9e44" text-anchor="start">ch 3</text>
+  <text x="417" y="410.8" font-size="12" font-family="Helvetica, Arial, sans-serif" fill="#2f9e44" text-anchor="start">b=2.3</text>
+  <text x="417" y="425.2" font-size="12" font-family="Helvetica, Arial, sans-serif" fill="#2f9e44" text-anchor="start">bits=57.5</text>
+  <text x="530" y="426.6" font-size="18" font-family="Helvetica, Arial, sans-serif" fill="#1e1e1e" text-anchor="start">···</text>
+  <rect x="150" y="490" width="340" height="70" rx="0" fill="#a5d8ff" stroke="#1971c2" stroke-width="2" opacity="1.0" filter="url(#handdrawn)"/>
+  <text x="162" y="515.6" font-size="13" font-family="Helvetica, Arial, sans-serif" fill="#1971c2" text-anchor="start">Q = total_bits / weight_count</text>
+  <text x="162" y="531.2" font-size="13" font-family="Helvetica, Arial, sans-serif" fill="#1971c2" text-anchor="start">= layer_bits_sum / 87860</text>
+  <text x="162" y="546.8" font-size="13" font-family="Helvetica, Arial, sans-serif" fill="#1971c2" text-anchor="start">Target: ~1.64 bits/weight → 18,075 bytes</text>
+  <path d="M 328.7 457.9 L 325.6 482.1" fill="none" stroke="#1e1e1e" stroke-width="1" stroke-dasharray="8 4" marker-end="url(#ah-1e1e1e)" filter="url(#handdrawn)"/>
+</svg>

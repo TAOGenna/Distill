@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -25 1040 545" width="800" height="419" style="background: white;">
+  <defs>
+    <filter id="handdrawn" x="-5%" y="-5%" width="110%" height="110%">
+      <feTurbulence type="turbulence" baseFrequency="0.02" numOctaves="3"
+                    result="noise" seed="2"/>
+      <feDisplacementMap in="SourceGraphic" in2="noise" scale="1.2"
+                         xChannelSelector="R" yChannelSelector="G"/>
+    </filter>
+    <marker id="ah-1e1e1e" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#1e1e1e"/>
+    </marker>
+    <marker id="ah-2f9e44" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#2f9e44"/>
+    </marker>
+    <marker id="ah-e03131" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#e03131"/>
+    </marker>
+  </defs>
+  <text x="280" y="39.0" font-size="20" font-family="Helvetica, Arial, sans-serif" fill="#1e1e1e" text-anchor="start">Straight-Through Estimator: Forward vs Backward Pass</text>
+  <rect x="40" y="60" width="460" height="340" rx="0" fill="#ffc9c9" stroke="#e03131" stroke-width="2" opacity="1.0" filter="url(#handdrawn)"/>
+  <text x="190" y="91.2" font-size="16" font-family="Helvetica, Arial, sans-serif" fill="#e03131" text-anchor="start">NAIVE: torch.round()</text>
+  <rect x="60" y="105" width="80" height="40" rx="0" fill="#a5d8ff" stroke="#1971c2" stroke-width="2" opacity="1.0" filter="url(#handdrawn)"/>
+  <text x="75" y="132.4" font-size="12" font-family="Cascadia Code, Fira Code, monospace" fill="#1e1e1e" text-anchor="start">w = 0.73</text>
+  <rect x="200" y="105" width="100" height="40" rx="0" fill="#ffffff" stroke="#1e1e1e" stroke-width="2" opacity="1.0" filter="url(#handdrawn)"/>
+  <text x="218" y="133.6" font-size="13" font-family="Cascadia Code, Fira Code, monospace" fill="#1e1e1e" text-anchor="start">round()</text>
+  <rect x="360" y="105" width="100" height="40" rx="0" fill="#b2f2bb" stroke="#2f9e44" stroke-width="2" opacity="1.0" filter="url(#handdrawn)"/>
+  <text x="378" y="132.4" font-size="12" font-family="Cascadia Code, Fira Code, monospace" fill="#1e1e1e" text-anchor="start">ŵ = 1.0</text>
+  <path d="M 140.0 125.0 L 195.0 125.0" fill="none" stroke="#1e1e1e" stroke-width="2" marker-end="url(#ah-1e1e1e)" filter="url(#handdrawn)"/>
+  <path d="M 300.0 125.0 L 355.0 125.0" fill="none" stroke="#1e1e1e" stroke-width="2" marker-end="url(#ah-1e1e1e)" filter="url(#handdrawn)"/>
+  <text x="60" y="179.4" font-size="12" font-family="Helvetica, Arial, sans-serif" fill="#2f9e44" text-anchor="start">FORWARD ↑ (correct: ŵ = 1.0)</text>
+  <path d="M 60.0 185.0 L 460.0 185.0" fill="none" stroke="#dee2e6" stroke-width="1" filter="url(#handdrawn)"/>
+  <text x="60" y="209.4" font-size="12" font-family="Helvetica, Arial, sans-serif" fill="#e03131" text-anchor="start">BACKWARD ↓ (BROKEN)</text>
+  <rect x="360" y="220" width="100" height="40" rx="0" fill="#ffec99" stroke="#f08c00" stroke-width="2" opacity="1.0" filter="url(#handdrawn)"/>
+  <text x="370" y="246.2" font-size="11" font-family="Cascadia Code, Fira Code, monospace" fill="#1e1e1e" text-anchor="start">∂L/∂ŵ = -0.5</text>
+  <rect x="200" y="220" width="100" height="40" rx="0" fill="#ffc9c9" stroke="#e03131" stroke-width="2" opacity="1.0" filter="url(#handdrawn)"/>
+  <text x="215" y="248.6" font-size="13" font-family="Cascadia Code, Fira Code, monospace" fill="#e03131" text-anchor="start">grad = 0 ✗</text>
+  <rect x="60" y="220" width="100" height="40" rx="0" fill="#ffc9c9" stroke="#e03131" stroke-width="2" opacity="1.0" filter="url(#handdrawn)"/>
+  <text x="75" y="246.2" font-size="11" font-family="Cascadia Code, Fira Code, monospace" fill="#e03131" text-anchor="start">∂L/∂w = 0 ✗</text>
+  <path d="M 355.0 240.0 L 300.0 240.0" fill="none" stroke="#e03131" stroke-width="2" marker-end="url(#ah-e03131)" filter="url(#handdrawn)"/>
+  <path d="M 200.0 240.0 L 145.0 240.0" fill="none" stroke="#e03131" stroke-width="2" marker-end="url(#ah-e03131)" filter="url(#handdrawn)"/>
+  <text x="148" y="237.0" font-size="10" font-family="Helvetica, Arial, sans-serif" fill="#e03131" text-anchor="start">BLOCKED</text>
+  <text x="148" y="249.0" font-size="10" font-family="Helvetica, Arial, sans-serif" fill="#e03131" text-anchor="start">(grad=0)</text>
+  <text x="60" y="299.4" font-size="12" font-family="Helvetica, Arial, sans-serif" fill="#e03131" text-anchor="start">Weight never updates. Loss stays frozen.</text>
+  <rect x="540" y="60" width="460" height="340" rx="0" fill="#b2f2bb" stroke="#2f9e44" stroke-width="2" opacity="1.0" filter="url(#handdrawn)"/>
+  <text x="640" y="91.2" font-size="16" font-family="Helvetica, Arial, sans-serif" fill="#2f9e44" text-anchor="start">STE: (x.round()-x).detach()+x</text>
+  <rect x="560" y="105" width="80" height="40" rx="0" fill="#a5d8ff" stroke="#1971c2" stroke-width="2" opacity="1.0" filter="url(#handdrawn)"/>
+  <text x="575" y="132.4" font-size="12" font-family="Cascadia Code, Fira Code, monospace" fill="#1e1e1e" text-anchor="start">w = 0.73</text>
+  <rect x="700" y="105" width="120" height="40" rx="0" fill="#ffffff" stroke="#2f9e44" stroke-width="2" opacity="1.0" filter="url(#handdrawn)"/>
+  <text x="708" y="133.6" font-size="13" font-family="Cascadia Code, Fira Code, monospace" fill="#2f9e44" text-anchor="start">STE-round()</text>
+  <rect x="880" y="105" width="100" height="40" rx="0" fill="#b2f2bb" stroke="#2f9e44" stroke-width="2" opacity="1.0" filter="url(#handdrawn)"/>
+  <text x="898" y="132.4" font-size="12" font-family="Cascadia Code, Fira Code, monospace" fill="#1e1e1e" text-anchor="start">ŵ = 1.0</text>
+  <path d="M 640.0 125.0 L 695.0 125.0" fill="none" stroke="#1e1e1e" stroke-width="2" marker-end="url(#ah-1e1e1e)" filter="url(#handdrawn)"/>
+  <path d="M 820.0 125.0 L 875.0 125.0" fill="none" stroke="#1e1e1e" stroke-width="2" marker-end="url(#ah-1e1e1e)" filter="url(#handdrawn)"/>
+  <text x="560" y="179.4" font-size="12" font-family="Helvetica, Arial, sans-serif" fill="#2f9e44" text-anchor="start">FORWARD ↑ (correct: ŵ = 1.0)</text>
+  <path d="M 560.0 185.0 L 960.0 185.0" fill="none" stroke="#dee2e6" stroke-width="1" filter="url(#handdrawn)"/>
+  <text x="560" y="209.4" font-size="12" font-family="Helvetica, Arial, sans-serif" fill="#2f9e44" text-anchor="start">BACKWARD ↓ (WORKS!)</text>
+  <rect x="880" y="220" width="100" height="40" rx="0" fill="#ffec99" stroke="#f08c00" stroke-width="2" opacity="1.0" filter="url(#handdrawn)"/>
+  <text x="890" y="246.2" font-size="11" font-family="Cascadia Code, Fira Code, monospace" fill="#1e1e1e" text-anchor="start">∂L/∂ŵ = -0.5</text>
+  <rect x="700" y="220" width="120" height="40" rx="0" fill="#b2f2bb" stroke="#2f9e44" stroke-width="2" opacity="1.0" filter="url(#handdrawn)"/>
+  <text x="710" y="247.4" font-size="12" font-family="Cascadia Code, Fira Code, monospace" fill="#2f9e44" text-anchor="start">grad passes =1 ✓</text>
+  <rect x="560" y="220" width="100" height="40" rx="0" fill="#b2f2bb" stroke="#2f9e44" stroke-width="2" opacity="1.0" filter="url(#handdrawn)"/>
+  <text x="562" y="241.2" font-size="11" font-family="Cascadia Code, Fira Code, monospace" fill="#2f9e44" text-anchor="start">∂L/∂w = -0.5 ✓</text>
+  <path d="M 875.0 240.0 L 820.0 240.0" fill="none" stroke="#2f9e44" stroke-width="2" marker-end="url(#ah-2f9e44)" filter="url(#handdrawn)"/>
+  <path d="M 700.0 240.0 L 640.0 240.0" fill="none" stroke="#2f9e44" stroke-width="2" marker-end="url(#ah-2f9e44)" filter="url(#handdrawn)"/>
+  <text x="560" y="299.4" font-size="12" font-family="Helvetica, Arial, sans-serif" fill="#2f9e44" text-anchor="start">Weight updates: w ← 0.73 + α·0.5</text>
+  <text x="560" y="319.4" font-size="12" font-family="Helvetica, Arial, sans-serif" fill="#2f9e44" text-anchor="start">Loss decreases. Training converges. ✓</text>
+  <rect x="200" y="420" width="660" height="60" rx="0" fill="#d0bfff" stroke="#9c36b5" stroke-width="2" opacity="1.0" filter="url(#handdrawn)"/>
+  <text x="220" y="448.6" font-size="13" font-family="Helvetica, Arial, sans-serif" fill="#1e1e1e" text-anchor="start">KEY INSIGHT: STE uses TRUE rounded value in forward pass, but IDENTITY gradient in backward pass.</text>
+  <text x="220" y="468.6" font-size="13" font-family="Helvetica, Arial, sans-serif" fill="#1e1e1e" text-anchor="start">Same output as torch.round() — but gradient flows through as if rounding never happened.</text>
+</svg>

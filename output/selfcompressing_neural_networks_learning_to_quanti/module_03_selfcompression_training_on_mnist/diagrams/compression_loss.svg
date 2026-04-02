@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="40 -20 696 628" width="696" height="628" style="background: white;">
+  <defs>
+    <filter id="handdrawn" x="-5%" y="-5%" width="110%" height="110%">
+      <feTurbulence type="turbulence" baseFrequency="0.02" numOctaves="3"
+                    result="noise" seed="2"/>
+      <feDisplacementMap in="SourceGraphic" in2="noise" scale="1.2"
+                         xChannelSelector="R" yChannelSelector="G"/>
+    </filter>
+    <marker id="ah-1971c2" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#1971c2"/>
+    </marker>
+    <marker id="ah-2f9e44" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#2f9e44"/>
+    </marker>
+    <marker id="ah-e03131" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#e03131"/>
+    </marker>
+    <marker id="ah-f08c00" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#f08c00"/>
+    </marker>
+  </defs>
+  <text x="300" y="46.4" font-size="22" font-family="Helvetica, Arial, sans-serif" fill="#1e1e1e" text-anchor="start">Self-Compression Training Loss</text>
+  <text x="260" y="74.2" font-size="16" font-family="Cascadia Code, Fira Code, monospace" fill="#1971c2" text-anchor="start">L = L_task + λ · Q    (λ = 0.05)</text>
+  <rect x="80" y="120" width="200" height="80" rx="0" fill="#a5d8ff" stroke="#1971c2" stroke-width="2" opacity="1.0" filter="url(#handdrawn)"/>
+  <text x="96" y="161.6" font-size="18" font-family="Helvetica, Arial, sans-serif" fill="#1971c2" text-anchor="start">L_task</text>
+  <text x="90" y="176.4" font-size="12" font-family="Cascadia Code, Fira Code, monospace" fill="#1971c2" text-anchor="start">CrossEntropy(logits, y)</text>
+  <rect x="360" y="120" width="200" height="80" rx="0" fill="#ffc9c9" stroke="#e03131" stroke-width="2" opacity="1.0" filter="url(#handdrawn)"/>
+  <text x="400" y="161.6" font-size="18" font-family="Helvetica, Arial, sans-serif" fill="#e03131" text-anchor="start">λ · Q</text>
+  <text x="370" y="176.4" font-size="12" font-family="Cascadia Code, Fira Code, monospace" fill="#e03131" text-anchor="start">0.05 × avg_bits_per_weight</text>
+  <rect x="220" y="280" width="200" height="80" rx="0" fill="#d0bfff" stroke="#9c36b5" stroke-width="2" opacity="1.0" filter="url(#handdrawn)"/>
+  <text x="265" y="321.6" font-size="18" font-family="Helvetica, Arial, sans-serif" fill="#9c36b5" text-anchor="start">Total Loss L</text>
+  <text x="238" y="338.4" font-size="12" font-family="Cascadia Code, Fira Code, monospace" fill="#9c36b5" text-anchor="start">minimized by Adam optimizer</text>
+  <path d="M 220.3 206.0 L 279.7 274.0" fill="none" stroke="#1971c2" stroke-width="2" marker-end="url(#ah-1971c2)" filter="url(#handdrawn)"/>
+  <path d="M 419.7 206.0 L 360.3 274.0" fill="none" stroke="#e03131" stroke-width="2" marker-end="url(#ah-e03131)" filter="url(#handdrawn)"/>
+  <rect x="80" y="430" width="180" height="70" rx="0" fill="#b2f2bb" stroke="#2f9e44" stroke-width="2" opacity="1.0" filter="url(#handdrawn)"/>
+  <text x="100" y="464.8" font-size="14" font-family="Helvetica, Arial, sans-serif" fill="#2f9e44" text-anchor="start">Weight gradient</text>
+  <text x="90" y="484.4" font-size="12" font-family="Cascadia Code, Fira Code, monospace" fill="#2f9e44" text-anchor="start">↑ better accuracy</text>
+  <rect x="380" y="430" width="180" height="70" rx="0" fill="#ffec99" stroke="#f08c00" stroke-width="2" opacity="1.0" filter="url(#handdrawn)"/>
+  <text x="400" y="464.8" font-size="14" font-family="Helvetica, Arial, sans-serif" fill="#f08c00" text-anchor="start">b gradient</text>
+  <text x="385" y="484.4" font-size="12" font-family="Cascadia Code, Fira Code, monospace" fill="#f08c00" text-anchor="start">↓ lower bits (compression)</text>
+  <path d="M 272.9 365.6 L 212.0 424.4" fill="none" stroke="#2f9e44" stroke-width="2" marker-end="url(#ah-2f9e44)" filter="url(#handdrawn)"/>
+  <path d="M 367.1 365.6 L 428.0 424.4" fill="none" stroke="#f08c00" stroke-width="2" marker-end="url(#ah-f08c00)" filter="url(#handdrawn)"/>
+  <text x="240" y="545.6" font-size="13" font-family="Helvetica, Arial, sans-serif" fill="#1e1e1e" text-anchor="start">Equilibrium: channel earns its bits when</text>
+  <text x="215" y="565.6" font-size="13" font-family="Cascadia Code, Fira Code, monospace" fill="#9c36b5" text-anchor="start">∂L_task/∂b = -λ · fan_in / N_weights</text>
+</svg>

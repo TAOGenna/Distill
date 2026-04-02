@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-10 -20 1080 569" width="800" height="422" style="background: white;">
+  <defs>
+    <filter id="handdrawn" x="-5%" y="-5%" width="110%" height="110%">
+      <feTurbulence type="turbulence" baseFrequency="0.02" numOctaves="3"
+                    result="noise" seed="2"/>
+      <feDisplacementMap in="SourceGraphic" in2="noise" scale="1.2"
+                         xChannelSelector="R" yChannelSelector="G"/>
+    </filter>
+    <marker id="ah-1971c2" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#1971c2"/>
+    </marker>
+    <marker id="ah-1e1e1e" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#1e1e1e"/>
+    </marker>
+    <marker id="ah-2f9e44" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#2f9e44"/>
+    </marker>
+    <marker id="ah-f08c00" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#f08c00"/>
+    </marker>
+  </defs>
+  <text x="350" y="46.4" font-size="22" font-family="Helvetica, Arial, sans-serif" fill="#1e1e1e" text-anchor="start">QConv2d Forward Pass Pipeline</text>
+  <rect x="30" y="100" width="140" height="70" rx="0" fill="#a5d8ff" stroke="#1971c2" stroke-width="2" opacity="1.0" filter="url(#handdrawn)"/>
+  <text x="45" y="132.6" font-size="13" font-family="Cascadia Code, Fira Code, monospace" fill="#1971c2" text-anchor="start">self.weight</text>
+  <text x="45" y="148.2" font-size="13" font-family="Cascadia Code, Fira Code, monospace" fill="#1971c2" text-anchor="start">(out, in, kH, kW)</text>
+  <text x="45" y="163.8" font-size="13" font-family="Cascadia Code, Fira Code, monospace" fill="#1971c2" text-anchor="start">float32</text>
+  <rect x="30" y="220" width="140" height="55" rx="0" fill="#ffec99" stroke="#f08c00" stroke-width="2" opacity="1.0" filter="url(#handdrawn)"/>
+  <text x="55" y="250.6" font-size="13" font-family="Cascadia Code, Fira Code, monospace" fill="#f08c00" text-anchor="start">self.e</text>
+  <text x="55" y="266.2" font-size="13" font-family="Cascadia Code, Fira Code, monospace" fill="#f08c00" text-anchor="start">(out, 1, 1, 1)</text>
+  <rect x="30" y="320" width="140" height="55" rx="0" fill="#b2f2bb" stroke="#2f9e44" stroke-width="2" opacity="1.0" filter="url(#handdrawn)"/>
+  <text x="55" y="350.6" font-size="13" font-family="Cascadia Code, Fira Code, monospace" fill="#2f9e44" text-anchor="start">self.b</text>
+  <text x="55" y="366.2" font-size="13" font-family="Cascadia Code, Fira Code, monospace" fill="#2f9e44" text-anchor="start">(out, 1, 1, 1)</text>
+  <polygon points="320.0,90 400,135.0 320.0,180 240,135.0" fill="#ffc9c9" stroke="#e03131" stroke-width="2" filter="url(#handdrawn)"/>
+  <text x="252" y="133.6" font-size="13" font-family="Helvetica, Arial, sans-serif" fill="#1e1e1e" text-anchor="start">qweight()</text>
+  <text x="252" y="149.2" font-size="13" font-family="Helvetica, Arial, sans-serif" fill="#1e1e1e" text-anchor="start">clip(2⁻ᵉ·w, lo, hi)</text>
+  <path d="M 178.0 135.0 L 232.0 135.0" fill="none" stroke="#1971c2" stroke-width="2" marker-end="url(#ah-1971c2)" filter="url(#handdrawn)"/>
+  <path d="M 160.9 216.4 L 271.0 160.1" fill="none" stroke="#f08c00" stroke-width="2" marker-end="url(#ah-f08c00)" filter="url(#handdrawn)"/>
+  <path d="M 134.2 314.4 L 284.8 169.0" fill="none" stroke="#2f9e44" stroke-width="2" marker-end="url(#ah-2f9e44)" filter="url(#handdrawn)"/>
+  <rect x="460" y="100" width="150" height="70" rx="0" fill="#d0bfff" stroke="#9c36b5" stroke-width="2" opacity="1.0" filter="url(#handdrawn)"/>
+  <text x="475" y="127.4" font-size="12" font-family="Cascadia Code, Fira Code, monospace" fill="#1e1e1e" text-anchor="start">ste_round(qw)</text>
+  <text x="475" y="141.8" font-size="12" font-family="Cascadia Code, Fira Code, monospace" fill="#1e1e1e" text-anchor="start">(qw.round()-qw)</text>
+  <text x="475" y="156.2" font-size="12" font-family="Cascadia Code, Fira Code, monospace" fill="#1e1e1e" text-anchor="start">.detach() + qw</text>
+  <path d="M 408.0 135.0 L 452.0 135.0" fill="none" stroke="#1e1e1e" stroke-width="2" marker-end="url(#ah-1e1e1e)" filter="url(#handdrawn)"/>
+  <rect x="670" y="100" width="150" height="70" rx="0" fill="#99e9f2" stroke="#0c8599" stroke-width="2" opacity="1.0" filter="url(#handdrawn)"/>
+  <text x="685" y="128.6" font-size="13" font-family="Helvetica, Arial, sans-serif" fill="#1e1e1e" text-anchor="start">dequantize</text>
+  <text x="685" y="144.2" font-size="13" font-family="Helvetica, Arial, sans-serif" fill="#1e1e1e" text-anchor="start">2ᵉ × w</text>
+  <text x="685" y="159.8" font-size="13" font-family="Helvetica, Arial, sans-serif" fill="#1e1e1e" text-anchor="start">back to float</text>
+  <path d="M 618.0 135.0 L 662.0 135.0" fill="none" stroke="#1e1e1e" stroke-width="2" marker-end="url(#ah-1e1e1e)" filter="url(#handdrawn)"/>
+  <rect x="880" y="100" width="150" height="70" rx="0" fill="#a5d8ff" stroke="#1971c2" stroke-width="2" opacity="1.0" filter="url(#handdrawn)"/>
+  <text x="895" y="135.6" font-size="13" font-family="Helvetica, Arial, sans-serif" fill="#1e1e1e" text-anchor="start">F.conv2d(x, dw)</text>
+  <text x="895" y="151.2" font-size="13" font-family="Helvetica, Arial, sans-serif" fill="#1e1e1e" text-anchor="start">standard conv</text>
+  <text x="895" y="166.8" font-size="13" font-family="Helvetica, Arial, sans-serif" fill="#1e1e1e" text-anchor="start">no modification</text>
+  <path d="M 828.0 135.0 L 872.0 135.0" fill="none" stroke="#1e1e1e" stroke-width="2" marker-end="url(#ah-1e1e1e)" filter="url(#handdrawn)"/>
+  <text x="242" y="214.4" font-size="12" font-family="Helvetica, Arial, sans-serif" fill="#e03131" text-anchor="start">integer range</text>
+  <text x="242" y="228.8" font-size="12" font-family="Helvetica, Arial, sans-serif" fill="#e03131" text-anchor="start">(float dtype)</text>
+  <text x="462" y="199.4" font-size="12" font-family="Helvetica, Arial, sans-serif" fill="#9c36b5" text-anchor="start">discrete integers</text>
+  <text x="462" y="213.8" font-size="12" font-family="Helvetica, Arial, sans-serif" fill="#9c36b5" text-anchor="start">(grad = 1 via STE)</text>
+  <text x="672" y="199.4" font-size="12" font-family="Helvetica, Arial, sans-serif" fill="#0c8599" text-anchor="start">continuous float</text>
+  <text x="672" y="213.8" font-size="12" font-family="Helvetica, Arial, sans-serif" fill="#0c8599" text-anchor="start">approx weights</text>
+  <text x="30" y="436.8" font-size="14" font-family="Helvetica, Arial, sans-serif" fill="#1e1e1e" text-anchor="start">BACKWARD PASS:</text>
+  <text x="30" y="460.6" font-size="13" font-family="Helvetica, Arial, sans-serif" fill="#1971c2" text-anchor="start">∂L/∂weight  ←  2⁻ᵉ · conv_grad   (task accuracy gradient)</text>
+  <text x="30" y="483.6" font-size="13" font-family="Helvetica, Arial, sans-serif" fill="#f08c00" text-anchor="start">∂L/∂e       ←  from task loss (reconstruction) + implicit clamp signal</text>
+  <text x="30" y="506.6" font-size="13" font-family="Helvetica, Arial, sans-serif" fill="#2f9e44" text-anchor="start">∂L/∂b       ←  λ · fan_in · 𝟙[b&gt;0]  (compression penalty)</text>
+</svg>

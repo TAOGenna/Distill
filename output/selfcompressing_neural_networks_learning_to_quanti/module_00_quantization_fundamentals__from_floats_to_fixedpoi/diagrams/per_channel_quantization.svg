@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-20 -25 990 535" width="800" height="432" style="background: white;">
+  <defs>
+    <filter id="handdrawn" x="-5%" y="-5%" width="110%" height="110%">
+      <feTurbulence type="turbulence" baseFrequency="0.02" numOctaves="3"
+                    result="noise" seed="2"/>
+      <feDisplacementMap in="SourceGraphic" in2="noise" scale="1.2"
+                         xChannelSelector="R" yChannelSelector="G"/>
+    </filter>
+    <marker id="ah-2f9e44" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#2f9e44"/>
+    </marker>
+    <marker id="ah-e03131" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#e03131"/>
+    </marker>
+    <marker id="ah-f08c00" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#f08c00"/>
+    </marker>
+  </defs>
+  <text x="150" y="39.0" font-size="20" font-family="Virgil, Segoe Print, Comic Sans MS, cursive" fill="#1e1e1e" text-anchor="start">Per-Channel Quantization: Each Output Channel Gets Its Own (e, b)</text>
+  <rect x="20" y="60" width="160" height="340" rx="0" fill="#a5d8ff" stroke="#1971c2" stroke-width="2" opacity="1.0" filter="url(#handdrawn)"/>
+  <text x="35" y="86.8" font-size="14" font-family="Virgil, Segoe Print, Comic Sans MS, cursive" fill="#1971c2" text-anchor="start">QConv2d</text>
+  <text x="35" y="103.6" font-size="14" font-family="Virgil, Segoe Print, Comic Sans MS, cursive" fill="#1971c2" text-anchor="start">(32 out, 1 in,</text>
+  <text x="35" y="120.4" font-size="14" font-family="Virgil, Segoe Print, Comic Sans MS, cursive" fill="#1971c2" text-anchor="start">5×5 kernel)</text>
+  <rect x="220" y="60" width="200" height="56" rx="0" fill="#b2f2bb" stroke="#2f9e44" stroke-width="2" opacity="1.0" filter="url(#handdrawn)"/>
+  <text x="228" y="82.4" font-size="12" font-family="Virgil, Segoe Print, Comic Sans MS, cursive" fill="#2f9e44" text-anchor="start">Channel 0</text>
+  <text x="228" y="96.8" font-size="12" font-family="Virgil, Segoe Print, Comic Sans MS, cursive" fill="#2f9e44" text-anchor="start">e=-6.2, b=3.8</text>
+  <text x="228" y="111.2" font-size="12" font-family="Virgil, Segoe Print, Comic Sans MS, cursive" fill="#2f9e44" text-anchor="start">step=0.016, 14 levels</text>
+  <text x="228" y="125.6" font-size="12" font-family="Virgil, Segoe Print, Comic Sans MS, cursive" fill="#2f9e44" text-anchor="start">→ detects edges</text>
+  <rect x="220" y="126" width="200" height="56" rx="0" fill="#b2f2bb" stroke="#2f9e44" stroke-width="2" opacity="1.0" filter="url(#handdrawn)"/>
+  <text x="228" y="148.4" font-size="12" font-family="Virgil, Segoe Print, Comic Sans MS, cursive" fill="#2f9e44" text-anchor="start">Channel 1</text>
+  <text x="228" y="162.8" font-size="12" font-family="Virgil, Segoe Print, Comic Sans MS, cursive" fill="#2f9e44" text-anchor="start">e=-5.1, b=4.2</text>
+  <text x="228" y="177.2" font-size="12" font-family="Virgil, Segoe Print, Comic Sans MS, cursive" fill="#2f9e44" text-anchor="start">step=0.029, 18 levels</text>
+  <text x="228" y="191.6" font-size="12" font-family="Virgil, Segoe Print, Comic Sans MS, cursive" fill="#2f9e44" text-anchor="start">→ fine texture</text>
+  <rect x="220" y="192" width="200" height="56" rx="0" fill="#ffec99" stroke="#f08c00" stroke-width="2" opacity="1.0" filter="url(#handdrawn)"/>
+  <text x="228" y="214.4" font-size="12" font-family="Virgil, Segoe Print, Comic Sans MS, cursive" fill="#f08c00" text-anchor="start">Channel 2</text>
+  <text x="228" y="228.8" font-size="12" font-family="Virgil, Segoe Print, Comic Sans MS, cursive" fill="#f08c00" text-anchor="start">e=-3.5, b=1.9</text>
+  <text x="228" y="243.2" font-size="12" font-family="Virgil, Segoe Print, Comic Sans MS, cursive" fill="#f08c00" text-anchor="start">step=0.09, 4 levels</text>
+  <text x="228" y="257.6" font-size="12" font-family="Virgil, Segoe Print, Comic Sans MS, cursive" fill="#f08c00" text-anchor="start">→ less important</text>
+  <rect x="220" y="258" width="200" height="56" rx="0" fill="#ffc9c9" stroke="#e03131" stroke-width="2" opacity="1.0" filter="url(#handdrawn)"/>
+  <text x="228" y="280.4" font-size="12" font-family="Virgil, Segoe Print, Comic Sans MS, cursive" fill="#e03131" text-anchor="start">Channel 3</text>
+  <text x="228" y="294.8" font-size="12" font-family="Virgil, Segoe Print, Comic Sans MS, cursive" fill="#e03131" text-anchor="start">e=-1.0, b=0.02</text>
+  <text x="228" y="309.2" font-size="12" font-family="Virgil, Segoe Print, Comic Sans MS, cursive" fill="#e03131" text-anchor="start">relu(b)≈0, 1 level</text>
+  <text x="228" y="323.6" font-size="12" font-family="Virgil, Segoe Print, Comic Sans MS, cursive" fill="#e03131" text-anchor="start">→ PRUNED (b≈0)</text>
+  <text x="290" y="337.6" font-size="13" font-family="Virgil, Segoe Print, Comic Sans MS, cursive" fill="#1e1e1e" text-anchor="start">... 28 more channels ...</text>
+  <path d="M 180.0 88.0 L 280.0 88.0" fill="none" stroke="#2f9e44" stroke-width="2" marker-end="url(#ah-2f9e44)" filter="url(#handdrawn)"/>
+  <path d="M 180.0 154.0 L 280.0 154.0" fill="none" stroke="#2f9e44" stroke-width="2" marker-end="url(#ah-2f9e44)" filter="url(#handdrawn)"/>
+  <path d="M 180.0 220.0 L 280.0 220.0" fill="none" stroke="#f08c00" stroke-width="2" marker-end="url(#ah-f08c00)" filter="url(#handdrawn)"/>
+  <path d="M 180.0 286.0 L 280.0 286.0" fill="none" stroke="#e03131" stroke-width="2" marker-end="url(#ah-e03131)" filter="url(#handdrawn)"/>
+  <rect x="460" y="60" width="230" height="160" rx="0" fill="#d0bfff" stroke="#9c36b5" stroke-width="2" opacity="1.0" filter="url(#handdrawn)"/>
+  <text x="470" y="86.8" font-size="14" font-family="Virgil, Segoe Print, Comic Sans MS, cursive" fill="#9c36b5" text-anchor="start">Learnable parameters</text>
+  <text x="470" y="103.6" font-size="14" font-family="Virgil, Segoe Print, Comic Sans MS, cursive" fill="#9c36b5" text-anchor="start">(both updated via SGD):</text>
+  <text x="470" y="122.6" font-size="13" font-family="Virgil, Segoe Print, Comic Sans MS, cursive" fill="#1971c2" text-anchor="start">e: shape (32, 1, 1, 1)</text>
+  <text x="470" y="138.2" font-size="13" font-family="Virgil, Segoe Print, Comic Sans MS, cursive" fill="#1971c2" text-anchor="start">init = -8.0 per channel</text>
+  <text x="470" y="153.8" font-size="13" font-family="Virgil, Segoe Print, Comic Sans MS, cursive" fill="#1971c2" text-anchor="start">controls step size 2^e</text>
+  <text x="470" y="178.6" font-size="13" font-family="Virgil, Segoe Print, Comic Sans MS, cursive" fill="#2f9e44" text-anchor="start">b: shape (32, 1, 1, 1)</text>
+  <text x="470" y="194.2" font-size="13" font-family="Virgil, Segoe Print, Comic Sans MS, cursive" fill="#2f9e44" text-anchor="start">init = 2.0 per channel</text>
+  <text x="470" y="209.8" font-size="13" font-family="Virgil, Segoe Print, Comic Sans MS, cursive" fill="#2f9e44" text-anchor="start">controls # levels 2^relu(b)</text>
+  <rect x="460" y="240" width="230" height="120" rx="0" fill="#99e9f2" stroke="#0c8599" stroke-width="2" opacity="1.0" filter="url(#handdrawn)"/>
+  <text x="470" y="266.8" font-size="14" font-family="Virgil, Segoe Print, Comic Sans MS, cursive" fill="#0c8599" text-anchor="start">Storage savings (per channel):</text>
+  <text x="470" y="292.4" font-size="12" font-family="Virgil, Segoe Print, Comic Sans MS, cursive" fill="#0c8599" text-anchor="start">float32: 25 weights × 4B = 100B</text>
+  <text x="470" y="306.8" font-size="12" font-family="Virgil, Segoe Print, Comic Sans MS, cursive" fill="#0c8599" text-anchor="start">b=4 bits: 25×4/8 = 12.5B</text>
+  <text x="470" y="321.2" font-size="12" font-family="Virgil, Segoe Print, Comic Sans MS, cursive" fill="#0c8599" text-anchor="start">b=2 bits: 25×2/8 = 6.25B</text>
+  <text x="470" y="335.6" font-size="12" font-family="Virgil, Segoe Print, Comic Sans MS, cursive" fill="#0c8599" text-anchor="start">b=0 bits: 0B (pruned!)</text>
+  <rect x="20" y="415" width="670" height="55" rx="0" fill="#ffec99" stroke="#f08c00" stroke-width="2" opacity="1.0" filter="url(#handdrawn)"/>
+  <text x="30" y="441.8" font-size="14" font-family="Virgil, Segoe Print, Comic Sans MS, cursive" fill="#f08c00" text-anchor="start">KEY INSIGHT: Different channels get different precisions. Unimportant channels</text>
+  <text x="30" y="458.6" font-size="14" font-family="Virgil, Segoe Print, Comic Sans MS, cursive" fill="#f08c00" text-anchor="start">have b driven toward 0 by the compression loss, emergently pruning them.</text>
+</svg>
