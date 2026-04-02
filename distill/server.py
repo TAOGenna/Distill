@@ -367,19 +367,21 @@ async def _courses_endpoint(request: Request) -> JSONResponse:
             if not d.is_dir() or d.name.startswith("_"):
                 continue
 
+            curriculum = d / "_curriculum.json"
+            if not curriculum.exists():
+                continue
+
             course: dict[str, Any] = {
                 "name": d.name,
                 "path": str(d.resolve()),
             }
 
-            curriculum = d / "_curriculum.json"
-            if curriculum.exists():
-                try:
-                    curr = json.loads(curriculum.read_text())
-                    course["modules"] = len(curr.get("modules", []))
-                    course["title"] = curr.get("course_title", d.name)
-                except (json.JSONDecodeError, OSError):
-                    pass
+            try:
+                curr = json.loads(curriculum.read_text())
+                course["modules"] = len(curr.get("modules", []))
+                course["title"] = curr.get("course_title", d.name)
+            except (json.JSONDecodeError, OSError):
+                pass
 
             readme = d / "README.md"
             if readme.exists():

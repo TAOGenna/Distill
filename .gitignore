@@ -14,3 +14,4 @@ venv/
 *.o
 Distill.app/
 *.dmg
+output/
