@@ -8,6 +8,7 @@ truncation, section extraction, and (if needed) summarization via a cheap model.
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -80,6 +81,14 @@ def _read_source_entry(entry: dict, sources_dir: Path) -> str:
         else:
             parts.append("[PDF source — text extraction not available]\n")
 
+    elif source_type == "github_file":
+        # Single file fetched from a repo
+        filename = entry.get("filename", "")
+        if filename:
+            content = _read_text_file(src_dir / filename)
+            if content:
+                parts.append(f"[{filename}]\n{content}\n")
+
     elif source_type == "github":
         # Read key source files from cloned repo
         repo_dir = src_dir / "repo"
@@ -89,181 +98,170 @@ def _read_source_entry(entry: dict, sources_dir: Path) -> str:
     return "\n".join(parts)
 
 
-def _read_repo_key_files(repo_dir: Path, budget_chars: int = 300_000) -> str:
-    """Read a repo intelligently: tree + READMEs + ranked source files.
+# ── Repo ingestion constants ──────────────────────────────────────────────────
 
-    Instead of grabbing 20 files by extension, this:
-    1. Generates the filtered directory tree (structural context)
-    2. Reads all READMEs and config files (author's own explanation)
-    3. Parses imports to find hub modules (most-imported = most important)
-    4. Packs ranked files into a token budget
-    5. Includes first-line stubs for overflow files
-    """
-    import re as _re
+_SKIP_DIRS = frozenset({
+    ".git", ".github", ".vscode", ".idea", ".mypy_cache", ".pytest_cache",
+    "__pycache__", "node_modules", "vendor", "third_party", "dist", "build",
+    "target", ".tox", ".eggs", "venv", ".venv", "env", ".env",
+    "cmake-build-debug", "cmake-build-release",
+})
+_SKIP_SUFFIXES = frozenset({
+    ".lock", ".sum", ".min.js", ".min.css", ".map", ".pyc", ".pyo",
+    ".so", ".dylib", ".dll", ".o", ".a", ".class", ".jar",
+    ".png", ".jpg", ".jpeg", ".gif", ".svg", ".ico", ".webp",
+    ".woff", ".woff2", ".ttf", ".eot",
+    ".pdf", ".zip", ".tar", ".gz", ".bz2",
+    ".pb", ".onnx", ".pt", ".bin", ".npy", ".npz", ".h5",
+})
+_SOURCE_EXTS = frozenset({
+    ".py", ".rs", ".go", ".c", ".h", ".cpp", ".hpp", ".cc", ".cxx",
+    ".cu", ".cuh",
+    ".ts", ".tsx", ".js", ".jsx", ".java", ".kt", ".scala",
+    ".rb", ".jl", ".lua", ".zig", ".nim", ".ex", ".exs",
+    ".sh", ".bash", ".zsh", ".fish",
+    ".sql", ".proto", ".thrift", ".graphql",
+    ".toml", ".yaml", ".yml", ".json", ".xml",
+    ".md", ".rst", ".txt",
+    ".cmake", ".mak",
+})
+_CONFIG_NAMES = frozenset({
+    "pyproject.toml", "setup.py", "setup.cfg",
+    "Cargo.toml", "package.json",
+    "Makefile", "CMakeLists.txt", "BUILD",
+    "go.mod", "Gemfile", "mix.exs", "build.zig",
+    "Dockerfile", "docker-compose.yml", "docker-compose.yaml",
+})
+_ENTRY_NAMES = frozenset({
+    "main", "lib", "__main__", "__init__", "index", "app", "mod",
+    "cli", "server", "core", "engine",
+})
+_IMPORTANT_NAMES = frozenset({
+    "core", "engine", "model", "models", "pipeline", "parser",
+    "compiler", "runtime", "scheduler", "worker", "handler",
+})
+_TEXT_EXTS = frozenset({
+    ".md", ".rst", ".txt", ".toml", ".yaml", ".yml",
+    ".json", ".xml", ".proto", ".graphql", ".sql",
+})
+_EXTENSIONLESS_SOURCES = frozenset({
+    "Makefile", "Dockerfile", "Vagrantfile", "Rakefile",
+    "CMakeLists.txt", "BUILD", "WORKSPACE",
+})
 
-    # ── Excluded directories and files ────────────────────────────────
-    _SKIP_DIRS = frozenset({
-        ".git", ".github", ".vscode", ".idea", ".mypy_cache", ".pytest_cache",
-        "__pycache__", "node_modules", "vendor", "third_party", "dist", "build",
-        "target", ".tox", ".eggs", "venv", ".venv", "env", ".env",
-        "cmake-build-debug", "cmake-build-release",
-    })
-    _SKIP_SUFFIXES = frozenset({
-        ".lock", ".sum", ".min.js", ".min.css", ".map", ".pyc", ".pyo",
-        ".so", ".dylib", ".dll", ".o", ".a", ".class", ".jar",
-        ".png", ".jpg", ".jpeg", ".gif", ".svg", ".ico", ".webp",
-        ".woff", ".woff2", ".ttf", ".eot",
-        ".pdf", ".zip", ".tar", ".gz", ".bz2",
-        ".pb", ".onnx", ".pt", ".bin", ".npy", ".npz", ".h5",
-    })
-    _SOURCE_EXTS = frozenset({
-        ".py", ".rs", ".go", ".c", ".h", ".cpp", ".hpp", ".cc", ".cxx",
-        ".cu", ".cuh",
-        ".ts", ".tsx", ".js", ".jsx", ".java", ".kt", ".scala",
-        ".rb", ".jl", ".lua", ".zig", ".nim", ".ex", ".exs",
-        ".sh", ".bash", ".zsh", ".fish",
-        ".sql", ".proto", ".thrift", ".graphql",
-        ".toml", ".yaml", ".yml", ".json", ".xml",
-        ".md", ".rst", ".txt",
-        ".cmake", ".mak",
-    })
+_C_INCLUDE = re.compile(r'#include\s+"([^"]+)"', re.MULTILINE)
+_IMPORT_PATTERNS: dict[str, list[re.Pattern[str]]] = {
+    ".py": [
+        re.compile(r"^\s*from\s+([\w.]+)\s+import", re.MULTILINE),
+        re.compile(r"^\s*import\s+([\w.]+)", re.MULTILINE),
+    ],
+    ".rs": [
+        re.compile(r"^\s*use\s+crate::([\w:]+)", re.MULTILINE),
+        re.compile(r"^\s*mod\s+(\w+)\s*;", re.MULTILINE),
+    ],
+    ".go": [
+        re.compile(r'"[^"]*?/([^"/]+)"', re.MULTILINE),
+    ],
+    ".js": [
+        re.compile(r"""(?:import|require)\s*\(?['"]\.\/([^'"]+)['"]""", re.MULTILINE),
+        re.compile(r"""from\s+['"]\.\/([^'"]+)['"]""", re.MULTILINE),
+    ],
+    ".c": [_C_INCLUDE], ".h": [_C_INCLUDE],
+    ".cpp": [_C_INCLUDE], ".hpp": [_C_INCLUDE], ".cc": [_C_INCLUDE],
+}
+_IMPORT_PATTERNS[".ts"] = _IMPORT_PATTERNS[".js"]
+_IMPORT_PATTERNS[".tsx"] = _IMPORT_PATTERNS[".js"]
+_IMPORT_PATTERNS[".jsx"] = _IMPORT_PATTERNS[".js"]
+_IMPORT_PATTERNS[".cu"] = _IMPORT_PATTERNS[".c"]
+_IMPORT_PATTERNS[".cuh"] = _IMPORT_PATTERNS[".c"]
 
-    def _should_skip_dir(name: str) -> bool:
-        return name in _SKIP_DIRS or name.startswith(".")
 
-    def _should_skip_file(path: Path) -> bool:
-        return path.suffix.lower() in _SKIP_SUFFIXES
+# ── Repo ingestion helpers ────────────────────────────────────────────────────
 
-    def _is_source(path: Path) -> bool:
-        s = path.suffix.lower()
-        return s in _SOURCE_EXTS or path.name in {
-            "Makefile", "Dockerfile", "Vagrantfile", "Rakefile",
-            "CMakeLists.txt", "BUILD", "WORKSPACE",
-        }
 
-    # ── 1. Directory tree ─────────────────────────────────────────────
+def _should_skip_dir(name: str) -> bool:
+    return name in _SKIP_DIRS or name.startswith(".")
 
-    def _build_tree(root: Path, prefix: str = "", max_depth: int = 5, depth: int = 0) -> list[str]:
+
+def _is_source(path: Path) -> bool:
+    return path.suffix.lower() in _SOURCE_EXTS or path.name in _EXTENSIONLESS_SOURCES
+
+
+def _build_repo_tree(root: Path, max_depth: int = 5) -> str:
+    """Build a filtered directory tree string for LLM context."""
+
+    def _walk(d: Path, prefix: str, depth: int) -> list[str]:
         if depth > max_depth:
             return [prefix + "..."]
-        lines: list[str] = []
         try:
-            entries = sorted(root.iterdir(), key=lambda p: (p.is_file(), p.name.lower()))
+            entries = sorted(d.iterdir(), key=lambda p: (p.is_file(), p.name.lower()))
         except PermissionError:
-            return lines
+            return []
         dirs = [e for e in entries if e.is_dir() and not _should_skip_dir(e.name)]
-        files = [e for e in entries if e.is_file() and not _should_skip_file(e)]
+        files = [e for e in entries if e.is_file() and e.suffix.lower() not in _SKIP_SUFFIXES]
         items = dirs + files
+        lines: list[str] = []
         for i, item in enumerate(items):
-            connector = "└── " if i == len(items) - 1 else "├── "
-            child_prefix = "    " if i == len(items) - 1 else "│   "
+            last = i == len(items) - 1
+            connector = "└── " if last else "├── "
+            child_prefix = "    " if last else "│   "
             if item.is_dir():
                 lines.append(prefix + connector + item.name + "/")
-                lines.extend(_build_tree(item, prefix + child_prefix, max_depth, depth + 1))
+                lines.extend(_walk(item, prefix + child_prefix, depth + 1))
             else:
                 lines.append(prefix + connector + item.name)
         return lines
 
-    tree_lines = [repo_dir.name + "/"] + _build_tree(repo_dir)
-    tree_text = "\n".join(tree_lines)
+    return "\n".join([root.name + "/"] + _walk(root, "", 0))
 
-    # ── 2. Collect all source files ───────────────────────────────────
 
-    all_files: list[Path] = []
+def _collect_repo_files(
+    repo_dir: Path,
+) -> tuple[list[Path], list[Path], list[Path]]:
+    """Collect and categorize files into (readmes, configs, source_code)."""
+    readmes: list[Path] = []
+    configs: list[Path] = []
+    source_code: list[Path] = []
+
     for f in repo_dir.rglob("*"):
         if not f.is_file():
             continue
         if any(_should_skip_dir(part) for part in f.relative_to(repo_dir).parts):
             continue
-        if _should_skip_file(f):
+        if f.suffix.lower() in _SKIP_SUFFIXES:
             continue
-        if _is_source(f):
-            all_files.append(f)
+        if not _is_source(f):
+            continue
 
-    # ── 3. Categorize: READMEs, configs, source code ──────────────────
-
-    readmes: list[Path] = []
-    configs: list[Path] = []
-    source_code: list[Path] = []
-
-    _CONFIG_NAMES = frozenset({
-        "pyproject.toml", "setup.py", "setup.cfg",
-        "Cargo.toml", "package.json",
-        "Makefile", "CMakeLists.txt", "BUILD",
-        "go.mod", "Gemfile", "mix.exs", "build.zig",
-        "Dockerfile", "docker-compose.yml", "docker-compose.yaml",
-    })
-
-    for f in all_files:
-        name_lower = f.name.lower()
-        if name_lower.startswith("readme"):
+        if f.name.lower().startswith("readme"):
             readmes.append(f)
         elif f.name in _CONFIG_NAMES:
             configs.append(f)
-        elif f.suffix.lower() in {".md", ".rst", ".txt", ".toml", ".yaml", ".yml",
-                                    ".json", ".xml", ".proto", ".graphql", ".sql"}:
-            # Non-code text files — lower priority, skip for ranking
-            pass
-        else:
+        elif f.suffix.lower() not in _TEXT_EXTS:
             source_code.append(f)
 
-    # ── 4. Import graph → centrality ranking ──────────────────────────
+    return readmes, configs, source_code
 
-    # Map relative paths to file paths for import resolution
+
+def _build_import_graph(
+    source_code: list[Path], repo_dir: Path,
+) -> dict[Path, int]:
+    """Parse imports across all source files and return in-degree counts."""
+    # Index files by multiple keys for fuzzy import resolution
     path_index: dict[str, Path] = {}
     for f in source_code:
         rel = f.relative_to(repo_dir)
-        # Index by multiple keys for fuzzy matching
-        path_index[str(rel)] = f                           # src/runner.cu
-        path_index[str(rel.with_suffix(""))] = f           # src/runner
-        path_index[rel.name] = f                           # runner.cu
-        path_index[rel.stem] = f                           # runner
-        # Python module style: a/b/c.py → a.b.c
+        path_index[str(rel)] = f
+        path_index[str(rel.with_suffix(""))] = f
+        path_index[rel.name] = f
+        path_index[rel.stem] = f
         module_key = str(rel.with_suffix("")).replace("/", ".").replace("\\", ".")
         path_index[module_key] = f
 
-    # Import patterns per language
-    _IMPORT_PATTERNS: dict[str, list[_re.Pattern]] = {
-        ".py": [
-            _re.compile(r"^\s*from\s+([\w.]+)\s+import", _re.MULTILINE),
-            _re.compile(r"^\s*import\s+([\w.]+)", _re.MULTILINE),
-        ],
-        ".rs": [
-            _re.compile(r"^\s*use\s+crate::([\w:]+)", _re.MULTILINE),
-            _re.compile(r"^\s*mod\s+(\w+)\s*;", _re.MULTILINE),
-        ],
-        ".go": [
-            _re.compile(r'"[^"]*?/([^"/]+)"', _re.MULTILINE),
-        ],
-        ".js": [
-            _re.compile(r"""(?:import|require)\s*\(?['"]\.\/([^'"]+)['"]""", _re.MULTILINE),
-            _re.compile(r"""from\s+['"]\.\/([^'"]+)['"]""", _re.MULTILINE),
-        ],
-        ".ts": [
-            _re.compile(r"""(?:import|require)\s*\(?['"]\.\/([^'"]+)['"]""", _re.MULTILINE),
-            _re.compile(r"""from\s+['"]\.\/([^'"]+)['"]""", _re.MULTILINE),
-        ],
-        ".c": [_re.compile(r'#include\s+"([^"]+)"', _re.MULTILINE)],
-        ".h": [_re.compile(r'#include\s+"([^"]+)"', _re.MULTILINE)],
-        ".cpp": [_re.compile(r'#include\s+"([^"]+)"', _re.MULTILINE)],
-        ".hpp": [_re.compile(r'#include\s+"([^"]+)"', _re.MULTILINE)],
-        ".cc": [_re.compile(r'#include\s+"([^"]+)"', _re.MULTILINE)],
-    }
-    # Alias tsx/jsx to ts/js patterns, cu/cuh to c/cpp
-    _IMPORT_PATTERNS[".tsx"] = _IMPORT_PATTERNS[".ts"]
-    _IMPORT_PATTERNS[".jsx"] = _IMPORT_PATTERNS[".js"]
-    _IMPORT_PATTERNS[".cu"] = _IMPORT_PATTERNS[".c"]
-    _IMPORT_PATTERNS[".cuh"] = _IMPORT_PATTERNS[".c"]
-
-    # Count how many files import each file (in-degree)
     in_degree: dict[Path, int] = {f: 0 for f in source_code}
-    readme_text_lower = ""
-    for r in readmes:
-        readme_text_lower += _read_text_file(r).lower() + "\n"
 
     for f in source_code:
-        ext = f.suffix.lower()
-        patterns = _IMPORT_PATTERNS.get(ext, [])
+        patterns = _IMPORT_PATTERNS.get(f.suffix.lower(), [])
         if not patterns:
             continue
         try:
@@ -273,58 +271,42 @@ def _read_repo_key_files(repo_dir: Path, budget_chars: int = 300_000) -> str:
         for pat in patterns:
             for match in pat.finditer(content):
                 target = match.group(1)
-                # Try to resolve the import target to a file
-                # Clean up: crate::foo::bar → foo/bar, a.b.c → a/b/c
                 cleaned = target.replace("::", "/").replace(".", "/")
                 leaf = target.rsplit(".", 1)[-1].rsplit("::", 1)[-1].rsplit("/", 1)[-1]
                 candidates = [target, cleaned, leaf]
-                # For C/C++: target already has extension (e.g. "llama.h")
-                # For Python: add stem without dots (e.g. "pipeline")
                 if "." in target and not target.endswith((".py", ".h", ".hpp", ".cuh")):
                     candidates.append(target.replace(".", "/"))
-                for candidate_key in candidates:
-                    resolved = path_index.get(candidate_key)
+                for key in candidates:
+                    resolved = path_index.get(key)
                     if resolved and resolved != f:
                         in_degree[resolved] = in_degree.get(resolved, 0) + 1
                         break
 
-    # ── 5. Score each source file ─────────────────────────────────────
+    return in_degree
 
-    _ENTRY_NAMES = frozenset({
-        "main", "lib", "__main__", "__init__", "index", "app", "mod",
-        "cli", "server", "core", "engine",
-    })
-    _IMPORTANT_NAMES = frozenset({
-        "core", "engine", "model", "models", "pipeline", "parser",
-        "compiler", "runtime", "scheduler", "worker", "handler",
-    })
 
+def _score_files(
+    source_code: list[Path],
+    repo_dir: Path,
+    in_degree: dict[Path, int],
+    readme_text_lower: str,
+) -> list[tuple[float, Path]]:
+    """Score source files by importance. Returns sorted list (highest first)."""
     scored: list[tuple[float, Path]] = []
     for f in source_code:
-        rel = f.relative_to(repo_dir)
-        depth = len(rel.parts) - 1
+        depth = len(f.relative_to(repo_dir).parts) - 1
+        stem_lower = f.stem.lower()
         score = 0.0
 
-        # Import centrality (strongest signal)
         score += in_degree.get(f, 0) * 10.0
-
-        # Mentioned in README
-        stem_lower = f.stem.lower()
         if stem_lower in readme_text_lower or f.name.lower() in readme_text_lower:
             score += 8.0
-
-        # Entry point
         if stem_lower in _ENTRY_NAMES:
             score += 6.0
-
-        # Important-sounding name
         if stem_lower in _IMPORTANT_NAMES:
             score += 3.0
-
-        # Shallow depth (root files are more important)
         score += max(0, 4.0 - depth)
 
-        # File size: prefer medium-sized files (not tiny, not huge)
         try:
             size = f.stat().st_size
         except OSError:
@@ -332,33 +314,40 @@ def _read_repo_key_files(repo_dir: Path, budget_chars: int = 300_000) -> str:
         if 200 < size < 50_000:
             score += 2.0
         elif size >= 50_000:
-            score += 0.5  # still include, just lower priority
+            score += 0.5
 
         scored.append((score, f))
 
     scored.sort(key=lambda x: -x[0])
+    return scored
 
-    # ── 6. Pack into budget ───────────────────────────────────────────
 
+def _pack_budget(
+    tree_text: str,
+    readmes: list[Path],
+    configs: list[Path],
+    scored: list[tuple[float, Path]],
+    repo_dir: Path,
+    budget_chars: int,
+) -> str:
+    """Pack tree, READMEs, configs, and ranked source into a char budget."""
     parts: list[str] = []
     used = 0
 
-    # Budget allocation: tree 5%, READMEs 15%, configs 5%, source 75%
     tree_cap = max(budget_chars // 20, 5_000)
     readme_cap = max(budget_chars // 7, 20_000)
     config_cap = max(budget_chars // 20, 5_000)
 
-    # Directory tree (capped)
+    # Directory tree
     tree_section = f"[Directory Structure]\n{tree_text}\n"
     if len(tree_section) > tree_cap:
         tree_section = tree_section[:tree_cap] + "\n[... tree truncated ...]\n"
     parts.append(tree_section)
     used += len(tree_section)
 
-    # READMEs — root README gets the lion's share, sub-READMEs get stubs
+    # READMEs (root first)
     readme_used = 0
     for r in sorted(readmes, key=lambda p: len(p.relative_to(repo_dir).parts)):
-        rel = r.relative_to(repo_dir)
         content = _read_text_file(r)
         if not content:
             continue
@@ -367,48 +356,45 @@ def _read_repo_key_files(repo_dir: Path, budget_chars: int = 300_000) -> str:
             break
         if len(content) > remaining:
             content = content[:remaining] + "\n[... truncated ...]\n"
-        section = f"[{rel}]\n{content}\n"
+        section = f"[{r.relative_to(repo_dir)}]\n{content}\n"
         parts.append(section)
         used += len(section)
         readme_used += len(section)
 
-    # Config files (capped)
+    # Config files
     config_used = 0
     for c in configs:
-        rel = c.relative_to(repo_dir)
         content = _read_text_file(c)
         if not content:
             continue
-        section = f"[{rel}]\n{content}\n"
+        section = f"[{c.relative_to(repo_dir)}]\n{content}\n"
         if config_used + len(section) > config_cap:
             break
         parts.append(section)
         used += len(section)
         config_used += len(section)
 
-    # Fill remaining budget with ranked source files
-    included_paths: set[Path] = set(readmes) | set(configs)
+    # Ranked source files
+    included: set[Path] = set(readmes) | set(configs)
     overflow_stubs: list[str] = []
 
     for _score, f in scored:
-        if f in included_paths:
+        if f in included:
             continue
-        rel = f.relative_to(repo_dir)
         content = _read_text_file(f)
         if not content:
             continue
-
+        rel = f.relative_to(repo_dir)
         section = f"[{rel}]\n{content}\n"
         if used + len(section) <= budget_chars:
             parts.append(section)
             used += len(section)
-            included_paths.add(f)
+            included.add(f)
         else:
-            # Over budget — record stub (first 3 lines)
             first_lines = "\n".join(content.split("\n")[:3])
             overflow_stubs.append(f"  {rel}: {first_lines.strip()[:120]}")
 
-    # Append overflow summary (capped to not blow budget)
+    # Overflow stubs
     if overflow_stubs:
         stub_cap = max(budget_chars - used, 0)
         stub_header = (
@@ -425,6 +411,20 @@ def _read_repo_key_files(repo_dir: Path, budget_chars: int = 300_000) -> str:
         parts.append(stub_header + "\n".join(stub_lines) + "\n")
 
     return "\n".join(parts) if parts else "[No readable source files found]\n"
+
+
+def _read_repo_key_files(repo_dir: Path, budget_chars: int = 300_000) -> str:
+    """Read a repo intelligently: tree + READMEs + ranked source files."""
+    tree_text = _build_repo_tree(repo_dir)
+    readmes, configs, source_code = _collect_repo_files(repo_dir)
+    in_degree = _build_import_graph(source_code, repo_dir)
+
+    readme_text_lower = ""
+    for r in readmes:
+        readme_text_lower += _read_text_file(r).lower() + "\n"
+
+    scored = _score_files(source_code, repo_dir, in_degree, readme_text_lower)
+    return _pack_budget(tree_text, readmes, configs, scored, repo_dir, budget_chars)
 
 
 # ── Budget management ────────────────────────────────────────────────────────
