@@ -256,7 +256,9 @@ def _strip_code_fences(text: str) -> str:
     import re
     m = re.match(r'^```\w*\s*\n(.*?)```\s*$', text, re.DOTALL)
     if m:
-        return m.group(1)
+        text = m.group(1)
+    # Strip Pandoc-style heading anchors like {#anchor-id}
+    text = re.sub(r'\s*\{#[^}]+\}', '', text)
     return text
 
 

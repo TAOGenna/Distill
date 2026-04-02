@@ -682,6 +682,15 @@ async def _generate_module_claude(
         mcp_servers=mcp_config,
     )
 
+    # Strip Pandoc-style heading anchors like {#anchor-id} from README
+    readme_path = module_dir / "README.md"
+    if readme_path.exists():
+        import re
+        content = readme_path.read_text(encoding="utf-8")
+        cleaned = re.sub(r'\s*\{#[^}]+\}', '', content)
+        if cleaned != content:
+            readme_path.write_text(cleaned, encoding="utf-8")
+
     # Render Excalidraw diagrams to SVG
     diagram_count = render_module_diagrams(module_dir)
     if diagram_count:
