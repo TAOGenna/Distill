@@ -553,7 +553,7 @@ This is the primary teaching content. 5,000-10,000 words. NOT a summary.
 - Inline code snippets showing concept → code translation
 - Embedded comprehension checks: "What would happen if...?"
 - Formula translation: math → plain language → code (step by step)
-- 2-4 analytical questions at Level 3+ depth
+- 2-4 analytical questions at Level 3+ depth (each as ### Question N — Title)
 - Synthesis section reconnecting to the course goal{diagram_bullet}
 
 ═══════════════════════════════════════════════════════════════════════════

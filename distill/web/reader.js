@@ -163,7 +163,18 @@ async function loadModule(index) {
         }
         renderPager();
 
-        window.scrollTo({ top: 0, behavior: 'instant' });
+        // Scroll to hash target if present, otherwise scroll to top
+        var hash = location.hash;
+        if (hash) {
+            var target = document.querySelector(hash);
+            if (target) {
+                target.scrollIntoView({ behavior: 'instant' });
+            } else {
+                window.scrollTo({ top: 0, behavior: 'instant' });
+            }
+        } else {
+            window.scrollTo({ top: 0, behavior: 'instant' });
+        }
     } catch (e) {
         $('#article').innerHTML = '<p>Error loading module content.</p>';
     }
@@ -195,7 +206,18 @@ function renderContent(markdown, dirName) {
     // 7. Insert
     $('#article').innerHTML = html;
 
-    // 8. Syntax-highlight all code blocks
+    // 8. Add IDs to headings so TOC fragment links work
+    $$('#article h1, #article h2, #article h3, #article h4, #article h5, #article h6').forEach(function (el) {
+        if (!el.id) {
+            el.id = el.textContent
+                .toLowerCase()
+                .replace(/[^\w\s-]/g, '')
+                .trim()
+                .replace(/\s+/g, '-');
+        }
+    });
+
+    // 9. Syntax-highlight all code blocks
     $$('#article pre code').forEach(function (el) {
         hljs.highlightElement(el);
     });

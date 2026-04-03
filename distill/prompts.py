@@ -305,7 +305,8 @@ TEACHING DOCUMENT that a student spends 30-90 minutes reading. It must:
    - Hardware/implementation details not core to the concept
    - Author intent or paper context ("The authors chose this over X because...")
    Do NOT put core content in sidenotes — they are supplementary asides.
-8. Include 2-4 ANALYTICAL QUESTIONS at Level 3+ depth (analysis/synthesis)
+8. Include 2-4 ANALYTICAL QUESTIONS at Level 3+ depth (analysis/synthesis). \
+   Format each question as an h3 heading: ### Question N — Title
 9. Close with a synthesis section reconnecting to the course's overall goal
 10. Reference specific numbers, benchmarks, or measurements from the source
 
