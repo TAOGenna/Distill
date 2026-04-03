@@ -207,13 +207,38 @@ function renderContent(markdown, dirName) {
     $('#article').innerHTML = html;
 
     // 8. Add IDs to headings so TOC fragment links work
+    var headingMap = {};
     $$('#article h1, #article h2, #article h3, #article h4, #article h5, #article h6').forEach(function (el) {
         if (!el.id) {
             el.id = el.textContent
                 .toLowerCase()
-                .replace(/[^\w\s-]/g, '')
+                .replace(/['\u2018\u2019]/g, '')
+                .replace(/[^\w\s-]/g, '-')
                 .trim()
-                .replace(/\s+/g, '-');
+                .replace(/\s+/g, '-')
+                .replace(/-{2,}/g, '-')
+                .replace(/^-|-$/g, '');
+        }
+        headingMap[el.id] = el;
+    });
+
+    // 9. Fix TOC links whose short slugs don't exactly match heading IDs
+    var headingIds = Object.keys(headingMap);
+    $$('#article a[href^="#"]').forEach(function (a) {
+        var target = a.getAttribute('href').slice(1);
+        if (headingMap[target]) return; // exact match
+        // Find a heading ID that contains the slug as a whole-word segment
+        for (var i = 0; i < headingIds.length; i++) {
+            var hid = headingIds[i];
+            var pos = hid.indexOf(target);
+            if (pos === -1) continue;
+            var before = pos === 0 || hid[pos - 1] === '-';
+            var afterIdx = pos + target.length;
+            var after = afterIdx >= hid.length || hid[afterIdx] === '-';
+            if (before && after) {
+                a.setAttribute('href', '#' + hid);
+                break;
+            }
         }
     });
 
