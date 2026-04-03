@@ -548,7 +548,7 @@ LESSON DOCUMENT (README.md) — write this FIRST
 ═══════════════════════════════════════════════════════════════════════════
 
 This is the primary teaching content. 5,000-10,000 words. NOT a summary.
-- Table of contents + learning objectives
+- Table of contents + learning objectives (TOC anchors must be full heading text slugified: lowercase, spaces→hyphens, strip non-alphanumeric. Never abbreviated slugs)
 - Running example that evolves through the lesson
 - Inline code snippets showing concept → code translation
 - Embedded comprehension checks: "What would happen if...?"

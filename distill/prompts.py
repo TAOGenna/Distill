@@ -279,7 +279,11 @@ LESSON DOCUMENT STANDARDS (MIT 6.102 quality)
 The lesson is NOT a table of contents or exercise list. It is a SELF-CONTAINED \
 TEACHING DOCUMENT that a student spends 30-90 minutes reading. It must:
 
-1. Open with a local table of contents and explicit learning objectives
+1. Open with a local table of contents and explicit learning objectives. \
+   TOC anchors MUST be the full heading text lowercased with spaces as hyphens \
+   and non-alphanumeric characters removed: \
+   `[The Core Idea: Decomposing Vector Space](#the-core-idea-decomposing-vector-space)`. \
+   Never use abbreviated slugs like `#the-core-idea`
 2. Develop concepts through a RUNNING EXAMPLE that evolves through the lesson
 3. Integrate code snippets inline — show the concept, then show it in code
 4. Embed COMPREHENSION CHECKS at points of friction (not batched at the end):
