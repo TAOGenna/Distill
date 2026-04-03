@@ -43,17 +43,6 @@ cp -R dist/Distill.app /Applications/
 
 **Phase 3 — Review.** Pre-flight checks (syntax, TODOs, output patterns) catch structural issues. LLM review checks pedagogical quality and contract compliance. Failed modules are re-generated.
 
-## Providers
-
-| Provider | Design model | Generate model |
-|---|---|---|
-| Anthropic | claude-opus-4-6 | claude-sonnet-4-6 |
-| OpenAI | gpt-5.4 | gpt-5.4 |
-| Google | gemini-2.5-pro | gemini-2.5-flash |
-| Ollama | llama3 | llama3 |
-| OpenRouter | claude-opus-4-6 | claude-sonnet-4-6 |
-| Claude Code | opus | sonnet |
-
 ## Acknowledgments
 
-Inspired by [karpathify](https://github.com/nuwandavek/karpathify), Stanford's [CS231n](https://cs231n.stanford.edu/) assignments, and [MIT 6.102](https://web.mit.edu/6.102/www/sp26/) course readings.
+Inspired by [karpathify](https://github.com/nuwandavek/karpathify), Stanford's [CS231n](https://cs231n.stanford.edu/) assignments, [MIT 6.102](https://web.mit.edu/6.102/www/sp26/) course readings, Simon Boehm and Alexa Godric's blog style and beautiful excalidraws.
