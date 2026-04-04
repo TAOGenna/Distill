@@ -6,6 +6,7 @@ var $$ = function (s) { return document.querySelectorAll(s); };
 var courseName = '';
 var courseData = null;
 var currentModuleIdx = 0;
+var staticModules = null;
 
 /* ── Theme ────────────────────────────────────────── */
 
@@ -34,20 +35,36 @@ $('#theme-toggle').addEventListener('click', function () {
 
 async function init() {
     var params = new URLSearchParams(location.search);
-    courseName = params.get('course') || '';
 
-    if (!courseName) {
-        $('#article').innerHTML = '<p>No course specified. <a href="/">&larr; Back to Distill</a></p>';
-        return;
-    }
+    // Static mode: course data embedded in the page
+    var embedded = document.getElementById('course-data');
+    if (embedded) {
+        try {
+            var data = JSON.parse(embedded.textContent);
+            courseName = data.courseName;
+            courseData = data.detail;
+            staticModules = data.modules;
+        } catch (e) {
+            $('#article').innerHTML = '<p>Failed to load course data.</p>';
+            return;
+        }
+    } else {
+        // API mode: fetch from local server
+        courseName = params.get('course') || '';
 
-    try {
-        var resp = await fetch('/api/courses/' + encodeURIComponent(courseName) + '/detail');
-        if (!resp.ok) throw new Error('not found');
-        courseData = await resp.json();
-    } catch (e) {
-        $('#article').innerHTML = '<p>Could not load course. <a href="/">&larr; Back to Distill</a></p>';
-        return;
+        if (!courseName) {
+            $('#article').innerHTML = '<p>No course specified. <a href="/">&larr; Back to Distill</a></p>';
+            return;
+        }
+
+        try {
+            var resp = await fetch('/api/courses/' + encodeURIComponent(courseName) + '/detail');
+            if (!resp.ok) throw new Error('not found');
+            courseData = await resp.json();
+        } catch (e) {
+            $('#article').innerHTML = '<p>Could not load course. <a href="/">&larr; Back to Distill</a></p>';
+            return;
+        }
     }
 
     document.title = courseData.title + ' \u2014 Distill';
@@ -150,12 +167,17 @@ async function loadModule(index) {
     $('#article').innerHTML = '<p class="loading">Loading\u2026</p>';
 
     try {
-        var resp = await fetch(
-            '/api/courses/' + encodeURIComponent(courseName) +
-            '/module/' + encodeURIComponent(mod.dir_name)
-        );
-        if (!resp.ok) throw new Error('Failed to load module');
-        var data = await resp.json();
+        var data;
+        if (staticModules && staticModules[mod.dir_name]) {
+            data = staticModules[mod.dir_name];
+        } else {
+            var resp = await fetch(
+                '/api/courses/' + encodeURIComponent(courseName) +
+                '/module/' + encodeURIComponent(mod.dir_name)
+            );
+            if (!resp.ok) throw new Error('Failed to load module');
+            data = await resp.json();
+        }
 
         renderContent(data.content, mod.dir_name);
         if (data.exercises && data.exercises.length > 0) {
@@ -316,8 +338,12 @@ function convertFootnotes(md) {
 /* ── Image handling ───────────────────────────────── */
 
 function rewriteImages(html, dirName) {
-    // Rewrite relative src attributes to the course file API
+    // Rewrite relative src attributes
     return html.replace(/src="(?!https?:\/\/|\/|data:)([^"]+)"/g, function (_, src) {
+        if (staticModules) {
+            // Static mode: images are at ./files/{dirName}/
+            return 'src="files/' + dirName + '/' + src + '"';
+        }
         return 'src="/api/courses/' + courseName + '/files/' + dirName + '/' + src + '"';
     });
 }
