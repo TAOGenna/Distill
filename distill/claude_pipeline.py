@@ -548,7 +548,8 @@ LESSON DOCUMENT (README.md) — write this FIRST
 ═══════════════════════════════════════════════════════════════════════════
 
 This is the primary teaching content. 5,000-10,000 words. NOT a summary.
-- Table of contents + learning objectives (TOC anchors must be full heading text slugified: lowercase, spaces→hyphens, strip non-alphanumeric. Never abbreviated slugs)
+- Start with # Module N: Title, then go DIRECTLY to ## Table of Contents and ## Learning Objectives. No blockquotes, course name, module sequence links, or epigraphs between title and TOC
+- TOC anchors must be full heading text slugified: lowercase, spaces→hyphens, strip non-alphanumeric. Never abbreviated slugs
 - Running example that evolves through the lesson
 - Inline code snippets showing concept → code translation
 - Embedded comprehension checks: "What would happen if...?"

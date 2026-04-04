@@ -279,7 +279,10 @@ LESSON DOCUMENT STANDARDS (MIT 6.102 quality)
 The lesson is NOT a table of contents or exercise list. It is a SELF-CONTAINED \
 TEACHING DOCUMENT that a student spends 30-90 minutes reading. It must:
 
-1. Open with a local table of contents and explicit learning objectives. \
+1. Start the document with `# Module N: Title`, then go DIRECTLY to \
+   `## Table of Contents` and `## Learning Objectives`. Do NOT add course name, \
+   module sequence links, prerequisites, or any blockquote/epigraph between \
+   the title and TOC — the reader UI already provides navigation. \
    TOC anchors MUST be the full heading text lowercased with spaces as hyphens \
    and non-alphanumeric characters removed: \
    `[The Core Idea: Decomposing Vector Space](#the-core-idea-decomposing-vector-space)`. \
