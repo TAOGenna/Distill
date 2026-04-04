@@ -28,13 +28,6 @@ uv run python -m distill
 # → opens http://localhost:8420
 ```
 
-**macOS desktop app** (optional):
-
-```bash
-./build_app.sh
-cp -R dist/Distill.app /Applications/
-```
-
 ## How It Works
 
 **Phase 1 — Blueprint.** Reads the full source material and produces a curriculum: module dependencies, scaffold contracts per exercise (what's provided vs what the student writes), key excerpts, and validation criteria.
