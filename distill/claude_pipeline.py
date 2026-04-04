@@ -1018,8 +1018,12 @@ async def run_claude_pipeline(
     abs_output_dir = Path(output_dir).resolve()
     abs_output_dir.mkdir(parents=True, exist_ok=True)
 
+    # Cache key: hash the URL so different sources get separate caches
+    import hashlib
+    _cache_key = hashlib.sha256(url.encode()).hexdigest()[:12]
+
     # ── Phase 1a: Analyze (skip if cached) ────────────────────────────────
-    analysis_path = abs_output_dir / "_analysis.json"
+    analysis_path = abs_output_dir / f"_analysis_{_cache_key}.json"
     if analysis_path.exists():
         _log_step("Phase 1a: Using cached analysis")
         _emit({"type": "phase", "phase": "analyze"})
@@ -1038,7 +1042,7 @@ async def run_claude_pipeline(
         )
 
     # ── Phase 1b: Blueprint Design (skip if cached) ───────────────────────
-    blueprint_path = abs_output_dir / "_blueprint.json"
+    blueprint_path = abs_output_dir / f"_blueprint_{_cache_key}.json"
     if blueprint_path.exists():
         _log_step("Phase 1b: Using cached Blueprint")
         _emit({"type": "phase", "phase": "design"})
