@@ -725,6 +725,10 @@ function connectSSE(jobId) {
       src.close();
       resetBtn();
       loadCourses();
+      setTimeout(function () {
+        var section = $("#courses-section");
+        if (section) section.scrollIntoView({ behavior: "smooth" });
+      }, 300);
     } else if (ev.type === "error") {
       appendLog(ev.message, "error");
       src.close();

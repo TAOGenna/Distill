@@ -15,3 +15,6 @@ venv/
 Distill.app/
 *.dmg
 output/
+.DS_Store
+distill_icon.png
+demos/
