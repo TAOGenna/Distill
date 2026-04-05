@@ -511,37 +511,8 @@ tbody tr:nth-child(odd) {
     --c-class: #d2a8ff;
 }
 
-@media (prefers-color-scheme: dark) {
-    :root:not([data-theme="light"]) {
-        --r-bg: #1a1a1a;
-        --r-fg: #d4d4d4;
-        --r-fg-dim: #999;
-        --r-fg-muted: #666;
-        --r-border: #333;
-        --r-accent: #f87171;
-        --r-code-bg: #242424;
-        --r-code-border: #333;
-        --r-header-bg: rgba(26, 26, 26, 0.92);
-        --r-sidebar-hover: rgba(255, 255, 255, 0.08);
-
-        --c-keyword: #ff7b72;
-        --c-string: #a5d6ff;
-        --c-comment: #8b949e;
-        --c-number: #79c0ff;
-        --c-function: #d2a8ff;
-        --c-builtin: #ffa657;
-        --c-class: #d2a8ff;
-    }
-}
-
 [data-theme="dark"] ::selection {
     background: rgba(248, 113, 113, 0.2);
-}
-
-@media (prefers-color-scheme: dark) {
-    :root:not([data-theme="light"]) ::selection {
-        background: rgba(248, 113, 113, 0.2);
-    }
 }
 
 [data-theme="dark"] tbody tr:nth-child(odd) {

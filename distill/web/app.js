@@ -37,7 +37,7 @@ let liveTokensOut = 0;
 function getEffectiveTheme() {
   var stored = localStorage.getItem("distill_theme");
   if (stored === "dark" || stored === "light") return stored;
-  return window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+  return "light";
 }
 
 function applyTheme(theme) {
@@ -47,8 +47,7 @@ function applyTheme(theme) {
 
 // Apply saved theme immediately
 (function () {
-  var stored = localStorage.getItem("distill_theme");
-  if (stored) document.documentElement.setAttribute("data-theme", stored);
+  document.documentElement.setAttribute("data-theme", getEffectiveTheme());
 })();
 
 if ($("#theme-toggle")) {

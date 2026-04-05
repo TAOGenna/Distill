@@ -990,48 +990,6 @@ button {
 
 /* ── Dark theme ──────────────────────────────────── */
 
-@media (prefers-color-scheme: dark) {
-    :root:not([data-theme="light"]) {
-        --fg: #d4d4d4;
-        --fg-dim: #999;
-        --fg-muted: #777;
-        --fg-faint: #666;
-        --bg: #1a1a1a;
-        --bg-panel: #222;
-        --border: #333;
-        --border-light: #2a2a2a;
-        --border-faint: #252525;
-        --track-bg: #333;
-        --accent-ok: #4ade80;
-        --accent-ok-bg: #1a2e1a;
-        --accent-ok-border: #2d5a3d;
-        --accent-err: #f87171;
-        --accent-warn: #fbbf24;
-        --accent-warn-bg: #2a2310;
-        --accent-warn-border: #92750a;
-        --accent-warn-fg: #fbbf24;
-        --input-border: #555;
-        --tooltip-bg: #333;
-        --tooltip-fg: #ddd;
-        --edge-color: #444;
-        --edge-done: #d4d4d4;
-        --btn-bg: #d4d4d4;
-        --btn-fg: #1a1a1a;
-        --code-bg: rgba(255,255,255,0.08);
-        --checkbox-accent: #d4d4d4;
-        --scrollbar: #444;
-        --select-arrow: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23999'/%3E%3C/svg%3E");
-    }
-
-    input[type="text"],
-    input[type="url"],
-    input[type="password"],
-    textarea,
-    select {
-        color: var(--fg);
-    }
-}
-
 /* Explicit dark override (toggle button) */
 :root[data-theme="dark"] {
     --fg: #d4d4d4;
