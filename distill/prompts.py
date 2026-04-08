@@ -155,9 +155,19 @@ EXERCISE TYPES
 • `contrastive`: naive approach first → see it fail → build correct solution
 • `comparative`: implement two approaches, print side-by-side comparison
 • `explore`: complete code provided, student varies parameters and observes
+• `derive`: student implements a mathematical derivation step-by-step in code, \
+translating equations to working functions. Scaffold provides the equation \
+chain as comments; student fills in each step as code. Milestone: intermediate \
+values match expected numerical output, proving the derivation is correct.
 
 Use 1-2 contrastive exercises per course where the source discusses why a \
 naive approach fails.
+
+For math-heavy content (ML research, compression, RL, optimization): \
+use at least 1 `derive` exercise per module that translates a key equation \
+into code step-by-step. Also use `explore` exercises to let students vary \
+equation parameters and see effects (e.g., "change lambda from 0.1 to 10 and \
+observe how the regularization term dominates the loss").
 
 ═══════════════════════════════════════════════════════════════════════════════════
 ROOT README REQUIREMENTS
@@ -180,7 +190,18 @@ SYSTEMS ENGINEERING:
 
 ML RESEARCH:
   • Module 1 = zero math, build intuition first.
-  • Math: README explains in plain language, exercises translate to code.
+  • Math: the README must RIP APART every equation following the 5-stage pattern: \
+Intuition → Notation table → Derivation with inline \\scriptstyle annotations → \
+Interpretation of what the result means → Active questions testing understanding. \
+Never present an equation without decomposing it term by term.
+  • For derivations: use aligned equations with \\scriptstyle{\\text{; reason}} \
+comments on every line. Use \\color{red}{} to track key terms. Use \\underbrace \
+to label components of multi-term losses.
+  • Exercises translate equations to code. Include `derive`-type exercises \
+where the scaffold has the equation chain as comments and the student fills \
+in each step as a function. Include `explore`-type exercises where students \
+vary parameters (learning rate, regularization weight, temperature) and see \
+the mathematical effect.
   • Atom → atom → combine. Final module wires everything together.
 
 TUTORIAL:
@@ -292,13 +313,16 @@ TEACHING DOCUMENT that a student spends 30-90 minutes reading. It must:
 4. Embed COMPREHENSION CHECKS at points of friction (not batched at the end):
    "**Check your understanding:** What would happen if we set lambda=0? \
    What about lambda=infinity?"
-5. Translate formulas from the source material step by step — show the math, \
-   explain in plain language, then translate to code
+5. MATHEMATICAL EXPOSITION — follow the detailed MATH EXPOSITION STANDARDS \
+   section below. Every equation must be ripped apart: intuition first, then \
+   notation, then derivation with inline annotations, then interpretation, then \
+   active questions that test understanding of specific terms.
 6. Write ALL math and equations using LaTeX notation: \
    inline math with $...$ and display math with $$...$$. \
    NEVER use plain text, Unicode symbols, or code fences for equations. \
-   Examples: $D_{\\text{mse}} = \\mathbb{E}[\\|x - \\hat{x}\\|^2]$, \
-   $$\\nabla_\\theta J(\\theta) = \\frac{1}{N}\\sum_{i=1}^{N} \\nabla_\\theta \\log \\pi_\\theta(a_i|s_i) R_i$$
+   Use \\text{} for named subscripts: $L_{\\text{recon}}$ not $L_{recon}$. \
+   Use \\mathbf{} for vectors/matrices: $\\mathbf{W} \\in \\mathbb{R}^{d \\times d}$. \
+   Use \\underbrace for term labeling, \\color{} for tracking terms through derivations.
 7. Use SIDENOTES for supplementary context, historical notes, terminology \
    clarifications, "gotcha" warnings, and cross-references. Sidenotes use \
    standard markdown footnote syntax:
@@ -320,6 +344,112 @@ TEACHING DOCUMENT that a student spends 30-90 minutes reading. It must:
 Target length: 5,000-10,000 words depending on module complexity. Write like \
 a Codeforces grandmaster editorial or an MIT course reading — elaborate, \
 thorough, with every step justified.
+
+═══════════════════════════════════════════════════════════════════════════════════
+MATH EXPOSITION STANDARDS — rip apart every equation
+═══════════════════════════════════════════════════════════════════════════════════
+
+When the source material contains math (equations, derivations, loss functions, \
+optimization objectives), you MUST decompose it thoroughly. Do not just present \
+equations — disassemble them so the reader understands every symbol, every term, \
+and every step. Then make them WORK with the math through active questions.
+
+FLOW: Intuition → Notation → Derivation → Interpretation → Active Question
+
+For every significant equation, follow this five-stage pattern:
+
+STAGE 1 — INTUITION FIRST (before any notation):
+  Start with a concrete scenario, analogy, or "what are we trying to do" framing. \
+  Example: "Imagine you can travel along the Markov chain's states forever — \
+  eventually, the probability of ending up in any state becomes fixed. This is \
+  the stationary distribution."
+
+STAGE 2 — NOTATION TABLE (define every symbol before use):
+  Before a section introduces new variables, provide a brief notation table:
+  | Symbol | Meaning |
+  |--------|---------|
+  | $\\mathbf{x}$ | Input data point, $\\mathbf{x} \\in \\mathbb{R}^d$ |
+  | $\\mathbf{z}$ | Latent representation, $\\mathbf{z} \\in \\mathbb{R}^k$ |
+  | $q_\\phi(\\mathbf{z}|\\mathbf{x})$ | Encoder (approximate posterior) |
+  Always include the TYPE (scalar, vector, matrix) and DIMENSIONS.
+
+STAGE 3 — DERIVATION WITH INLINE ANNOTATIONS:
+  For multi-step derivations, annotate EVERY step. Use aligned equations with \
+  small-text justifications explaining the algebraic move:
+
+  $$\\begin{aligned}
+  D_{\\text{KL}}(q \\| p) &= \\int q(\\mathbf{z}) \\log \\frac{q(\\mathbf{z})}{p(\\mathbf{z})} d\\mathbf{z} & \\scriptstyle{\\text{definition of KL divergence}} \\\\
+  &= \\int q(\\mathbf{z}) \\log \\frac{q(\\mathbf{z}) p(\\mathbf{x})}{p(\\mathbf{z}, \\mathbf{x})} d\\mathbf{z} & \\scriptstyle{\\text{because } p(z|x) = p(z,x)/p(x)} \\\\
+  &= \\log p(\\mathbf{x}) + \\int q(\\mathbf{z}) \\log \\frac{q(\\mathbf{z})}{p(\\mathbf{z}, \\mathbf{x})} d\\mathbf{z} & \\scriptstyle{\\text{because } \\int q(z) dz = 1}
+  \\end{aligned}$$
+
+  Use `\\color{red}{}` to TRACK terms through a derivation — if a term is being \
+  eliminated, transformed, or is the key result, color it so the reader can \
+  follow it like a character through a story.
+
+  For complex objectives with multiple components, use `\\underbrace`:
+  $$\\mathcal{L} = \\underbrace{\\lambda_1 \\mathcal{L}_{\\text{recon}}}_{\\text{reconstruction quality}} + \\underbrace{\\lambda_2 D_{\\text{KL}}}_{\\text{regularization}} + \\underbrace{\\lambda_3 \\mathcal{L}_{\\text{adv}}}_{\\text{realism}}$$
+
+STAGE 4 — INTERPRETATION (what does the result MEAN):
+  After the derivation lands on a result, interpret it:
+  - "The first term pushes the decoder to reconstruct accurately"
+  - "The second term prevents the latent space from collapsing"
+  - "Notice that $p_\\theta(\\mathbf{x})$ is fixed w.r.t. $q_\\phi$ — so..."
+  Explicitly ask and answer "WHY" questions:
+  - "But why reversed KL and not forward KL?" → explain mode-seeking vs covering
+  - "Why does the $\\sqrt{d_k}$ scaling matter?" → without it, dot products grow \
+    with dimension, pushing softmax into near-one-hot regions
+
+STAGE 5 — ACTIVE QUESTIONS (learning by doing, not just reading):
+  After decomposing an equation, embed questions that force engagement:
+
+  **Term-removal questions:**
+  "**Check your understanding:** What happens to the loss if we set \
+  $\\lambda_2 = 0$ (removing the KL term)? What failure mode would you expect?"
+
+  **Prediction questions:**
+  "**Think first:** Before reading on — if we double the learning rate, \
+  which term in the gradient $\\nabla_\\theta J = \\frac{1}{N}\\sum_i R_i \\nabla \\log \\pi$ \
+  is affected? What about the variance?"
+
+  **Derivation gap exercises:**
+  "**Fill in the step:** We showed that $D_{\\text{KL}} = \\log p(x) - \\text{ELBO}$. \
+  Can you derive why $\\text{ELBO} \\leq \\log p(x)$? (Hint: KL divergence is always...)"
+
+  **Numerical sanity checks:**
+  "**Quick check:** If our latent space has $k=10$ dimensions and the KL term \
+  gives 2.3 nats, roughly how many bits per dimension is that?"
+
+  Place these INLINE right after the relevant equation — not batched at the end.
+
+ADDITIONAL MATH TECHNIQUES:
+
+• NAME your losses semantically: $L_{\\text{recon}}$, $L_{\\text{simple}}$, \
+  $L_{\\text{contrastive}}$ — never just $L_1$, $L_2$ which are meaningless.
+
+• INTERMEDIATE CONCLUSIONS in long derivations: After 3-4 steps, pause: \
+  "So we now have: [simplified result]." Interpret. Then continue.
+
+• CONNECT FORMULATIONS: When the same idea can be written multiple ways, \
+  show both and explain when each is useful: "This is equivalent to... \
+  but the second form is easier to optimize because..."
+
+• CONCRETE NUMBERS after abstract formulas: "For example, on CIFAR-10 with \
+  ResNet-18, the reconstruction loss stabilizes around 0.023 while the \
+  KL term contributes ~3.2 nats."
+
+• APPROXIMATION TRANSPARENCY: When introducing a simplification, announce \
+  the assumption explicitly: "To make this tractable, we assume the posterior \
+  is Gaussian. This is a strong assumption — it means..." Then show the \
+  simplified form.
+
+• CODE TRANSLATION: After the math interpretation, show the equation in code:
+  ```python
+  # KL divergence for diagonal Gaussian: -0.5 * sum(1 + log(sigma^2) - mu^2 - sigma^2)
+  kl_loss = -0.5 * torch.sum(1 + log_var - mu.pow(2) - log_var.exp())
+  ```
+  Then ask: "Which variable in the code corresponds to $\\sigma^2$ in the equation? \
+  Why do we work with $\\log \\sigma^2$ instead of $\\sigma^2$ directly?"
 
 ═══════════════════════════════════════════════════════════════════════════════════
 EXERCISE FILE STANDARDS
@@ -386,6 +516,68 @@ the solution files replace the stubs.
 When writing exercise 2+, you will see execution output from previous exercises. \
 Reference those actual numbers in the narrative: "In exercise 1 you saw the naive \
 approach achieve 31.2% — now let's see why batch normalization fixes this."
+"""
+
+# ── Source Image Guide (appended when images are available) ───────────────────
+
+SOURCE_IMAGE_GUIDE = """\
+
+═══════════════════════════════════════════════════════════════════════════════════
+SOURCE IMAGES — figures from the original material
+═══════════════════════════════════════════════════════════════════════════════════
+
+The original source material (paper, blog post, etc.) contains figures that have \
+been downloaded and are available for you to use in the lesson. These are NOT \
+generic stock images — they are the author's own diagrams, plots, architecture \
+figures, and result visualizations. They are high-signal pedagogical content.
+
+HOW TO USE SOURCE IMAGES:
+
+1. VIEW first: Use the Read tool on each image to understand what it shows. \
+   You are multimodal — you can see and interpret the image content.
+
+2. DECIDE placement: For each image, decide whether it adds value to the lesson \
+   at a specific point. Good candidates:
+   - Architecture/system diagrams → place where you explain the system design
+   - Training curves / loss plots → place where you discuss convergence or training
+   - Result tables / comparison charts → place where you discuss performance
+   - Ablation study figures → place where you explain what each component contributes
+   - Data pipeline / flow diagrams → place where you explain the processing steps
+
+3. COPY to module: Use Bash to copy the image file into the module directory:
+   ```
+   cp /path/to/source/image.png ./images/descriptive_name.png
+   ```
+   Create the images/ directory if needed. Rename the file to something descriptive \
+   (e.g., transformer_architecture.png, training_loss_curve.png).
+
+4. REFERENCE in README: Use standard markdown image syntax:
+   ```
+   ![Architecture of the proposed transformer variant](images/transformer_architecture.png)
+   ```
+   Place the image INLINE with the explanation — right after introducing the concept \
+   it illustrates. Add a brief caption line below if the image needs context:
+   ```
+   ![Training loss over 100k steps](images/training_loss_curve.png)
+   *Figure: The loss plateaus after ~50k steps, suggesting the learning rate \
+   schedule could be more aggressive. We explore this in Exercise 3.*
+   ```
+
+5. COMPLEMENT, don't duplicate: Source images and your own diagrams serve \
+   different purposes:
+   - Source images: show the author's actual results, architecture, and data
+   - Your diagrams (Excalidraw/ASCII): show step-by-step algorithm walkthroughs, \
+     before/after states, mechanism cross-sections with concrete values
+   Use both. A good module might have 2 source figures + 2 custom diagrams.
+
+WHEN NOT TO USE a source image:
+- If it's too small or low-resolution to be readable
+- If it shows something you can explain better with a custom diagram
+- If it duplicates another figure you're already including
+- If it requires heavy domain context not covered in this module
+
+You do NOT need to use every available image. Be selective — pick the ones that \
+genuinely strengthen the lesson at specific points.
 """
 
 # Turn-specific user message templates for the conversational flow.

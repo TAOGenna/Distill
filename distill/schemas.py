@@ -93,7 +93,7 @@ class Exercise(BaseModel):
     title: str
     type: Literal[
         "implement", "fill_blank", "debug", "analyze", "extend",
-        "contrastive", "comparative", "explore",
+        "contrastive", "comparative", "explore", "derive",
     ]
     description: str
     scaffolding_level: Literal["heavy", "medium", "light", "none"]

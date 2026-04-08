@@ -427,6 +427,60 @@ def _read_repo_key_files(repo_dir: Path, budget_chars: int = 300_000) -> str:
     return _pack_budget(tree_text, readmes, configs, scored, repo_dir, budget_chars)
 
 
+# ── Image catalog ───────────────────────────────────────────────────────────
+
+
+def get_source_images(sources_dir: str | Path) -> list[dict]:
+    """Read image manifests from all preprocessed sources.
+
+    Returns a flat list of image entries with absolute paths, suitable for
+    surfacing in the module generation prompt. Each entry has:
+      - path: absolute path to the image file
+      - alt_text: description (from markdown alt or TeX caption)
+      - source_url: original URL of the source that contained this image
+      - source_type: "arxiv", "blog", etc.
+    """
+    sources_dir = Path(sources_dir)
+    manifest_path = sources_dir / "manifest.json"
+    if not manifest_path.exists():
+        return []
+
+    manifest = json.loads(manifest_path.read_text())
+    images: list[dict] = []
+
+    # Collect from all sources (focus + refs)
+    entries = []
+    if manifest.get("focus"):
+        entries.append(manifest["focus"])
+    entries.extend(manifest.get("refs", []))
+
+    for entry in entries:
+        src_dir = sources_dir / entry["dir"]
+        images_dir = src_dir / "images"
+        img_manifest_path = images_dir / "manifest.json"
+
+        if not img_manifest_path.exists():
+            continue
+
+        try:
+            img_manifest = json.loads(img_manifest_path.read_text())
+        except (json.JSONDecodeError, OSError):
+            continue
+
+        for img in img_manifest:
+            img_path = images_dir / img["filename"]
+            if img_path.exists():
+                images.append({
+                    "path": str(img_path.resolve()),
+                    "filename": img["filename"],
+                    "alt_text": img.get("alt_text", ""),
+                    "source_url": entry.get("url", ""),
+                    "source_type": entry.get("type", "unknown"),
+                })
+
+    return images
+
+
 # ── Budget management ────────────────────────────────────────────────────────
 
 

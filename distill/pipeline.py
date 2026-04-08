@@ -36,7 +36,7 @@ from .schemas import (
     CurriculumDesign,
     ModuleReview,
 )
-from .sources import prepare_sources_with_summary
+from .sources import get_source_images, prepare_sources_with_summary
 
 
 # ── ANSI colors ──────────────────────────────────────────────────────────────
@@ -262,6 +262,41 @@ def _strip_code_fences(text: str) -> str:
     return text
 
 
+def _copy_referenced_images(
+    readme_content: str,
+    source_images: list[dict],
+    module_dir: Path,
+) -> int:
+    """Scan README for image references and copy matching source images.
+
+    The LiteLLM route can't copy files itself, so we post-process.
+    Returns number of images copied.
+    """
+    import shutil
+
+    # Find all markdown image references: ![alt](images/filename.ext)
+    img_refs = re.findall(r"!\[[^\]]*\]\(images/([^)]+)\)", readme_content)
+    if not img_refs:
+        return 0
+
+    # Build lookup from filename → source path
+    img_lookup = {img["filename"]: img["path"] for img in source_images}
+
+    copied = 0
+    images_dir = module_dir / "images"
+
+    for ref_filename in img_refs:
+        src_path = img_lookup.get(ref_filename)
+        if src_path and Path(src_path).exists():
+            images_dir.mkdir(exist_ok=True)
+            dest_path = images_dir / ref_filename
+            if not dest_path.exists():
+                shutil.copy2(src_path, dest_path)
+                copied += 1
+
+    return copied
+
+
 # ── Conversational module generation ─────────────────────────────────────────
 
 
@@ -274,6 +309,7 @@ async def _generate_module_conversational(
     model: str,
     course_dir: Path,
     shared_defs: dict | None = None,
+    source_images: list[dict] | None = None,
 ) -> tuple[int, dict]:
     """Generate a module via multi-turn conversation.
 
@@ -328,6 +364,23 @@ async def _generate_module_conversational(
         source_content=source_content,
     )
 
+    # Append image catalog if available — model can reference them by path
+    if source_images:
+        img_lines = []
+        for img in source_images:
+            alt = img.get("alt_text", "")
+            fname = img["filename"]
+            desc = f" — {alt}" if alt else ""
+            img_lines.append(f"  - images/{fname}{desc}")
+        lesson_prompt += (
+            "\n\nAVAILABLE SOURCE IMAGES from the original material:\n"
+            "You may reference these in the lesson using "
+            "![description](images/filename.ext) syntax. Place them inline "
+            "where they strengthen the explanation. Only use images that add "
+            "genuine value — you do not need to use all of them.\n\n"
+            + "\n".join(img_lines)
+        )
+
     _add_user(lesson_prompt)
     _log(f"Module {idx}: writing lesson...", _C.BLUE)
 
@@ -344,6 +397,10 @@ async def _generate_module_conversational(
     (module_dir / "README.md").write_text(lesson_content, encoding="utf-8")
     lesson_words = len(lesson_content.split())
     _log(f"Module {idx}: lesson written ({lesson_words} words)", _C.DIM)
+
+    # Copy any referenced source images into the module directory
+    if source_images:
+        _copy_referenced_images(lesson_content, source_images, module_dir)
 
     # ── Turns 2-N: Generate exercises (scaffold then solution) ───────
 
@@ -488,6 +545,7 @@ async def _phase_generate(
     student_level: str,
     model: str,
     course_dir: Path,
+    source_images: list[dict] | None = None,
 ) -> dict[int, dict]:
     """Generate all modules in parallel via multi-turn conversations.
 
@@ -530,6 +588,7 @@ async def _phase_generate(
                 student_level=student_level,
                 model=model,
                 course_dir=course_dir,
+                source_images=source_images,
             )
             results[idx] = summary
 
@@ -803,6 +862,7 @@ async def _phase_review(
     course_dir: Path,
     module_outputs: dict[int, dict],
     max_revision_cycles: int = 1,
+    source_images: list[dict] | None = None,
 ) -> None:
     """Phase 3: pre-flight validation + LLM quality review + targeted re-generation."""
     curriculum = design.curriculum
@@ -929,6 +989,7 @@ async def _phase_review(
                     student_level=student_level,
                     model=generate_model,
                     course_dir=course_dir,
+                    source_images=source_images,
                 )
                 module_outputs[idx] = summary
             except Exception as e:
@@ -995,6 +1056,13 @@ async def run_pipeline(
         source_content = f"[No preprocessed sources — original URL: {url}]"
 
     _log(f"Source content: ~{len(source_content) // 4} tokens", _C.DIM)
+
+    # Load source images catalog
+    source_images: list[dict] = []
+    if sources_dir:
+        source_images = get_source_images(sources_dir)
+        if source_images:
+            _log(f"Found {len(source_images)} source images available for modules", _C.CYAN)
 
     # ── Phase 1a: Analyze ─────────────────────────────────────────────────
     analysis = await _phase_analyze(
@@ -1078,6 +1146,7 @@ async def run_pipeline(
         student_level=user_level,
         model=generate_model,
         course_dir=course_dir,
+        source_images=source_images or None,
     )
 
     # ── Phase 3: Review (skip if no modules generated) ─────────────────
@@ -1095,6 +1164,7 @@ async def run_pipeline(
             course_dir=course_dir,
             module_outputs=module_outputs,
             max_revision_cycles=max_revision_cycles,
+            source_images=source_images or None,
         )
 
     # ── Done ──────────────────────────────────────────────────────────────

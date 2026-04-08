@@ -14,6 +14,7 @@ import gzip
 import io
 import json
 import re
+import shutil
 import subprocess
 import sys
 import tarfile
@@ -28,6 +29,8 @@ SourceType = Literal["arxiv", "github", "github_file", "pdf", "blog"]
 
 _FIGURE_EXTS = frozenset({".png", ".jpg", ".jpeg", ".pdf", ".eps", ".svg", ".gif"})
 _IMAGE_EXTS = frozenset({".png", ".jpg", ".jpeg", ".gif", ".svg", ".webp"})
+# Subset of _FIGURE_EXTS that Claude can actually view (multimodal-compatible)
+_VIEWABLE_IMAGE_EXTS = frozenset({".png", ".jpg", ".jpeg", ".gif", ".svg", ".webp"})
 _MIN_IMAGE_BYTES = 2048  # skip tiny images (icons, tracking pixels, spacers)
 
 
@@ -143,8 +146,154 @@ def _fetch_arxiv(paper_id: str, dest: Path, log: Callable) -> dict[str, Any]:
         meta["main_tex"] = str(main_tex.relative_to(source_dir))
 
     log(f"Found {len(tex_files)} .tex files, {len(figure_files)} figures", "ok")
+
+    # Collect viewable figures into images/ with manifest (same format as blogs)
+    images = _collect_arxiv_images(source_dir, figure_files, dest, log)
+    if images:
+        meta["artifacts"].append("images/")
+        meta["images_downloaded"] = len(images)
+
     (dest / "meta.json").write_text(json.dumps(meta, indent=2))
     return meta
+
+
+def _collect_arxiv_images(
+    source_dir: Path, figure_files: list[Path], dest: Path, log: Callable,
+) -> list[dict]:
+    """Copy viewable figures from TeX source into images/ with a manifest.
+
+    Skips EPS/PDF figures (not viewable by multimodal models). Extracts
+    captions from TeX source when possible for alt_text.
+    """
+    viewable = [
+        f for f in figure_files
+        if f.suffix.lower() in _VIEWABLE_IMAGE_EXTS
+        and f.stat().st_size >= _MIN_IMAGE_BYTES
+    ]
+    if not viewable:
+        return []
+
+    # Try to extract figure captions from TeX for alt_text
+    captions = _extract_tex_captions(source_dir)
+
+    images_dir = dest / "images"
+    images_dir.mkdir(exist_ok=True)
+    manifest = []
+
+    for fig_num, fig_path in enumerate(viewable, 1):
+        rel = str(fig_path.relative_to(source_dir))
+        ext = fig_path.suffix.lower()
+        filename = f"fig_{fig_num:02d}{ext}"
+
+        # Copy to images/
+        shutil.copy2(fig_path, images_dir / filename)
+
+        # Match caption by filename stem (e.g., "figures/arch" matches \includegraphics{figures/arch})
+        stem = fig_path.stem.lower()
+        rel_no_ext = str(fig_path.relative_to(source_dir).with_suffix("")).lower()
+        alt_text = captions.get(rel_no_ext) or captions.get(stem) or ""
+
+        manifest.append({
+            "filename": filename,
+            "original_path": rel,
+            "alt_text": alt_text,
+        })
+
+    if manifest:
+        (images_dir / "manifest.json").write_text(json.dumps(manifest, indent=2))
+        log(f"Collected {len(manifest)} viewable figures into images/", "ok")
+
+    return manifest
+
+
+def _extract_tex_captions(source_dir: Path) -> dict[str, str]:
+    """Extract figure captions from TeX files, keyed by includegraphics path."""
+    captions: dict[str, str] = {}
+    # Pattern: \begin{figure}...\includegraphics{path}...\caption{text}...\end{figure}
+    fig_env = re.compile(
+        r"\\begin\{figure\*?\}(.*?)\\end\{figure\*?\}", re.DOTALL
+    )
+    include_pat = re.compile(
+        r"\\includegraphics(?:\[[^\]]*\])?\{([^}]+)\}"
+    )
+
+    for tex_file in source_dir.rglob("*.tex"):
+        try:
+            content = tex_file.read_text(errors="replace")
+        except OSError:
+            continue
+        for fig_match in fig_env.finditer(content):
+            body = fig_match.group(1)
+            inc = include_pat.search(body)
+            if not inc:
+                continue
+
+            # Extract caption using balanced-brace matching (handles nested {})
+            caption_text = _extract_balanced_arg(body, r"\caption")
+            if not caption_text:
+                continue
+
+            img_key = inc.group(1).strip().lower()
+            # Normalize path: strip ./ prefix and extension for flexible matching
+            img_key = re.sub(r"^\./", "", img_key)
+            for ext in (".png", ".jpg", ".jpeg", ".pdf", ".eps", ".svg"):
+                if img_key.endswith(ext):
+                    img_key = img_key[: -len(ext)]
+                    break
+
+            # Clean caption: strip LaTeX commands, keep text content
+            cleaned = _clean_tex_to_text(caption_text)
+            if cleaned:
+                captions[img_key] = cleaned[:300]  # cap length
+
+    return captions
+
+
+def _extract_balanced_arg(text: str, command: str) -> str | None:
+    """Extract the {braced argument} of a LaTeX command using balanced-brace matching.
+
+    Handles arbitrary nesting: \\caption{Text with \\textbf{bold} and $\\mathbf{x}$}.
+    Returns the content inside the outermost braces, or None if not found.
+    """
+    # Find the command
+    cmd_escaped = re.escape(command)
+    m = re.search(cmd_escaped + r"\s*\{", text)
+    if not m:
+        return None
+
+    start = m.end()  # position right after the opening {
+    depth = 1
+    i = start
+    while i < len(text) and depth > 0:
+        if text[i] == "{":
+            depth += 1
+        elif text[i] == "}":
+            depth -= 1
+        i += 1
+
+    if depth != 0:
+        return None  # unbalanced braces
+    return text[start : i - 1]
+
+
+def _clean_tex_to_text(tex: str) -> str:
+    """Strip LaTeX commands from text, keeping readable content.
+
+    Handles nested commands like \\textbf{\\emph{word}} → word.
+    """
+    result = tex
+    # Iteratively unwrap \command{content} → content (handles nesting)
+    for _ in range(5):
+        cleaned = re.sub(r"\\[a-zA-Z]+\{([^{}]*)\}", r"\1", result)
+        if cleaned == result:
+            break
+        result = cleaned
+    # Remove remaining bare commands (e.g., \alpha, \ref without braces)
+    result = re.sub(r"\\[a-zA-Z]+", " ", result)
+    # Remove stray braces, ~, and collapse whitespace
+    result = re.sub(r"[{}~]", " ", result)
+    result = re.sub(r"\s+", " ", result).strip()
+    return result
 
 
 def _fetch_blog(url: str, dest: Path, log: Callable) -> dict[str, Any]:

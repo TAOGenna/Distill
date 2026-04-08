@@ -76,6 +76,7 @@ from .prompts import (
     MODULE_CONVERSATION_SYSTEM_PROMPT,
     LESSON_TURN_TEMPLATE,
     REVIEW_SYSTEM_PROMPT,
+    SOURCE_IMAGE_GUIDE,
 )
 from .diagrams import (
     clear_canvas,
@@ -419,6 +420,7 @@ def _build_module_prompt(
     sources_dir: str | None,
     module_dir: Path,
     excalidraw_enabled: bool = False,
+    source_images: list[dict] | None = None,
 ) -> str:
     """Build the comprehensive prompt for a module generation agent."""
     idx = module_spec["module_index"]
@@ -523,6 +525,25 @@ def _build_module_prompt(
             f"Use Read to access specific sections when needed.\n"
         )
 
+    # Source images catalog
+    images_block = ""
+    if source_images:
+        img_lines = []
+        for img in source_images:
+            alt = img.get("alt_text", "")
+            desc = f' — "{alt}"' if alt else ""
+            img_lines.append(f"  • {img['path']}{desc}")
+        images_block = (
+            "\n═══════════════════════════════════════════════════════════════════════════\n"
+            "AVAILABLE SOURCE IMAGES (from the original material)\n"
+            "═══════════════════════════════════════════════════════════════════════════\n\n"
+            f"{len(source_images)} images available. View them with Read to decide which "
+            f"to include in the lesson. Copy selected images to ./images/ and reference "
+            f"in README.md.\n\n"
+            + "\n".join(img_lines)
+            + "\n"
+        )
+
     if excalidraw_enabled:
         diagram_bullet = "\n- 2-4 inline diagrams: ![Description](diagrams/name.svg) placed with explanations"
     else:
@@ -609,7 +630,7 @@ libraries. When solution files replace stubs, validate_command must exit 0.
 {excerpts_block}
 ═══════════════════════════════════════════════════════════════════════════
 {source_access}
-═══════════════════════════════════════════════════════════════════════════
+{images_block}═══════════════════════════════════════════════════════════════════════════
 MANDATORY: VALIDATE EVERY EXERCISE — NO EXCEPTIONS
 ═══════════════════════════════════════════════════════════════════════════
 
@@ -638,6 +659,7 @@ async def _generate_module_claude(
     course_dir: Path,
     sources_dir: str | None,
     mcp_config: dict | None = None,
+    source_images: list[dict] | None = None,
 ) -> tuple[int, dict]:
     """Generate a module via Claude Code agent."""
     idx = module_spec["module_index"]
@@ -658,13 +680,16 @@ async def _generate_module_claude(
         sources_dir=sources_dir,
         module_dir=module_dir,
         excalidraw_enabled=bool(mcp_config),
+        source_images=source_images,
     )
 
     _log(f"Module {idx}: launching Claude Code agent...", _C.BLUE)
 
-    # Build tool list + diagram guide
+    # Build tool list + diagram guide + source image guide
     allowed = ["Bash", "Read", "Write", "Edit"]
     system = MODULE_CONVERSATION_SYSTEM_PROMPT
+    if source_images:
+        system += "\n\n" + SOURCE_IMAGE_GUIDE
     if mcp_config:
         allowed.append("mcp__excalidraw__*")
         system += "\n\n" + EXCALIDRAW_DIAGRAM_GUIDE
@@ -758,6 +783,7 @@ async def _phase_generate(
     course_dir: Path,
     sources_dir: str | None,
     mcp_config: dict | None = None,
+    source_images: list[dict] | None = None,
 ) -> dict[int, dict]:
     """Generate modules sequentially to avoid rate limits.
 
@@ -821,6 +847,7 @@ async def _phase_generate(
                 course_dir=course_dir,
                 sources_dir=sources_dir,
                 mcp_config=mcp_config,
+                source_images=source_images,
             )
 
             # Check if the agent actually produced files
@@ -836,6 +863,7 @@ async def _phase_generate(
                     course_dir=course_dir,
                     sources_dir=sources_dir,
                     mcp_config=mcp_config,
+                    source_images=source_images,
                 )
 
             results[idx] = summary
@@ -1000,12 +1028,19 @@ async def run_claude_pipeline(
 
     # ── Phase 0: Read preprocessed sources ────────────────────────────────
     _log_step("Reading preprocessed sources...")
-    from .sources import prepare_sources
+    from .sources import get_source_images, prepare_sources
     if sources_dir:
         source_content = prepare_sources(sources_dir)
     else:
         source_content = f"[No preprocessed sources — original URL: {url}]"
     _log(f"Source content: ~{len(source_content) // 4} tokens", _C.DIM)
+
+    # Load source images catalog (figures from papers, blog posts, etc.)
+    source_images: list[dict] = []
+    if sources_dir:
+        source_images = get_source_images(sources_dir)
+        if source_images:
+            _log(f"Found {len(source_images)} source images available for modules", _C.CYAN)
 
     # Aggregate usage across all phases
     total_usage = {"input_tokens": 0, "output_tokens": 0,
@@ -1125,6 +1160,7 @@ async def run_claude_pipeline(
             course_dir=course_dir,
             sources_dir=sources_dir,
             mcp_config=mcp_config,
+            source_images=source_images or None,
         )
     finally:
         stop_canvas_server(canvas_proc)
