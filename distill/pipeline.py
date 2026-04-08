@@ -1,9 +1,10 @@
 """Course generation pipeline — replaces the agent loop with direct API calls.
 
-Three-phase architecture using structured output:
+Lessons-first architecture using structured output:
   Phase 1a: Analyze source material → Analysis
   Phase 1b: Design curriculum → CurriculumDesign (curriculum + root files)
-  Phase 2:  Generate modules (parallel) → multi-turn conversations
+  Phase 2a: Generate lesson READMEs (parallel) → user can start reading
+  Phase 2b: Generate exercises (parallel across modules, sequential within)
   Phase 3:  Pre-flight validation + LLM quality review
 """
 
@@ -297,10 +298,10 @@ def _copy_referenced_images(
     return copied
 
 
-# ── Conversational module generation ─────────────────────────────────────────
+# ── Lesson generation ────────────────────────────────────────────────────────
 
 
-async def _generate_module_conversational(
+async def _generate_lesson(
     llm: LLMClient,
     module_spec: dict,
     course_context: str,
@@ -308,36 +309,22 @@ async def _generate_module_conversational(
     student_level: str,
     model: str,
     course_dir: Path,
-    shared_defs: dict | None = None,
     source_images: list[dict] | None = None,
-) -> tuple[int, dict]:
-    """Generate a module via multi-turn conversation.
+) -> tuple[int, str, dict]:
+    """Generate only the lesson README for a module.
 
-    Returns (module_index, summary_dict) with files written to disk.
+    Returns (module_index, lesson_content, summary_dict).
     """
     idx = module_spec["module_index"]
     title = module_spec["title"]
-    _emit({"type": "module_start", "module_index": idx, "title": title})
+    exercises = module_spec.get("exercises", [])
+    key_excerpts = module_spec.get("key_excerpts", [])
+
     module_slug = f"module_{idx:02d}_{_slugify(title)}"
     module_dir = course_dir / module_slug
     module_dir.mkdir(parents=True, exist_ok=True)
-    solutions_dir = module_dir / "_solutions"
-    solutions_dir.mkdir(parents=True, exist_ok=True)
 
-    exercises = module_spec.get("exercises", [])
-    key_excerpts = module_spec.get("key_excerpts", [])
-    errors: list[str] = []
-
-    # Build conversation messages
-    messages: list[dict] = []
-
-    def _add_user(content: str) -> None:
-        messages.append({"role": "user", "content": content})
-
-    def _add_assistant(content: str) -> None:
-        messages.append({"role": "assistant", "content": content})
-
-    # ── Turn 1: Generate the lesson (README) ─────────────────────────
+    _emit({"type": "module_start", "module_index": idx, "title": title})
 
     objectives = "\n".join(
         f"  - {obj}" for obj in module_spec.get("learning_objectives", [])
@@ -381,7 +368,7 @@ async def _generate_module_conversational(
             + "\n".join(img_lines)
         )
 
-    _add_user(lesson_prompt)
+    messages = [{"role": "user", "content": lesson_prompt}]
     _log(f"Module {idx}: writing lesson...", _C.BLUE)
 
     result = await llm.complete(
@@ -391,7 +378,6 @@ async def _generate_module_conversational(
         max_tokens=16384,
     )
     lesson_content = _strip_code_fences(result.content)
-    _add_assistant(lesson_content)
 
     # Save README
     (module_dir / "README.md").write_text(lesson_content, encoding="utf-8")
@@ -402,7 +388,61 @@ async def _generate_module_conversational(
     if source_images:
         _copy_referenced_images(lesson_content, source_images, module_dir)
 
-    # ── Turns 2-N: Generate exercises (scaffold then solution) ───────
+    _emit({
+        "type": "lesson_ready",
+        "module_index": idx,
+        "title": title,
+        "dir_name": module_slug,
+    })
+
+    return idx, lesson_content, {"lesson_words": lesson_words}
+
+
+# ── Exercise generation ──────────────────────────────────────────────────────
+
+
+async def _generate_exercises(
+    llm: LLMClient,
+    module_spec: dict,
+    lesson_content: str,
+    student_level: str,
+    model: str,
+    course_dir: Path,
+) -> tuple[int, dict]:
+    """Generate exercises for a module, using the lesson text as context.
+
+    Starts a fresh conversation seeded with the lesson content.
+    Returns (module_index, summary_dict).
+    """
+    idx = module_spec["module_index"]
+    title = module_spec["title"]
+    exercises = module_spec.get("exercises", [])
+    module_slug = f"module_{idx:02d}_{_slugify(title)}"
+    module_dir = course_dir / module_slug
+    solutions_dir = module_dir / "_solutions"
+    solutions_dir.mkdir(parents=True, exist_ok=True)
+
+    errors: list[str] = []
+
+    # Seed a fresh conversation with the lesson for context
+    messages: list[dict] = [
+        {"role": "user", "content": (
+            f"Here is the lesson you wrote for Module {idx}: \"{title}\".\n\n"
+            f"---\n{lesson_content}\n---\n\n"
+            f"I will now ask you to write exercises for this module one at a time. "
+            f"Each exercise builds on the previous one's output."
+        )},
+        {"role": "assistant", "content": (
+            "Understood. I have the full lesson context. "
+            "Ready to generate exercises one at a time."
+        )},
+    ]
+
+    def _add_user(content: str) -> None:
+        messages.append({"role": "user", "content": content})
+
+    def _add_assistant(content: str) -> None:
+        messages.append({"role": "assistant", "content": content})
 
     prev_execution_output: str | None = None
 
@@ -411,7 +451,7 @@ async def _generate_module_conversational(
         ex_title = ex.get("title", f"exercise_{ex_num}")
         ex_format = ex.get("format", "single_file")
 
-        # Project exercises need agent tool access (Bash/Write/Edit) — skip in LiteLLM
+        # Project exercises need agent tool access — skip in LiteLLM
         if ex_format == "project":
             _log(
                 f"Module {idx}: skipping ex{ex_num:02d} (project format — "
@@ -527,45 +567,27 @@ async def _generate_module_conversational(
             _C.DIM,
         )
 
-    _log(f"Module {idx} ({title}) generated", _C.GREEN)
+    _log(f"Module {idx} ({title}) exercises generated", _C.GREEN)
     _emit({"type": "module_complete", "module_index": idx, "title": title})
 
     return idx, {
-        "files_written": 1 + len(exercises) * 2,  # README + (scaffold + solution) per exercise
-        "lesson_words": lesson_words,
+        "files_written": len(exercises) * 2,
         "errors": errors,
     }
 
 
-async def _phase_generate(
-    llm: LLMClient,
-    design: CurriculumDesign,
-    analysis: Analysis,
-    source_content: str,
-    student_level: str,
-    model: str,
-    course_dir: Path,
-    source_images: list[dict] | None = None,
-) -> dict[int, dict]:
-    """Generate all modules in parallel via multi-turn conversations.
-
-    Returns dict of module_index → summary dict.
-    """
+def _build_course_context(design: CurriculumDesign, analysis: Analysis) -> str:
+    """Build the shared course context string for module generation."""
     curriculum = design.curriculum
-    modules = curriculum.modules
-    _log_step(f"Phase 2: Generating {len(modules)} modules in parallel...")
-    _emit({"type": "phase", "phase": "generate"})
-
-    # Build shared course context
     concept_lines = "\n".join(
         f"  - {c.name} ({c.priority}): {c.description}"
         for c in analysis.key_concepts
     )
     module_map_lines = "\n".join(
         f"  Module {m.module_index}: {m.title}"
-        for m in modules
+        for m in curriculum.modules
     )
-    course_context = (
+    return (
         f"Course: {curriculum.course_title}\n"
         f"Description: {curriculum.course_description}\n"
         f"Content type: {analysis.content_type}\n\n"
@@ -574,13 +596,34 @@ async def _phase_generate(
         f"Key concepts:\n{concept_lines}"
     )
 
-    results: dict[int, dict] = {}
+
+async def _phase_generate_lessons(
+    llm: LLMClient,
+    design: CurriculumDesign,
+    analysis: Analysis,
+    source_content: str,
+    student_level: str,
+    model: str,
+    course_dir: Path,
+    source_images: list[dict] | None = None,
+) -> dict[int, tuple[str, dict]]:
+    """Phase 2a: Generate all lesson READMEs in parallel.
+
+    Returns dict of module_index → (lesson_content, summary_dict).
+    """
+    curriculum = design.curriculum
+    modules = curriculum.modules
+    _log_step(f"Phase 2a: Writing {len(modules)} lessons in parallel...")
+    _emit({"type": "phase", "phase": "generate_lessons"})
+
+    course_context = _build_course_context(design, analysis)
+    results: dict[int, tuple[str, dict]] = {}
 
     async def _run(module_spec: dict) -> None:
         idx = module_spec["module_index"]
         title = module_spec["title"]
         try:
-            _, summary = await _generate_module_conversational(
+            _, lesson_text, summary = await _generate_lesson(
                 llm=llm,
                 module_spec=module_spec,
                 course_context=course_context,
@@ -590,14 +633,14 @@ async def _phase_generate(
                 course_dir=course_dir,
                 source_images=source_images,
             )
-            results[idx] = summary
+            results[idx] = (lesson_text, summary)
 
         except QuotaExhaustedError:
             _log(f"Module {idx} ({title}): API quota exhausted — aborting", _C.RED)
             raise
         except Exception as e:
-            print(f"  Module {idx} error: {e}", file=sys.stderr)
-            _log(f"Module {idx} ({title}) failed ({type(e).__name__})", _C.RED)
+            print(f"  Module {idx} lesson error: {e}", file=sys.stderr)
+            _log(f"Module {idx} ({title}) lesson failed ({type(e).__name__})", _C.RED)
 
     try:
         async with anyio.create_task_group() as tg:
@@ -605,17 +648,66 @@ async def _phase_generate(
                 tg.start_soon(_run, module.model_dump())
     except BaseException as e:
         if any(isinstance(exc, QuotaExhaustedError) for exc in getattr(e, 'exceptions', [e])):
-            _log("Generation aborted: API quota exhausted. Check your billing.", _C.RED)
+            _log("Lesson generation aborted: API quota exhausted.", _C.RED)
 
-    generated = len(results)
-    total = len(modules)
-    if generated == total:
-        _log(f"All {total} modules generated", _C.GREEN)
-    elif generated > 0:
-        _log(f"{generated}/{total} modules generated ({total - generated} failed)", _C.YELLOW)
-    else:
-        _log(f"No modules generated — all {total} failed", _C.RED)
+    _log(f"{len(results)}/{len(modules)} lessons written", _C.GREEN if len(results) == len(modules) else _C.YELLOW)
+    return results
 
+
+async def _phase_generate_exercises(
+    llm: LLMClient,
+    design: CurriculumDesign,
+    lesson_texts: dict[int, str],
+    student_level: str,
+    model: str,
+    course_dir: Path,
+) -> dict[int, dict]:
+    """Phase 2b: Generate exercises for all modules in parallel.
+
+    Each module's exercises are generated sequentially (exercise N depends
+    on exercise N-1's execution output), but modules run in parallel.
+    """
+    curriculum = design.curriculum
+    modules = curriculum.modules
+    _log_step(f"Phase 2b: Building exercises for {len(modules)} modules...")
+    _emit({"type": "phase", "phase": "generate_exercises"})
+
+    results: dict[int, dict] = {}
+
+    async def _run(module_spec: dict) -> None:
+        idx = module_spec["module_index"]
+        title = module_spec["title"]
+        lesson_text = lesson_texts.get(idx, "")
+        if not lesson_text:
+            _log(f"Module {idx} ({title}): no lesson text — skipping exercises", _C.YELLOW)
+            return
+        try:
+            _, summary = await _generate_exercises(
+                llm=llm,
+                module_spec=module_spec,
+                lesson_content=lesson_text,
+                student_level=student_level,
+                model=model,
+                course_dir=course_dir,
+            )
+            results[idx] = summary
+
+        except QuotaExhaustedError:
+            _log(f"Module {idx} ({title}): API quota exhausted — aborting", _C.RED)
+            raise
+        except Exception as e:
+            print(f"  Module {idx} exercise error: {e}", file=sys.stderr)
+            _log(f"Module {idx} ({title}) exercises failed ({type(e).__name__})", _C.RED)
+
+    try:
+        async with anyio.create_task_group() as tg:
+            for module in modules:
+                tg.start_soon(_run, module.model_dump())
+    except BaseException as e:
+        if any(isinstance(exc, QuotaExhaustedError) for exc in getattr(e, 'exceptions', [e])):
+            _log("Exercise generation aborted: API quota exhausted.", _C.RED)
+
+    _log(f"{len(results)}/{len(modules)} modules' exercises generated", _C.GREEN if len(results) == len(modules) else _C.YELLOW)
     return results
 
 
@@ -967,23 +1059,12 @@ async def _phase_review(
 
         async def _regenerate(mod: Any, review: ModuleReview) -> None:
             idx = mod.module_index
-            feedback_parts: list[str] = []
-            if idx in preflight_failures:
-                feedback_parts.append(
-                    "Pre-flight errors:\n" +
-                    "\n".join(f"  - {e}" for e in preflight_failures[idx])
-                )
-            for issue in review.issues:
-                feedback_parts.append(
-                    f"- [{issue.criterion}] {issue.description}"
-                    + (f" (file: {issue.file_path})" if issue.file_path else "")
-                    + f"\n  Fix: {issue.suggested_fix}"
-                )
-
+            spec = mod.model_dump()
             try:
-                _, summary = await _generate_module_conversational(
+                # Re-generate lesson
+                _, lesson_text, lesson_summary = await _generate_lesson(
                     llm=llm,
-                    module_spec=mod.model_dump(),
+                    module_spec=spec,
                     course_context=course_context,
                     source_content=source_content,
                     student_level=student_level,
@@ -991,7 +1072,16 @@ async def _phase_review(
                     course_dir=course_dir,
                     source_images=source_images,
                 )
-                module_outputs[idx] = summary
+                # Re-generate exercises
+                _, ex_summary = await _generate_exercises(
+                    llm=llm,
+                    module_spec=spec,
+                    lesson_content=lesson_text,
+                    student_level=student_level,
+                    model=generate_model,
+                    course_dir=course_dir,
+                )
+                module_outputs[idx] = {**lesson_summary, **ex_summary}
             except Exception as e:
                 print(f"  Module {idx} re-generation error: {e}", file=sys.stderr)
                 _log(f"Module {idx} re-generation failed ({type(e).__name__})", _C.RED)
@@ -1137,8 +1227,8 @@ async def run_pipeline(
         },
     })
 
-    # ── Phase 2: Generate Modules ─────────────────────────────────────────
-    module_outputs = await _phase_generate(
+    # ── Phase 2a: Generate Lessons ──────────────────────────────────────
+    lesson_results = await _phase_generate_lessons(
         llm=llm,
         design=design,
         analysis=analysis,
@@ -1148,6 +1238,26 @@ async def run_pipeline(
         course_dir=course_dir,
         source_images=source_images or None,
     )
+
+    # Extract lesson texts for Phase 2b
+    lesson_texts = {idx: text for idx, (text, _) in lesson_results.items()}
+
+    # ── Phase 2b: Generate Exercises ─────────────────────────────────
+    exercise_results = await _phase_generate_exercises(
+        llm=llm,
+        design=design,
+        lesson_texts=lesson_texts,
+        student_level=user_level,
+        model=generate_model,
+        course_dir=course_dir,
+    )
+
+    # Merge into module_outputs for Phase 3
+    module_outputs: dict[int, dict] = {}
+    for idx in set(lesson_results) | set(exercise_results):
+        _, lesson_summary = lesson_results.get(idx, ("", {}))
+        ex_summary = exercise_results.get(idx, {})
+        module_outputs[idx] = {**lesson_summary, **ex_summary}
 
     # ── Phase 3: Review (skip if no modules generated) ─────────────────
     if not module_outputs:

@@ -70,6 +70,10 @@ var ISO_PALETTES_LIGHT = {
     bottom: { left: "#bebebe", right: "#bebebe", top: "#f0f0f0" },
     top:    { left: "#bebebe", right: "#bebebe", top: "#f0f0f0" },
   },
+  readable: {
+    bottom: { left: "#2a6b2a", right: "#3a8b3a", top: "#4aab4a" },
+    top:    { left: "#7acc7a", right: "#4a9b4a", top: "#5abb5a" },
+  },
 };
 
 var ISO_PALETTES_DARK = {
@@ -80,6 +84,10 @@ var ISO_PALETTES_DARK = {
   pending: {
     bottom: { left: "#444444", right: "#444444", top: "#555555" },
     top:    { left: "#444444", right: "#444444", top: "#555555" },
+  },
+  readable: {
+    bottom: { left: "#2a7a3a", right: "#3a9a4a", top: "#4aba5a" },
+    top:    { left: "#8adc8a", right: "#5aab5a", top: "#6acb6a" },
   },
 };
 
@@ -510,22 +518,29 @@ loadCourses();
 /* ── Progress bar ────────────────────────────────── */
 
 var phaseWeights = {
-  preprocess: { start: 0, end: 10 },
-  analyze: { start: 10, end: 25 },
-  design: { start: 25, end: 40 },
-  generate: { start: 40, end: 85 },
-  review: { start: 85, end: 100 },
-  done: { start: 100, end: 100 },
+  preprocess:         { start: 0,   end: 10 },
+  analyze:            { start: 10,  end: 25 },
+  design:             { start: 25,  end: 40 },
+  generate_lessons:   { start: 40,  end: 60 },
+  generate_exercises: { start: 60,  end: 85 },
+  review:             { start: 85,  end: 100 },
+  done:               { start: 100, end: 100 },
+  generate:           { start: 40,  end: 85 },  // backward compat
 };
 
 var phaseLabels = {
-  preprocess: "preprocessing",
-  analyze: "analyzing",
-  design: "designing curriculum",
-  generate: "generating modules",
-  review: "reviewing",
-  done: "complete",
+  preprocess:         "preprocessing",
+  analyze:            "analyzing",
+  design:             "designing curriculum",
+  generate_lessons:   "writing lessons",
+  generate_exercises: "building exercises",
+  review:             "reviewing",
+  done:               "complete",
+  generate:           "generating modules",
 };
+
+let lessonsCompletedSet = new Set();
+let flowCourseName = "";
 
 function updateProgressBar(phase, detail) {
   var w = phaseWeights[phase];
@@ -552,10 +567,20 @@ function updateModuleProgress() {
   var fill = $("#phase-fill");
   var det = $("#phase-detail");
   var completed = completedModuleSet.size;
-  var w = phaseWeights.generate;
+  var w = phaseWeights.generate_exercises || phaseWeights.generate;
   var pct = w.start + ((w.end - w.start) * Math.min(completed, totalModules) / Math.max(totalModules, 1));
   fill.style.width = pct + "%";
-  det.textContent = Math.min(completed, totalModules) + "/" + totalModules;
+  det.textContent = Math.min(completed, totalModules) + "/" + totalModules + " exercises";
+}
+
+function updateLessonProgress() {
+  var fill = $("#phase-fill");
+  var det = $("#phase-detail");
+  var completed = lessonsCompletedSet.size;
+  var w = phaseWeights.generate_lessons;
+  var pct = w.start + ((w.end - w.start) * Math.min(completed, totalModules) / Math.max(totalModules, 1));
+  fill.style.width = pct + "%";
+  det.textContent = Math.min(completed, totalModules) + "/" + totalModules + " lessons";
 }
 
 function startElapsedTimer() {
@@ -684,8 +709,8 @@ function connectSSE(jobId) {
     } else if (ev.type === "phase") {
       updateProgressBar(ev.phase, "");
       appendPhase(ev.phase);
-      // When entering generate phase, collapse log to foreground the DAG
-      if (ev.phase === "generate") {
+      // When entering generate/lessons phase, collapse log to foreground the DAG
+      if (ev.phase === "generate_lessons" || ev.phase === "generate") {
         var ls = $("#log-section");
         if (ls) ls.classList.add("collapsed");
         var lb = $("#log");
@@ -697,6 +722,9 @@ function connectSSE(jobId) {
       if (ev.cost) updateLiveCost(ev.cost);
     } else if (ev.type === "curriculum") {
       totalModules = ev.data.modules ? ev.data.modules.length : 0;
+      flowCourseName = ev.data.course_dir
+        ? ev.data.course_dir.split("/").pop() || ""
+        : "";
       renderCurriculumFlow(ev.data);
     } else if (ev.type === "module_start") {
       // Mark module as actively generating
@@ -706,6 +734,16 @@ function connectSSE(jobId) {
         "module " + ev.module_index + " (" + (ev.title || "") + ") started",
         "dim"
       );
+    } else if (ev.type === "lesson_ready") {
+      // Lesson written — user can start reading while exercises generate
+      activeModuleSet.delete(ev.module_index);
+      lessonsCompletedSet.add(ev.module_index);
+      markFlowNodeReadable(ev.module_index, ev.dir_name);
+      updateLessonProgress();
+      appendLog(
+        "module " + ev.module_index + " (" + (ev.title || "") + ") lesson ready — click to read",
+        "ok"
+      );
     } else if (ev.type === "module_complete") {
       activeModuleSet.delete(ev.module_index);
       completedModuleSet.add(ev.module_index);
@@ -713,7 +751,7 @@ function connectSSE(jobId) {
       activateFlowNode(ev.module_index);
       updateEdgeStates();
       appendLog(
-        "module " + ev.module_index + " (" + ev.title + ") generated",
+        "module " + ev.module_index + " (" + ev.title + ") complete",
         "ok"
       );
     } else if (ev.type === "cost") {
@@ -1068,22 +1106,46 @@ function renderCurriculumFlow(data) {
 
 function markFlowNodeActive(moduleIndex) {
   var node = flowNodes[moduleIndex];
-  if (node && node.classList.contains("pending")) {
-    node.classList.remove("pending");
+  if (node && (node.classList.contains("pending") || node.classList.contains("readable"))) {
+    node.classList.remove("pending", "readable");
     node.classList.add("active");
-    node.setAttribute("aria-label", node.getAttribute("aria-label").replace("pending", "generating"));
+    node.setAttribute("aria-label", node.getAttribute("aria-label").replace(/pending|lesson ready/, "generating"));
     var icon = node.querySelector(".flow-icon");
     if (icon) icon.innerHTML = isoIcon(ICON_SIZE, ISO_PALETTES.generated);
+  }
+}
+
+function markFlowNodeReadable(moduleIndex, dirName) {
+  var node = flowNodes[moduleIndex];
+  if (!node) return;
+  node.classList.remove("pending", "active");
+  node.classList.add("readable");
+  node.setAttribute("aria-label",
+    node.getAttribute("aria-label").replace(/pending|generating/, "lesson ready"));
+  var icon = node.querySelector(".flow-icon");
+  if (icon) icon.innerHTML = isoIcon(ICON_SIZE, ISO_PALETTES.readable);
+  // Add "read →" link if not already present
+  if (!node.querySelector(".flow-read-link") && (dirName || flowCourseName)) {
+    var courseName = flowCourseName;
+    if (courseName) {
+      var link = document.createElement("a");
+      link.className = "flow-read-link";
+      link.href = "/reader.html?course=" + encodeURIComponent(courseName) + "&module=" + moduleIndex;
+      link.target = "_blank";
+      link.textContent = "read \u2192";
+      link.addEventListener("click", function (e) { e.stopPropagation(); });
+      node.appendChild(link);
+    }
   }
 }
 
 function activateFlowNode(moduleIndex) {
   var node = flowNodes[moduleIndex];
   if (node) {
-    node.classList.remove("pending", "active");
+    node.classList.remove("pending", "active", "readable");
     node.classList.add("generated");
     node.setAttribute("aria-label",
-      node.getAttribute("aria-label").replace(/pending|generating/, "generated"));
+      node.getAttribute("aria-label").replace(/pending|generating|lesson ready/, "generated"));
     var icon = node.querySelector(".flow-icon");
     if (icon) icon.innerHTML = isoIcon(ICON_SIZE, ISO_PALETTES.generated);
     // Add checkmark
@@ -1094,6 +1156,9 @@ function activateFlowNode(moduleIndex) {
       check.textContent = "\u2713";
       sub.after(check);
     }
+    // Remove read link if still present (reader still works, but node is "done")
+    var readLink = node.querySelector(".flow-read-link");
+    if (readLink) readLink.remove();
   }
 }
 

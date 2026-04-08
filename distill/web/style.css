@@ -928,6 +928,34 @@ button {
     50% { opacity: 0.6; transform: scale(1.05); }
 }
 
+/* readable: lesson ready, exercises pending — green icon + "read" link */
+.flow-node.readable .flow-label { color: var(--accent-ok); }
+.flow-node.readable .flow-sub { color: var(--fg-dim); }
+
+.flow-node.readable .flow-icon {
+    position: relative;
+    transform: scale(1.02);
+}
+
+.flow-read-link {
+    display: inline-block;
+    margin-top: 0.3rem;
+    font-size: 0.65em;
+    font-weight: 700;
+    color: var(--accent-ok);
+    text-decoration: none;
+    border: 1px solid var(--accent-ok);
+    border-radius: 3px;
+    padding: 0.1rem 0.4rem;
+    transition: background 0.2s, color 0.2s;
+    cursor: pointer;
+}
+
+.flow-read-link:hover {
+    background: var(--accent-ok);
+    color: var(--bg);
+}
+
 /* generated: dark isometric icon + checkmark */
 .flow-node.generated .flow-icon {
     transform: scale(1.05);

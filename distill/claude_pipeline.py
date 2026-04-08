@@ -412,66 +412,9 @@ async def _phase_design(
 # ── Phase 2: Module Generation ───────────────────────────────────────────────
 
 
-def _build_module_prompt(
-    module_spec: dict,
-    course_context: str,
-    source_content: str,
-    student_level: str,
-    sources_dir: str | None,
-    module_dir: Path,
-    excalidraw_enabled: bool = False,
-    source_images: list[dict] | None = None,
-) -> str:
-    """Build the comprehensive prompt for a module generation agent."""
-    idx = module_spec["module_index"]
-    title = module_spec["title"]
-    exercises = module_spec.get("exercises", [])
-    key_excerpts = module_spec.get("key_excerpts", [])
-
-    # Build file manifest — explicit ordering
-    file_list = [f"1. README.md — lesson document (5,000-10,000 words)"]
-    file_num = 2
-    if excalidraw_enabled:
-        file_list.append(
-            f"{file_num}. diagrams/*.excalidraw — 2-4 explanatory diagrams\n"
-            f"   Use MCP tools (or Write) to create. Reference as ![desc](diagrams/name.svg) in README."
-        )
-        file_num += 1
-    for i, ex in enumerate(exercises):
-        ex_title = ex.get("title", f"exercise_{i+1}")
-        ex_slug = _slugify(ex_title)
-        ex_format = ex.get("format", "single_file")
-        validate_cmd = ex.get("validate_command", "")
-
-        if ex_format == "project":
-            dirname = f"ex{i+1:02d}_{ex_slug}"
-            file_list.append(
-                f"{file_num}. {dirname}/ — project directory\n"
-                f"   Create infrastructure files + stub files with TODOs\n"
-                f"   {dirname}/_solutions/ — completed stub files only"
-            )
-            file_num += 1
-            if validate_cmd:
-                file_list.append(
-                    f"   Validate: cd {dirname} && {validate_cmd}"
-                )
-        else:
-            filename = f"ex{i+1:02d}_{ex_slug}.py"
-            file_list.append(
-                f"{file_num}. {filename} — scaffold (student version with TODOs)"
-            )
-            file_num += 1
-            file_list.append(
-                f"{file_num}. _solutions/{filename} — solution (complete, runnable)\n"
-                f"   After writing, run: python _solutions/{filename}\n"
-                f"   Verify output contains: \"{ex.get('expected_output_pattern', '')}\""
-            )
-            file_num += 1
-
-    file_manifest = "\n".join(file_list)
-
-    # Build exercise specs
-    exercise_specs = []
+def _build_exercise_specs(exercises: list[dict]) -> str:
+    """Build the exercise specs block shared by lesson and exercise prompts."""
+    specs = []
     for i, ex in enumerate(exercises):
         ex_title = ex.get("title", f"exercise_{i+1}")
         ex_slug = _slugify(ex_title)
@@ -482,7 +425,7 @@ def _build_module_prompt(
         if ex_format == "project":
             dirname = f"ex{i+1:02d}_{ex_slug}"
             provided_str = ", ".join(provided_files) if provided_files else "(none specified)"
-            exercise_specs.append(
+            specs.append(
                 f"Exercise {i+1}: \"{ex_title}\" → {dirname}/ [PROJECT]\n"
                 f"  Type: {ex.get('type', 'implement')}\n"
                 f"  Format: project (multi-file directory)\n"
@@ -496,7 +439,7 @@ def _build_module_prompt(
             )
         else:
             filename = f"ex{i+1:02d}_{ex_slug}.py"
-            exercise_specs.append(
+            specs.append(
                 f"Exercise {i+1}: \"{ex_title}\" → {filename}\n"
                 f"  Type: {ex.get('type', 'implement')}\n"
                 f"  Scaffolding: {ex.get('scaffolding_level', 'heavy')}\n"
@@ -507,13 +450,40 @@ def _build_module_prompt(
                 f"  Milestone: {ex.get('milestone', '')}\n"
                 f"  Expected output pattern: {ex.get('expected_output_pattern', '')}"
             )
-    exercise_block = "\n\n".join(exercise_specs)
+    return "\n\n".join(specs)
+
+
+def _build_lesson_prompt(
+    module_spec: dict,
+    course_context: str,
+    source_content: str,
+    student_level: str,
+    sources_dir: str | None,
+    module_dir: Path,
+    excalidraw_enabled: bool = False,
+    source_images: list[dict] | None = None,
+) -> str:
+    """Build prompt for lesson-only generation (README + diagrams)."""
+    idx = module_spec["module_index"]
+    title = module_spec["title"]
+    exercises = module_spec.get("exercises", [])
+    key_excerpts = module_spec.get("key_excerpts", [])
+
+    # File manifest: only lesson + diagrams
+    file_list = ["1. README.md — lesson document (5,000-10,000 words)"]
+    if excalidraw_enabled:
+        file_list.append(
+            "2. diagrams/*.excalidraw — 2-4 explanatory diagrams\n"
+            "   Use MCP tools (or Write) to create. Reference as ![desc](diagrams/name.svg) in README."
+        )
+
+    exercise_block = _build_exercise_specs(exercises)
 
     # Key excerpts
     excerpts_block = ""
     if key_excerpts:
         excerpts_block = (
-            "KEY EXCERPTS FROM SOURCE (ground truth — translate directly to code):\n"
+            "KEY EXCERPTS FROM SOURCE (ground truth — use in the lesson):\n"
             + "\n".join(f"  [{i+1}] {exc}" for i, exc in enumerate(key_excerpts))
         )
 
@@ -550,22 +520,25 @@ def _build_module_prompt(
         diagram_bullet = "\n- 2-4 ASCII diagrams in fenced code blocks, placed inline with explanations"
 
     return f"""\
-Execute this Blueprint for Module {idx}: "{title}"
+Write the lesson for Module {idx}: "{title}"
 
 Working directory: {module_dir}
-Create all files in this directory.
 
 {course_context}
 Student level: {student_level}
 
 ═══════════════════════════════════════════════════════════════════════════
-FILES TO CREATE (in this EXACT order — lesson FIRST)
+FILES TO CREATE
 ═══════════════════════════════════════════════════════════════════════════
 
-{file_manifest}
+{chr(10).join(file_list)}
+
+Write ONLY the lesson README (and diagrams if applicable).
+Do NOT create any exercise files (.py) or _solutions/ directory.
+Those will be created in a subsequent step.
 
 ═══════════════════════════════════════════════════════════════════════════
-LESSON DOCUMENT (README.md) — write this FIRST
+LESSON DOCUMENT (README.md)
 ═══════════════════════════════════════════════════════════════════════════
 
 This is the primary teaching content. 5,000-10,000 words. NOT a summary.
@@ -577,6 +550,96 @@ This is the primary teaching content. 5,000-10,000 words. NOT a summary.
 - Formula translation: math → plain language → code (step by step)
 - 2-4 analytical questions at Level 3+ depth (each as ### Question N — Title)
 - Synthesis section reconnecting to the course goal{diagram_bullet}
+
+═══════════════════════════════════════════════════════════════════════════
+UPCOMING EXERCISES (reference these in the lesson for foreshadowing)
+═══════════════════════════════════════════════════════════════════════════
+
+{exercise_block}
+
+═══════════════════════════════════════════════════════════════════════════
+{excerpts_block}
+═══════════════════════════════════════════════════════════════════════════
+{source_access}
+{images_block}"""
+
+
+def _build_exercises_prompt(
+    module_spec: dict,
+    course_context: str,
+    student_level: str,
+    module_dir: Path,
+    sources_dir: str | None = None,
+) -> str:
+    """Build prompt for exercise-only generation (scaffolds + solutions)."""
+    idx = module_spec["module_index"]
+    title = module_spec["title"]
+    exercises = module_spec.get("exercises", [])
+    key_excerpts = module_spec.get("key_excerpts", [])
+
+    # File manifest: only exercises
+    file_list = []
+    file_num = 1
+    for i, ex in enumerate(exercises):
+        ex_title = ex.get("title", f"exercise_{i+1}")
+        ex_slug = _slugify(ex_title)
+        ex_format = ex.get("format", "single_file")
+        validate_cmd = ex.get("validate_command", "")
+
+        if ex_format == "project":
+            dirname = f"ex{i+1:02d}_{ex_slug}"
+            file_list.append(
+                f"{file_num}. {dirname}/ — project directory\n"
+                f"   Create infrastructure files + stub files with TODOs\n"
+                f"   {dirname}/_solutions/ — completed stub files only"
+            )
+            file_num += 1
+            if validate_cmd:
+                file_list.append(f"   Validate: cd {dirname} && {validate_cmd}")
+        else:
+            filename = f"ex{i+1:02d}_{ex_slug}.py"
+            file_list.append(f"{file_num}. {filename} — scaffold (student version with TODOs)")
+            file_num += 1
+            file_list.append(
+                f"{file_num}. _solutions/{filename} — solution (complete, runnable)\n"
+                f"   After writing, run: python _solutions/{filename}\n"
+                f"   Verify output contains: \"{ex.get('expected_output_pattern', '')}\""
+            )
+            file_num += 1
+
+    exercise_block = _build_exercise_specs(exercises)
+
+    excerpts_block = ""
+    if key_excerpts:
+        excerpts_block = (
+            "KEY EXCERPTS FROM SOURCE (ground truth — translate directly to code):\n"
+            + "\n".join(f"  [{i+1}] {exc}" for i, exc in enumerate(key_excerpts))
+        )
+
+    source_access = ""
+    if sources_dir:
+        source_access = (
+            f"\nFull source material is available at: {sources_dir}\n"
+            f"Use Read to access specific sections when needed.\n"
+        )
+
+    return f"""\
+Generate exercises for Module {idx}: "{title}"
+
+Working directory: {module_dir}
+
+FIRST: Read ./README.md to understand the lesson context. The exercises
+must be consistent with the lesson's running example, terminology, and
+progression.
+
+{course_context}
+Student level: {student_level}
+
+═══════════════════════════════════════════════════════════════════════════
+FILES TO CREATE (in this EXACT order)
+═══════════════════════════════════════════════════════════════════════════
+
+{chr(10).join(file_list)}
 
 ═══════════════════════════════════════════════════════════════════════════
 EXERCISE CONTRACTS (follow these EXACTLY)
@@ -630,7 +693,7 @@ libraries. When solution files replace stubs, validate_command must exit 0.
 {excerpts_block}
 ═══════════════════════════════════════════════════════════════════════════
 {source_access}
-{images_block}═══════════════════════════════════════════════════════════════════════════
+═══════════════════════════════════════════════════════════════════════════
 MANDATORY: VALIDATE EVERY EXERCISE — NO EXCEPTIONS
 ═══════════════════════════════════════════════════════════════════════════
 
@@ -649,7 +712,7 @@ until the current one passes. The output feeds into subsequent exercises.
 """
 
 
-async def _generate_module_claude(
+async def _generate_lesson_claude(
     module_spec: dict,
     course_context: str,
     source_content: str,
@@ -661,18 +724,17 @@ async def _generate_module_claude(
     mcp_config: dict | None = None,
     source_images: list[dict] | None = None,
 ) -> tuple[int, dict]:
-    """Generate a module via Claude Code agent."""
+    """Generate only the lesson README (+ diagrams) via Claude Code agent."""
     idx = module_spec["module_index"]
     title = module_spec["title"]
     _emit({"type": "module_start", "module_index": idx, "title": title})
     module_slug = f"module_{idx:02d}_{_slugify(title)}"
     module_dir = course_dir / module_slug
     module_dir.mkdir(parents=True, exist_ok=True)
-    (module_dir / "_solutions").mkdir(exist_ok=True)
     if mcp_config:
         (module_dir / "diagrams").mkdir(exist_ok=True)
 
-    prompt = _build_module_prompt(
+    prompt = _build_lesson_prompt(
         module_spec=module_spec,
         course_context=course_context,
         source_content=source_content,
@@ -683,9 +745,9 @@ async def _generate_module_claude(
         source_images=source_images,
     )
 
-    _log(f"Module {idx}: launching Claude Code agent...", _C.BLUE)
+    _log(f"Module {idx}: writing lesson...", _C.BLUE)
 
-    # Build tool list + diagram guide + source image guide
+    # Build tool list + guides
     allowed = ["Bash", "Read", "Write", "Edit"]
     system = MODULE_CONVERSATION_SYSTEM_PROMPT
     if source_images:
@@ -701,17 +763,16 @@ async def _generate_module_claude(
         system=system,
         model=model,
         effort=effort,
-        max_turns=50,  # 30 was cutting modules short — agents need room for write→run→fix loops
+        max_turns=25,  # lesson + diagrams only — fewer turns needed
         cwd=module_dir,
         allowed_tools=allowed,
         add_dirs=[sources_dir] if sources_dir else [],
         mcp_servers=mcp_config,
     )
 
-    # Strip Pandoc-style heading anchors like {#anchor-id} from README
+    # Strip Pandoc-style heading anchors from README
     readme_path = module_dir / "README.md"
     if readme_path.exists():
-        import re
         content = readme_path.read_text(encoding="utf-8")
         cleaned = re.sub(r'\s*\{#[^}]+\}', '', content)
         if cleaned != content:
@@ -734,27 +795,86 @@ async def _generate_module_claude(
     cost = usage["cost_usd"]
     turns = result.num_turns if result else 0
 
-    # Count generated files
+    _log(f"Module {idx} ({title}) lesson ready ({turns} turns, ${cost:.4f})", _C.GREEN)
+    _emit({
+        "type": "lesson_ready",
+        "module_index": idx,
+        "title": title,
+        "dir_name": module_slug,
+    })
+
+    return idx, {
+        "lesson_turns": turns,
+        "lesson_cost": cost,
+        "lesson_usage": usage,
+    }
+
+
+async def _generate_exercises_claude(
+    module_spec: dict,
+    course_context: str,
+    student_level: str,
+    model: str,
+    effort: str,
+    course_dir: Path,
+    sources_dir: str | None,
+) -> tuple[int, dict]:
+    """Generate exercises for a module via Claude Code agent.
+
+    The agent reads the already-written README.md for lesson context.
+    """
+    idx = module_spec["module_index"]
+    title = module_spec["title"]
+    module_slug = f"module_{idx:02d}_{_slugify(title)}"
+    module_dir = course_dir / module_slug
+    (module_dir / "_solutions").mkdir(exist_ok=True)
+
+    prompt = _build_exercises_prompt(
+        module_spec=module_spec,
+        course_context=course_context,
+        student_level=student_level,
+        module_dir=module_dir,
+        sources_dir=sources_dir,
+    )
+
+    _log(f"Module {idx}: building exercises...", _C.BLUE)
+
+    messages, result, usage = await _query_sdk(
+        prompt=prompt,
+        system=MODULE_CONVERSATION_SYSTEM_PROMPT,
+        model=model,
+        effort=effort,
+        max_turns=40,  # exercises need room for write→run→fix loops
+        cwd=module_dir,
+        allowed_tools=["Bash", "Read", "Write", "Edit"],
+        add_dirs=[sources_dir] if sources_dir else [],
+    )
+
+    cost = usage["cost_usd"]
+    turns = result.num_turns if result else 0
+
+    # Count exercise files
     files = list(module_dir.rglob("*"))
-    file_count = sum(1 for f in files if f.is_file() and not f.name.startswith("_"))
+    file_count = sum(1 for f in files if f.is_file() and not f.name.startswith("_")
+                     and f.name != "README.md" and f.parent.name != "diagrams")
 
     _log(
-        f"Module {idx} ({title}) generated "
+        f"Module {idx} ({title}) exercises done "
         f"({file_count} files, {turns} turns, ${cost:.4f})",
         _C.GREEN,
     )
     _emit({"type": "module_complete", "module_index": idx, "title": title})
 
     return idx, {
-        "files_written": file_count,
-        "turns": turns,
-        "cost": cost,
-        "usage": usage,
+        "exercise_files": file_count,
+        "exercise_turns": turns,
+        "exercise_cost": cost,
+        "exercise_usage": usage,
     }
 
 
-def _module_is_complete(course_dir: Path, module_spec: dict) -> bool:
-    """Check if a module directory has a README and at least one exercise."""
+def _lesson_is_complete(course_dir: Path, module_spec: dict) -> bool:
+    """Check if a module has a substantive README."""
     idx = module_spec["module_index"]
     title = module_spec["title"]
     slug = f"module_{idx:02d}_{_slugify(title)}"
@@ -764,16 +884,46 @@ def _module_is_complete(course_dir: Path, module_spec: dict) -> bool:
         return False
 
     readme = module_dir / "README.md"
-    if not readme.exists() or readme.stat().st_size < 500:
+    return readme.exists() and readme.stat().st_size >= 500
+
+
+def _exercises_are_complete(course_dir: Path, module_spec: dict) -> bool:
+    """Check if a module has at least one exercise file."""
+    idx = module_spec["module_index"]
+    title = module_spec["title"]
+    slug = f"module_{idx:02d}_{_slugify(title)}"
+    module_dir = course_dir / slug
+
+    if not module_dir.is_dir():
         return False
 
-    # Check for at least one exercise file
     exercises = [f for f in module_dir.iterdir()
                  if f.is_file() and f.name.startswith("ex") and f.suffix == ".py"]
     return len(exercises) > 0
 
 
-async def _phase_generate(
+def _build_course_context(design: CurriculumDesign, analysis: Analysis) -> str:
+    """Build shared course context string for module generation."""
+    curriculum = design.curriculum
+    concept_lines = "\n".join(
+        f"  - {c.name} ({c.priority}): {c.description}"
+        for c in analysis.key_concepts
+    )
+    module_map_lines = "\n".join(
+        f"  Module {m.module_index}: {m.title}"
+        for m in curriculum.modules
+    )
+    return (
+        f"Course: {curriculum.course_title}\n"
+        f"Description: {curriculum.course_description}\n"
+        f"Content type: {analysis.content_type}\n\n"
+        f"Course modules (use ONLY these indices for cross-references):\n"
+        f"{module_map_lines}\n\n"
+        f"Key concepts:\n{concept_lines}"
+    )
+
+
+async def _phase_generate_lessons(
     design: CurriculumDesign,
     analysis: Analysis,
     source_content: str,
@@ -785,37 +935,17 @@ async def _phase_generate(
     mcp_config: dict | None = None,
     source_images: list[dict] | None = None,
 ) -> dict[int, dict]:
-    """Generate modules sequentially to avoid rate limits.
+    """Phase 2a: Generate all lesson READMEs sequentially.
 
-    Claude Code sessions are heavy — each spawns a CLI subprocess that makes
-    multiple API calls. Running 5+ in parallel triggers rate limiting, causing
-    agents to die with 0 turns and 0 files. Sequential execution is slower
-    but reliable.
-
-    Supports resume: modules with existing README + exercises are skipped.
+    Returns dict of module_index → summary_dict.
+    Supports resume: modules with existing README are skipped.
     """
     curriculum = design.curriculum
     modules = curriculum.modules
-    _log_step(f"Phase 2: Generating {len(modules)} modules sequentially...")
-    _emit({"type": "phase", "phase": "generate"})
+    _log_step(f"Phase 2a: Writing {len(modules)} lessons sequentially...")
+    _emit({"type": "phase", "phase": "generate_lessons"})
 
-    concept_lines = "\n".join(
-        f"  - {c.name} ({c.priority}): {c.description}"
-        for c in analysis.key_concepts
-    )
-    module_map_lines = "\n".join(
-        f"  Module {m.module_index}: {m.title}"
-        for m in modules
-    )
-    course_context = (
-        f"Course: {curriculum.course_title}\n"
-        f"Description: {curriculum.course_description}\n"
-        f"Content type: {analysis.content_type}\n\n"
-        f"Course modules (use ONLY these indices for cross-references):\n"
-        f"{module_map_lines}\n\n"
-        f"Key concepts:\n{concept_lines}"
-    )
-
+    course_context = _build_course_context(design, analysis)
     results: dict[int, dict] = {}
 
     for module in modules:
@@ -823,21 +953,16 @@ async def _phase_generate(
         idx = module_spec["module_index"]
         title = module_spec["title"]
 
-        # Resume: skip modules that are already complete on disk
-        if _module_is_complete(course_dir, module_spec):
-            _log(f"Module {idx} ({title}): already complete — skipping", _C.GREEN)
-            _emit({"type": "module_start", "module_index": idx, "title": title})
-            _emit({"type": "module_complete", "module_index": idx, "title": title})
+        if _lesson_is_complete(course_dir, module_spec):
+            _log(f"Module {idx} ({title}): lesson already complete — skipping", _C.GREEN)
             slug = f"module_{idx:02d}_{_slugify(title)}"
-            module_dir = course_dir / slug
-            file_count = sum(1 for f in module_dir.rglob("*")
-                             if f.is_file() and not f.name.startswith("_"))
-            results[idx] = {"files_written": file_count, "turns": 0,
-                            "cost": 0.0, "usage": {}, "resumed": True}
+            _emit({"type": "module_start", "module_index": idx, "title": title})
+            _emit({"type": "lesson_ready", "module_index": idx, "title": title, "dir_name": slug})
+            results[idx] = {"lesson_turns": 0, "lesson_cost": 0.0, "resumed": True}
             continue
 
         try:
-            _, summary = await _generate_module_claude(
+            _, summary = await _generate_lesson_claude(
                 module_spec=module_spec,
                 course_context=course_context,
                 source_content=source_content,
@@ -849,37 +974,67 @@ async def _phase_generate(
                 mcp_config=mcp_config,
                 source_images=source_images,
             )
-
-            # Check if the agent actually produced files
-            if summary.get("files_written", 0) == 0:
-                _log(f"Module {idx} ({title}): 0 files — retrying...", _C.YELLOW)
-                _, summary = await _generate_module_claude(
-                    module_spec=module_spec,
-                    course_context=course_context,
-                    source_content=source_content,
-                    student_level=student_level,
-                    model=model,
-                    effort=effort,
-                    course_dir=course_dir,
-                    sources_dir=sources_dir,
-                    mcp_config=mcp_config,
-                    source_images=source_images,
-                )
-
             results[idx] = summary
         except Exception as e:
-            print(f"  Module {idx} error: {e}", file=sys.stderr)
-            _log(f"Module {idx} ({title}) failed ({type(e).__name__})", _C.RED)
+            print(f"  Module {idx} lesson error: {e}", file=sys.stderr)
+            _log(f"Module {idx} ({title}) lesson failed ({type(e).__name__})", _C.RED)
 
-    generated = len(results)
-    total = len(modules)
-    if generated == total:
-        _log(f"All {total} modules generated", _C.GREEN)
-    elif generated > 0:
-        _log(f"{generated}/{total} modules generated", _C.YELLOW)
-    else:
-        _log(f"No modules generated", _C.RED)
+    _log(f"{len(results)}/{len(modules)} lessons written", _C.GREEN if len(results) == len(modules) else _C.YELLOW)
+    return results
 
+
+async def _phase_generate_exercises(
+    design: CurriculumDesign,
+    analysis: Analysis,
+    student_level: str,
+    model: str,
+    effort: str,
+    course_dir: Path,
+    sources_dir: str | None,
+) -> dict[int, dict]:
+    """Phase 2b: Generate exercises for all modules sequentially.
+
+    Supports resume: modules with existing exercises are skipped.
+    """
+    curriculum = design.curriculum
+    modules = curriculum.modules
+    _log_step(f"Phase 2b: Building exercises for {len(modules)} modules...")
+    _emit({"type": "phase", "phase": "generate_exercises"})
+
+    course_context = _build_course_context(design, analysis)
+    results: dict[int, dict] = {}
+
+    for module in modules:
+        module_spec = module.model_dump()
+        idx = module_spec["module_index"]
+        title = module_spec["title"]
+
+        if _exercises_are_complete(course_dir, module_spec):
+            _log(f"Module {idx} ({title}): exercises already complete — skipping", _C.GREEN)
+            _emit({"type": "module_complete", "module_index": idx, "title": title})
+            results[idx] = {"exercise_files": 0, "exercise_turns": 0, "exercise_cost": 0.0, "resumed": True}
+            continue
+
+        if not _lesson_is_complete(course_dir, module_spec):
+            _log(f"Module {idx} ({title}): no lesson — skipping exercises", _C.YELLOW)
+            continue
+
+        try:
+            _, summary = await _generate_exercises_claude(
+                module_spec=module_spec,
+                course_context=course_context,
+                student_level=student_level,
+                model=model,
+                effort=effort,
+                course_dir=course_dir,
+                sources_dir=sources_dir,
+            )
+            results[idx] = summary
+        except Exception as e:
+            print(f"  Module {idx} exercise error: {e}", file=sys.stderr)
+            _log(f"Module {idx} ({title}) exercises failed ({type(e).__name__})", _C.RED)
+
+    _log(f"{len(results)}/{len(modules)} modules' exercises generated", _C.GREEN if len(results) == len(modules) else _C.YELLOW)
     return results
 
 
@@ -1132,8 +1287,8 @@ async def run_claude_pipeline(
         },
     })
 
-    # ── Phase 2: Generate Modules ─────────────────────────────────────────
-    # Start Excalidraw MCP canvas server if user chose excalidraw mode
+    # ── Phase 2a: Generate Lessons ──────────────────────────────────────
+    # Start Excalidraw MCP canvas server for lesson diagrams
     mcp_config = None
     canvas_proc = None
     if diagram_mode == "excalidraw" and mcp_tools_available():
@@ -1150,7 +1305,7 @@ async def run_claude_pipeline(
         _log("Using ASCII diagrams", _C.DIM)
 
     try:
-        module_outputs = await _phase_generate(
+        lesson_outputs = await _phase_generate_lessons(
             design=design,
             analysis=analysis,
             source_content=source_content,
@@ -1165,11 +1320,36 @@ async def run_claude_pipeline(
     finally:
         stop_canvas_server(canvas_proc)
 
-    # Accumulate costs from module generation
-    for summary in module_outputs.values():
-        total_cost += summary.get("cost", 0.0)
-        if "usage" in summary and summary["usage"]:
-            _accum(summary["usage"])
+    # Accumulate lesson costs
+    for summary in lesson_outputs.values():
+        total_cost += summary.get("lesson_cost", 0.0)
+        if "lesson_usage" in summary and summary["lesson_usage"]:
+            _accum(summary["lesson_usage"])
+
+    # ── Phase 2b: Generate Exercises ─────────────────────────────────
+    exercise_outputs = await _phase_generate_exercises(
+        design=design,
+        analysis=analysis,
+        student_level=user_level,
+        model=generate_model,
+        effort=effort,
+        course_dir=course_dir,
+        sources_dir=sources_dir,
+    )
+
+    # Accumulate exercise costs
+    for summary in exercise_outputs.values():
+        total_cost += summary.get("exercise_cost", 0.0)
+        if "exercise_usage" in summary and summary["exercise_usage"]:
+            _accum(summary["exercise_usage"])
+
+    # Merge into module_outputs for Phase 3
+    module_outputs: dict[int, dict] = {}
+    for idx in set(lesson_outputs) | set(exercise_outputs):
+        module_outputs[idx] = {
+            **lesson_outputs.get(idx, {}),
+            **exercise_outputs.get(idx, {}),
+        }
 
     # ── Phase 3: Review + Fix ─────────────────────────────────────────────
     if not module_outputs:
