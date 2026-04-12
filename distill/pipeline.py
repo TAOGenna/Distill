@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import ast
 import json
+import os
 import re
 import sys
 import time
@@ -803,10 +804,11 @@ def _preflight_module(module_dir: Path, module_spec: dict | None = None) -> list
                 continue
 
             try:
+                env = {**os.environ, "DISTILL_VERIFY": "1"}
                 result = subprocess.run(
                     [sys.executable, str(sol_file)],
                     capture_output=True, text=True, timeout=60,
-                    cwd=str(module_dir),
+                    cwd=str(module_dir), env=env,
                 )
                 if result.returncode != 0:
                     stderr_snippet = result.stderr.strip().splitlines()[-3:]
@@ -862,10 +864,11 @@ def _preflight_module(module_dir: Path, module_spec: dict | None = None) -> list
                 for sol_file in sol_dir.iterdir():
                     if sol_file.is_file():
                         shutil.copy2(sol_file, tmp_project / sol_file.name)
+                env = {**os.environ, "DISTILL_VERIFY": "1"}
                 result = subprocess.run(
                     validate_cmd, shell=True,
                     capture_output=True, text=True, timeout=120,
-                    cwd=str(tmp_project),
+                    cwd=str(tmp_project), env=env,
                 )
                 if result.returncode != 0:
                     stderr_snippet = result.stderr.strip().splitlines()[-3:]
@@ -1114,7 +1117,7 @@ async def run_pipeline(
 ) -> dict:
     """Run the full course generation pipeline.
 
-    Returns a dict with course_dir, total_cost_usd, and usage.
+    Returns a dict with course_dir and all_complete.
     """
     from .llm import PROVIDER_DEFAULTS
 
@@ -1289,9 +1292,6 @@ async def run_pipeline(
     ]
     dir_count = sum(1 for f in course_dir.rglob("*") if f.is_dir())
 
-    # Get cumulative usage from the LLM client
-    totals = llm.get_totals()
-
     print(file=sys.stderr)
     _log(
         f"{_C.BOLD}Done. {len(generated_files)} files in {dir_count} directories. "
@@ -1299,18 +1299,11 @@ async def run_pipeline(
         _C.GREEN,
     )
     _log(f"Course: {course_dir}", _C.GREEN)
-    _log(
-        f"Cost: ${totals['cost_usd']:.4f} | "
-        f"Tokens: {totals['input_tokens']:,} in / {totals['output_tokens']:,} out | "
-        f"API calls: {totals['api_calls']}",
-        _C.DIM,
-    )
 
     if token is not None:
         _event_sink.reset(token)
 
     return {
         "course_dir": str(course_dir),
-        "total_cost_usd": totals["cost_usd"],
-        "usage": totals,
+        "all_complete": True,
     }

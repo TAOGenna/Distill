@@ -362,8 +362,10 @@ async def _run_generation(
                 on_event=emit,
             )
 
-        # Cleanup preprocessed sources
-        shutil.rmtree(sources_dir, ignore_errors=True)
+        # Cleanup preprocessed sources only when all modules are complete;
+        # keep them on disk for re-runs when the course is incomplete.
+        if result.get("all_complete", False):
+            shutil.rmtree(sources_dir, ignore_errors=True)
 
         _jobs[job_id]["status"] = "complete"
         _jobs[job_id]["result"] = result
@@ -372,8 +374,6 @@ async def _run_generation(
             "type": "complete",
             "result": {
                 "course_dir": result.get("course_dir"),
-                "total_cost_usd": result.get("total_cost_usd"),
-                "usage": result.get("usage"),
             },
         })
 

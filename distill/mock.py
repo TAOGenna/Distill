@@ -521,15 +521,11 @@ class MockLLMClient:
     """Drop-in replacement for LLMClient that returns pre-canned responses.
 
     Tracks conversation turns to return the right fixture for each phase.
-    Zero API calls, zero cost, instant responses.
+    Zero API calls, instant responses.
     """
 
     def __init__(self, **kwargs):
         self.provider = "mock"
-        self.total_input_tokens = 0
-        self.total_output_tokens = 0
-        self.total_cost_usd = 0.0
-        self.total_calls = 0
         self._turn_counters: dict[str, int] = {}  # per-conversation turn tracking
 
     async def complete(
@@ -542,10 +538,6 @@ class MockLLMClient:
         max_retries: int = 2,
         temperature: float | None = None,
     ) -> CompletionResult:
-        self.total_calls += 1
-        self.total_input_tokens += 100
-        self.total_output_tokens += 50
-
         # Structured output (Phase 1 + Phase 3)
         if response_model is not None:
             return self._structured_response(response_model, messages)
@@ -614,15 +606,6 @@ class MockLLMClient:
             content=content,
             usage=Usage(input_tokens=100, output_tokens=50),
         )
-
-    def get_totals(self) -> dict:
-        return {
-            "input_tokens": self.total_input_tokens,
-            "output_tokens": self.total_output_tokens,
-            "total_tokens": self.total_input_tokens + self.total_output_tokens,
-            "cost_usd": 0.0,
-            "api_calls": self.total_calls,
-        }
 
     def __repr__(self) -> str:
         return "MockLLMClient(provider='mock')"

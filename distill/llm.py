@@ -31,7 +31,6 @@ T = TypeVar("T", bound=BaseModel)
 class Usage:
     input_tokens: int = 0
     output_tokens: int = 0
-    cost_usd: float | None = None
 
 
 @dataclass
@@ -130,11 +129,6 @@ class LLMClient:
             litellm.acompletion, mode=mode
         )
 
-        # Cumulative usage tracking across all calls
-        self.total_input_tokens: int = 0
-        self.total_output_tokens: int = 0
-        self.total_cost_usd: float = 0.0
-        self.total_calls: int = 0
 
     def __repr__(self) -> str:
         return f"LLMClient(provider={self.provider!r})"
@@ -225,8 +219,7 @@ class LLMClient:
         """Plain text completion."""
         response = await litellm.acompletion(**kwargs)
         content = response.choices[0].message.content or ""
-        usage = self._extract_usage(response, kwargs.get("model", ""))
-        self._track(usage)
+        usage = self._extract_usage(response)
         return CompletionResult(content=content, usage=usage)
 
     async def _structured_call(
@@ -246,34 +239,15 @@ class LLMClient:
             self._check_quota_error(e)
             raise
         # Extract usage from the raw LiteLLM response
-        usage = self._extract_usage(raw_response, kwargs.get("model", ""))
-        self._track(usage)
+        usage = self._extract_usage(raw_response)
         return CompletionResult(
             content=result.model_dump_json(indent=2),
             structured=result,
             usage=usage,
         )
 
-    def _track(self, usage: Usage) -> None:
-        """Accumulate usage from a single call into running totals."""
-        self.total_input_tokens += usage.input_tokens
-        self.total_output_tokens += usage.output_tokens
-        if usage.cost_usd is not None:
-            self.total_cost_usd += usage.cost_usd
-        self.total_calls += 1
-
-    def get_totals(self) -> dict:
-        """Return cumulative usage stats for the entire session."""
-        return {
-            "input_tokens": self.total_input_tokens,
-            "output_tokens": self.total_output_tokens,
-            "total_tokens": self.total_input_tokens + self.total_output_tokens,
-            "cost_usd": self.total_cost_usd,
-            "api_calls": self.total_calls,
-        }
-
-    def _extract_usage(self, response: Any, model: str) -> Usage:
-        """Pull token counts and cost from a LiteLLM response."""
+    def _extract_usage(self, response: Any) -> Usage:
+        """Pull token counts from a LiteLLM response."""
         u = getattr(response, "usage", None)
         if u is None:
             return Usage()
@@ -281,15 +255,7 @@ class LLMClient:
         input_tokens = getattr(u, "prompt_tokens", 0) or 0
         output_tokens = getattr(u, "completion_tokens", 0) or 0
 
-        # LiteLLM can estimate cost
-        cost = None
-        try:
-            cost = litellm.completion_cost(completion_response=response)
-        except Exception:
-            pass
-
         return Usage(
             input_tokens=input_tokens,
             output_tokens=output_tokens,
-            cost_usd=cost,
         )

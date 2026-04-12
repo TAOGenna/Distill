@@ -28,9 +28,6 @@ let totalModules = 0;
 let completedModuleSet = new Set();
 let activeModuleSet = new Set();
 let elapsedTimer = null;
-let liveCostUsd = 0;
-let liveTokensIn = 0;
-let liveTokensOut = 0;
 
 /* ── Theme toggle ────────────────────────────────── */
 
@@ -605,17 +602,6 @@ function stopElapsedTimer() {
   }
 }
 
-function updateLiveCost(costData) {
-  if (!costData) return;
-  if (costData.total_cost_usd != null) liveCostUsd = costData.total_cost_usd;
-  if (costData.input_tokens != null) liveTokensIn = costData.input_tokens;
-  if (costData.output_tokens != null) liveTokensOut = costData.output_tokens;
-  var el = $("#phase-cost");
-  if (el && liveCostUsd > 0) {
-    el.textContent = "$" + liveCostUsd.toFixed(4);
-  }
-}
-
 /* ── beforeunload guard ──────────────────────────── */
 
 window.addEventListener("beforeunload", function (e) {
@@ -668,11 +654,7 @@ if (form) form.addEventListener("submit", async (e) => {
   totalModules = 0;
   completedModuleSet = new Set();
   activeModuleSet = new Set();
-  liveCostUsd = 0;
-  liveTokensIn = 0;
-  liveTokensOut = 0;
   if ($("#phase-elapsed")) $("#phase-elapsed").textContent = "";
-  if ($("#phase-cost")) $("#phase-cost").textContent = "";
   startElapsedTimer();
   updateProgressBar("preprocess", "");
 
@@ -718,8 +700,6 @@ function connectSSE(jobId) {
       }
     } else if (ev.type === "log") {
       appendLog(ev.message, ev.level || "");
-      // Update live cost if present
-      if (ev.cost) updateLiveCost(ev.cost);
     } else if (ev.type === "curriculum") {
       totalModules = ev.data.modules ? ev.data.modules.length : 0;
       flowCourseName = ev.data.course_dir
@@ -754,8 +734,6 @@ function connectSSE(jobId) {
         "module " + ev.module_index + " (" + ev.title + ") complete",
         "ok"
       );
-    } else if (ev.type === "cost") {
-      updateLiveCost(ev);
     } else if (ev.type === "complete") {
       updateProgressBar("done", "");
       showResult(ev.result);
@@ -834,24 +812,6 @@ function showResult(result) {
     finalizeFlow(result);
   }
 
-  // Build cost summary
-  var costParts = [];
-  if (result.total_cost_usd != null) {
-    costParts.push("$" + result.total_cost_usd.toFixed(4));
-  }
-  if (result.usage) {
-    var u = result.usage;
-    if (u.input_tokens || u.output_tokens) {
-      costParts.push(
-        (u.input_tokens || 0).toLocaleString() + " in / " +
-        (u.output_tokens || 0).toLocaleString() + " out"
-      );
-    }
-    if (u.api_calls) {
-      costParts.push(u.api_calls + " calls");
-    }
-  }
-
   // Remove previous banner if any
   var oldBanner = progressEl.querySelector(".result-banner");
   if (oldBanner) oldBanner.remove();
@@ -863,9 +823,6 @@ function showResult(result) {
     '<div class="result-banner-title">course generated</div>' +
     (result.course_dir
       ? '<div class="result-banner-path">' + esc(result.course_dir) + '</div>'
-      : '') +
-    (costParts.length
-      ? '<div class="result-banner-cost">' + esc(costParts.join(" \u00b7 ")) + '</div>'
       : '');
   progressEl.appendChild(banner);
   banner.scrollIntoView({ behavior: "smooth", block: "nearest" });
@@ -1156,9 +1113,7 @@ function activateFlowNode(moduleIndex) {
       check.textContent = "\u2713";
       sub.after(check);
     }
-    // Remove read link if still present (reader still works, but node is "done")
-    var readLink = node.querySelector(".flow-read-link");
-    if (readLink) readLink.remove();
+    // Keep read link — the reader still works after exercises finish
   }
 }
 

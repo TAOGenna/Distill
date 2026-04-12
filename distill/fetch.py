@@ -496,6 +496,8 @@ def _fetch_github(repo: str, dest: Path, log: Callable) -> dict[str, Any]:
     }
 
     repo_dir = dest / "repo"
+    if repo_dir.exists():
+        shutil.rmtree(repo_dir)
     log(f"Cloning {repo}...")
     result = subprocess.run(
         [
