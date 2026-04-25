@@ -6,17 +6,13 @@ Distill takes expert-level content — deep blog posts, arXiv papers, GitHub rep
 
 <div align="center">
 
-https://github.com/user-attachments/assets/53a5ba44-a4a9-434b-914b-2be105dc6901
+https://github.com/TAOGenna/Distill/raw/main/assets/Distill-demo.mp4
 
 </div>
 
 > **Lesson documents, not summaries** — 3,000–10,000 word teaching documents with running examples, inline code, comprehension checks, and formula walkthroughs.
 
-https://github.com/user-attachments/assets/4e1466f1-d883-4351-bbf4-c586f51415bd
-
 > **Exercises you can actually run** — scaffolded `.py` files with TODO blocks, docstrings, and a `__main__` test harness. Solutions included.
-
-https://github.com/user-attachments/assets/ec7a532d-f290-4788-9c03-1e4564110d75
 
 ## Install
 
