@@ -6,7 +6,7 @@ Distill takes expert-level content — deep blog posts, arXiv papers, GitHub rep
 
 <div align="center">
 
-https://github.com/TAOGenna/Distill/raw/main/assets/Distill-demo.mp4
+<video src="https://github.com/TAOGenna/Distill/raw/main/assets/Distill-demo.mp4" controls width="100%"></video>
 
 </div>
 
